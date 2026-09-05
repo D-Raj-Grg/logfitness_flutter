@@ -16,6 +16,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// `staff`) is linked to the auth user, carries none of these claims. That
 /// is a normal, expected state — [fromSession] returns `null` for it, and
 /// the router handles the absence rather than treating it as an error.
+/// Thrown when the access-token hook produced a claim set this client cannot
+/// make sense of. Distinct from "no claims yet", which is a normal state.
+class MalformedClaims implements Exception {
+  const MalformedClaims(this.field, this.value);
+
+  final String field;
+  final Object? value;
+
+  @override
+  String toString() => 'MalformedClaims: $field was $value';
+}
+
 class AppClaims {
   const AppClaims({
     required this.orgId,
@@ -54,9 +66,16 @@ class AppClaims {
 
   /// Decodes claims out of an already-parsed JWT payload map.
   ///
-  /// Returns `null` when `org_id` or `branch_ids` is missing, or when
-  /// neither `staff_role` nor `member_id` is present — the normal shape of
-  /// a session created before the principal row is linked.
+  /// Returns `null` only when neither `staff_role` nor `member_id` is
+  /// present — the normal shape of a session created before the principal
+  /// row is linked.
+  ///
+  /// Throws [MalformedClaims] when a principal marker IS present but the
+  /// rest of the claim set is not the shape the access-token hook produces
+  /// (a missing `org_id`, a `branch_ids` that is not a list of strings, or
+  /// both principal markers at once). Those are backend regressions, and
+  /// reading them as "not linked yet" would hide one behind a screen that
+  /// tells the user everything is fine.
   ///
   /// Throws [UnknownEnumValue] if `staff_role` is present but not a
   /// recognised `staff_role` value — an unrecognised role must fail loudly,
@@ -68,18 +87,34 @@ class AppClaims {
     final memberId = payload['member_id'];
     final staffId = payload['staff_id'];
 
-    if (orgId is! String || branchIds is! List) {
+    if (staffRoleWire is! String && memberId is! String) {
+      // Neither principal claim is present: signed in, not yet linked. This
+      // is the only shape that legitimately produces null.
       return null;
     }
 
-    if (staffRoleWire is! String && memberId is! String) {
-      // Neither principal claim is present: signed in, not yet linked.
-      return null;
+    // A principal marker IS present, so the rest of the claim set must be
+    // well formed. Returning null here instead would render a token the hook
+    // built wrong as an ordinary "not linked yet" account, and hide the
+    // regression behind a friendly screen.
+    if (orgId is! String || orgId.isEmpty) {
+      throw MalformedClaims('org_id', orgId);
+    }
+    if (branchIds is! List) {
+      throw MalformedClaims('branch_ids', branchIds);
+    }
+    if (staffRoleWire is String && memberId is String) {
+      throw MalformedClaims('staff_role + member_id', payload);
     }
 
     return AppClaims(
       orgId: orgId,
-      branchIds: branchIds.map((dynamic id) => id as String).toList(),
+      branchIds: branchIds.map((dynamic id) {
+        if (id is! String) {
+          throw MalformedClaims('branch_ids entry', id);
+        }
+        return id;
+      }).toList(),
       staffRole: staffRoleWire is String ? StaffRole.fromDb(staffRoleWire) : null,
       memberId: memberId is String ? memberId : null,
       staffId: staffId is String ? staffId : null,

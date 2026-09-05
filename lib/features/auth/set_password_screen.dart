@@ -84,6 +84,15 @@ class _SetPasswordScreenState extends ConsumerState<SetPasswordScreen> {
       // is rendered by whatever screen the router sends the session to
       // next -- this screen does not duplicate that logic.
       await ref.read(authControllerProvider.notifier).linkPrincipal();
+
+      // Navigate explicitly rather than trusting the redirect: when linking
+      // does not find an invitation the principal stays `notLinked`, and the
+      // guard leaves this route alone in that state -- which would strand the
+      // member here with a password set and nowhere to go. /link renders the
+      // outcome, whichever way it went.
+      if (mounted) {
+        context.go(linkPath);
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = mapUpdatePasswordErrorMessage(error));

@@ -250,10 +250,10 @@ void main() {
   });
 
   testWidgets(
-    'a session on /set-password is left alone regardless of principal',
+    'an unlinked session is left on /set-password to finish setting one',
     (tester) async {
       // Start from a state that would otherwise bounce to /link, to prove
-      // /set-password is respected over the principal state.
+      // /set-password is respected while the account is not yet a principal.
       final landed = await _landed(
         tester,
         const AsyncValue.data(Principal.notLinked()),
@@ -269,6 +269,51 @@ void main() {
         router.routerDelegate.currentConfiguration.uri.path,
         setPasswordPath,
       );
+    },
+  );
+
+  testWidgets(
+    'a resolved principal is not stranded on /set-password',
+    (tester) async {
+      // The carve-out used to be unconditional, which left a member who had
+      // set a password and been linked stuck on that screen for good.
+      final landed = await _landed(
+        tester,
+        const AsyncValue.data(Principal.member(_memberClaims)),
+        session: _fakeSession(),
+      );
+      expect(landed.path, memberPath);
+
+      landed.container.read(goRouterProvider).go(setPasswordPath);
+      await tester.pumpAndSettle();
+
+      final router = landed.container.read(goRouterProvider);
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        memberPath,
+      );
+    },
+  );
+
+  testWidgets(
+    'a principal that fails to resolve lands on splash with a way out',
+    (tester) async {
+      // An unrecognised staff_role throws by design. Before this, the router
+      // treated the error as "still loading" and the splash screen rendered
+      // nothing at all -- an inert app with no recovery.
+      final landed = await _landed(
+        tester,
+        AsyncValue<Principal>.error(
+          const MalformedClaims('staff_role', 'district_manager'),
+          StackTrace.empty,
+        ),
+        session: _fakeSession(),
+      );
+
+      expect(landed.path, splashPath);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('could not work out'), findsOneWidget);
+      expect(find.text('Sign in again'), findsOneWidget);
     },
   );
 

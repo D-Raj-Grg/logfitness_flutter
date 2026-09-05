@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:logfitness_flutter/data/auth/auth_repository.dart';
 import 'package:logfitness_flutter/data/auth/current_member.dart';
@@ -72,16 +73,40 @@ Future<Principal> principal(Ref ref) async {
   final repository = ref.watch(authRepositoryProvider);
 
   final staff = await repository.currentStaff();
-  if (staff != null) {
-    return Principal.staffPendingRefresh(staff);
+  final member = staff == null ? await repository.currentMember() : null;
+
+  if (staff == null && member == null) {
+    return const Principal.notLinked();
   }
 
-  final member = await repository.currentMember();
-  if (member != null) {
-    return Principal.memberPendingRefresh(member);
+  // A principal row exists but the token predates it, so it carries no claims
+  // and every RLS-scoped read would come back empty. Refresh once, here, rather
+  // than routing into a shell that looks fine and silently sees nothing. One
+  // attempt only: if the refreshed token still has no claims (the access-token
+  // hook disabled, say), the pending state renders and says so instead of
+  // spinning.
+  Session? refreshedSession;
+  try {
+    refreshedSession = await repository.refreshSession();
+  } on Exception {
+    // A refresh that fails leaves the stale token in place; the pending state
+    // below is still the honest answer.
+    refreshedSession = null;
   }
 
-  return const Principal.notLinked();
+  final refreshedClaims = refreshedSession == null
+      ? null
+      : AppClaims.fromSession(refreshedSession);
+
+  if (refreshedClaims != null) {
+    return refreshedClaims.isStaff
+        ? Principal.staff(refreshedClaims)
+        : Principal.member(refreshedClaims);
+  }
+
+  return staff != null
+      ? Principal.staffPendingRefresh(staff)
+      : Principal.memberPendingRefresh(member!);
 }
 
 /// The outcome of the most recent [AuthController.linkPrincipal] attempt.

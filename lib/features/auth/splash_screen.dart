@@ -57,7 +57,31 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               'Lord of Gyms',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            if (_showSpinner && principal.isLoading) ...[
+            if (principal.hasError) ...[
+              // Resolving who this account is failed outright -- a claim the
+              // client does not recognise, or the network. Without this the
+              // screen would sit blank forever, since an error is not
+              // "loading" and the router has nowhere better to send it.
+              const SizedBox(height: Brand.spaceMd),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Brand.spaceLg,
+                ),
+                child: Text(
+                  'We could not work out which account this is. '
+                  'Sign in again, and tell the front desk if it keeps '
+                  'happening.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              const SizedBox(height: Brand.spaceLg),
+              FilledButton(
+                onPressed: () =>
+                    ref.read(authControllerProvider.notifier).signOut(),
+                child: const Text('Sign in again'),
+              ),
+            ] else if (_showSpinner && principal.isLoading) ...[
               const SizedBox(height: Brand.spaceLg),
               const CircularProgressIndicator(),
             ],

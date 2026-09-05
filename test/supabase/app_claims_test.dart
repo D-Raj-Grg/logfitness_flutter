@@ -150,4 +150,65 @@ void main() {
       expect(AppClaims.fromSession(session), isNull);
     });
   });
+
+  group('AppClaims malformed payloads fail loudly', () {
+    // A principal marker with a broken claim set means the access-token hook
+    // shipped something wrong. Reading that as "not linked yet" would put a
+    // backend regression behind a friendly screen, so it throws instead.
+
+    test('a principal with no org_id throws', () {
+      expect(
+        () => AppClaims.fromJwtPayload({
+          'member_id': 'member-1',
+          'branch_ids': <String>['branch-1'],
+        }),
+        throwsA(isA<MalformedClaims>()),
+      );
+    });
+
+    test('branch_ids as a string rather than a list throws', () {
+      expect(
+        () => AppClaims.fromJwtPayload({
+          'org_id': 'org-1',
+          'member_id': 'member-1',
+          'branch_ids': 'branch-1',
+        }),
+        throwsA(isA<MalformedClaims>()),
+      );
+    });
+
+    test('a non-string inside branch_ids throws', () {
+      expect(
+        () => AppClaims.fromJwtPayload({
+          'org_id': 'org-1',
+          'member_id': 'member-1',
+          'branch_ids': <dynamic>[42],
+        }),
+        throwsA(isA<MalformedClaims>()),
+      );
+    });
+
+    test('both staff_role and member_id present throws', () {
+      expect(
+        () => AppClaims.fromJwtPayload({
+          'org_id': 'org-1',
+          'staff_role': 'front_desk',
+          'member_id': 'member-1',
+          'branch_ids': <String>['branch-1'],
+        }),
+        throwsA(isA<MalformedClaims>()),
+      );
+    });
+
+    test('no principal marker at all is still a plain null, not a throw', () {
+      expect(
+        AppClaims.fromJwtPayload({
+          'role': 'authenticated',
+          'org_id': 'org-1',
+          'branch_ids': <String>[],
+        }),
+        isNull,
+      );
+    });
+  });
 }

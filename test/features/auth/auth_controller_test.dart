@@ -148,7 +148,12 @@ void main() {
     expect(state.hasError, isTrue);
   });
 
-  test('sign-out clears session/claims/principal and calls the repository', () async {
+  // Named for what it actually proves. Whether the session, claims and
+  // principal are really cleared is verified in test/app/router_test.dart
+  // ('sign-out returns to /login and leaves no stale principal behind'),
+  // which drives mutable holders rather than the constant overrides used
+  // here -- an invalidate against a constant override cannot be observed.
+  test('sign-out reaches the repository and settles without error', () async {
     await container.read(authControllerProvider.notifier).signOut();
 
     expect(fakeRepository.signOutCallCount, 1);

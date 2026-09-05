@@ -114,6 +114,11 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] **2026-09-05** `Override` is not exported by flutter_riverpod 3.1.0, so test override lists must stay untyped literals. Remove the workaround if a later riverpod re-exports it.
 - [ ] **2026-09-05** Auth deep link redirect `com.lordofgyms.logfitness_flutter://login-callback` (see README.md "Deep links", `lib/supabase/auth_deep_links.dart`) needs to be added to the Supabase dashboard's Auth → URL Configuration → Redirect URLs allow-list for project `hefptanjhwxcuhikuhwd`. Cannot be done from this machine — the Supabase CLI is not logged in. Until someone with dashboard access adds it, invite/recovery emails will not open this app; treat the platform-side wiring as unverified end-to-end until confirmed.
 
+## Discovered — audit fixes (2026-09-05)
+
+- [x] **2026-09-05** Adversarial audit of Phases 0–2 found six real defects; all fixed and covered by tests. In this repo: `/set-password` was exempt from the redirect guard unconditionally (a linked member was stranded there forever, and nothing ever navigated *to* it, so an invited member could be linked without ever setting a password); an error out of `principalProvider` — an unrecognised `staff_role` throws by design — rendered a blank splash with no way out; `PendingRefresh` routed into a shell whose stale token would have made every RLS-scoped read come back empty, with no refresh actually triggered; and `AppClaims` read a malformed claim set as "not linked yet", hiding a backend regression behind a friendly screen.
+- [x] **2026-09-05** Backend fixes (in `logfitness_saas`): the member-photos storage policy still tested `is_org_member()` alone, so any member could download every other member's photo; `link_member_account()` did not check `email_confirmed_at`, so signing up with a member's address was enough to claim their record; `push-fanout` only branch-scoped the `branch_id` target, letting a single-branch front desk push arbitrary content to the whole chain; and `book_class_session` skipped `has_branch_access()` and accepted members whose derived status was `left` or whose session pack was spent.
+
 ## Open questions
 
 - [ ] Nepali-language UI at launch, or English-only? (bites harder on the member shell)
