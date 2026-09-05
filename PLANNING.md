@@ -221,24 +221,26 @@ sync · chain administration on mobile (timetable editing, staff CRUD, plan cata
 
 ## 9. Current state (2026-09-05)
 
-- **Phase 1 is complete.** Scaffold, pinned SDK constraint, stack deps, strict lints (`flutter analyze`
-  and `dart run custom_lint` both clean), Supabase client + secure session storage + claims decoding,
-  Riverpod root, `go_router` guard with a test per redirect branch, freezed models and Dart enums for
-  the member spine, money and date formatters ported from the console, Material 3 light/dark theme,
-  and GitHub Actions CI. 55 tests pass.
-- Toolchain: Flutter 3.38.7 stable (Dart 3.10.7). No fvm, no melos.
-- `path_provider_foundation` is pinned to 2.4.1 in `dependency_overrides` — 2.5.0+ pulls `objective_c`,
-  whose native build hooks break `dart compile aot-snapshot`, which is how `build_runner` and
-  `custom_lint` compile their entrypoints.
-- Git remote: `https://github.com/D-Raj-Grg/logfitness_flutter.git`.
-- Upstream backend is mid-Phase-1. The member spine (members, plans, memberships, invoices and
-  payments, status derivation, RLS, RPCs, reports) is applied. The Phase 0 items this app depends on —
-  member-scope RLS, `current_member()`, the member invite/link flow, the QR token Edge Function, push
-  fanout — are still **unbuilt**.
+- **Phases 0, 1 and 2 are complete.** 85 tests pass, `flutter analyze` and
+  `dart run custom_lint` are clean, and the debug APK builds.
+- Phase 0 landed upstream in `logfitness_saas`: `invite_member` / `link_member_account` /
+  `current_member`, member claims from the access-token hook, member-scope RLS with negative
+  tests, QR mint/verify as Postgres RPCs, the class schema with self-booking and waitlist
+  promotion, and `device_tokens` plus a `push-fanout` function.
+- Phase 1: pinned SDK, stack deps, strict lints, Supabase client with the session in the
+  keychain, Riverpod root, generated models and enums, money and date formatters, theme, CI.
+- Phase 2: one login for both principals, the invite deep link and set-password screen, the
+  link step, the not-linked screen, and a role router driven by `principalProvider`.
+- Two things are built but unverifiable from this machine, both needing the Supabase
+  dashboard: the deep-link redirect URL (`com.lordofgyms.logfitness_flutter://login-callback`)
+  must be added to Auth → URL Configuration, and `FCM_SERVICE_ACCOUNT_JSON` must be set before
+  push can send anything.
+- `path_provider_foundation` is pinned to 2.4.1 and Android `compileSdk` to 36 — see TASKS.md
+  **Discovered** for why.
 - Supabase project ref: `hefptanjhwxcuhikuhwd`, shared with the web console.
 
-**Next task: Phase 0, upstream.** Nothing in Phase 2+ is buildable until those land. The screens behind
-`/login`, `/link`, `/member`, and `/staff` are placeholders wired to the router, waiting on them.
+**Next task: Phase 3, the member app** — plan status and dues, payment history, QR check-in,
+class browsing and booking, push. Every backend piece it needs is now in place.
 
 ## 10. Open questions
 
