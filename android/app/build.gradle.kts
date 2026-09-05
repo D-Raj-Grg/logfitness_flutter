@@ -7,7 +7,11 @@ plugins {
 
 android {
     namespace = "com.lordofgyms.logfitness_flutter"
-    compileSdk = flutter.compileSdkVersion
+    // Flutter 3.38 defaults to SDK 37, which currently only ships as the
+    // preview platform `android-37.0` -- AGP resolves the target by the exact
+    // hash string `android-37` and fails. Pinned to the newest stable platform
+    // until a non-preview 37 lands.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +29,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

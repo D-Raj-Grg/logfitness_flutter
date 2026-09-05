@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/auth/link_screen.dart';
-import '../features/auth/login_screen.dart';
-import '../features/auth/splash_screen.dart';
-import '../features/member/member_shell.dart';
-import '../features/staff/staff_shell.dart';
-import '../supabase/supabase_providers.dart';
+import 'package:logfitness_flutter/features/auth/link_screen.dart';
+import 'package:logfitness_flutter/features/auth/login_screen.dart';
+import 'package:logfitness_flutter/features/auth/splash_screen.dart';
+import 'package:logfitness_flutter/features/member/member_shell.dart';
+import 'package:logfitness_flutter/features/staff/staff_shell.dart';
+import 'package:logfitness_flutter/supabase/supabase_providers.dart';
 
 const splashPath = '/splash';
 const loginPath = '/login';
