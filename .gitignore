@@ -52,3 +52,8 @@ app.*.map.json
 key.properties
 **/GoogleService-Info.plist
 **/google-services.json
+
+# Local run config for --dart-define-from-file. The example file is committed;
+# the real one carries project keys and never is.
+/env/*.json
+!/env/local.example.json

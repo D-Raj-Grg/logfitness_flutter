@@ -1,0 +1,11 @@
+# Shared codegen config. Models are generated off the Supabase schema, so JSON keys
+# are snake_case everywhere and a missing field must fail rather than default.
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          field_rename: snake
+          explicit_to_json: true
+          create_to_json: true
+          include_if_null: false

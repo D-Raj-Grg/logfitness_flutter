@@ -26,18 +26,18 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [x] `flutter create` with org `com.lordofgyms`, project `logfitness_flutter`, platforms `ios,android` only
 - [x] `git init`, first commit, push to `https://github.com/D-Raj-Grg/logfitness_flutter.git`
 - [x] `.gitignore` covers `.env*`, `*.jks`, `GoogleService-Info.plist`, `google-services.json`
-- [ ] Pin Flutter/Dart SDK constraint in `pubspec.yaml` (Flutter 3.38, Dart 3.10)
-- [ ] `analysis_options.yaml` with `flutter_lints` + `custom_lint` + `riverpod_lint`; `flutter analyze` clean
-- [ ] Add stack deps from `PLANNING.md` §2 — nothing outside the table
-- [ ] `supabase_flutter` init reading URL and publishable key from `--dart-define` (never committed); document the run command in `README.md`
-- [ ] Riverpod `ProviderScope` root + `sessionProvider` + `claimsProvider`
-- [ ] `go_router` skeleton with a single redirect guard (unauthenticated → login)
-- [ ] Layer folders per `PLANNING.md` §6 with a placeholder repository proving the widget → controller → repository → supabase chain
-- [ ] freezed models + Dart enums for the member spine, values matched one-to-one to the Postgres enums; unknown value throws
-- [ ] `Money` formatter ported from `../logfitness_saas/lib/format.ts` — paisa `int` in, `NPR` string out at the render boundary only; unit tests for rounding and negatives
-- [ ] Date formatter using `orgs.timezone` (default `Asia/Kathmandu`), not the device zone
-- [ ] Theme: light + dark, Material 3, brand tokens
-- [ ] CI: `flutter analyze` + `flutter test` on every push
+- [x] Pin Flutter/Dart SDK constraint in `pubspec.yaml` (Flutter 3.38, Dart 3.10)
+- [x] `analysis_options.yaml` with `flutter_lints` + `custom_lint` + `riverpod_lint`; `flutter analyze` clean
+- [x] Add stack deps from `PLANNING.md` §2 — nothing outside the table
+- [x] `supabase_flutter` init reading URL and publishable key from `--dart-define` (never committed); document the run command in `README.md`
+- [x] Riverpod `ProviderScope` root + `sessionProvider` + `claimsProvider`
+- [x] `go_router` skeleton with a single redirect guard (unauthenticated → login)
+- [x] Layer folders per `PLANNING.md` §6 with a placeholder repository proving the widget → controller → repository → supabase chain
+- [x] freezed models + Dart enums for the member spine, values matched one-to-one to the Postgres enums; unknown value throws
+- [x] `Money` formatter ported from `../logfitness_saas/lib/format.ts` — paisa `int` in, `NPR` string out at the render boundary only; unit tests for rounding and negatives
+- [x] Date formatter using `orgs.timezone` (default `Asia/Kathmandu`), not the device zone
+- [x] Theme: light + dark, Material 3, brand tokens
+- [x] CI: `flutter analyze` + `flutter test` on every push
 
 ## Phase 2 — Auth and role shell
 
@@ -106,6 +106,11 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 ## Discovered
 
 <!-- Format: - [ ] **YYYY-MM-DD** What was found and what to do about it -->
+
+- [x] **2026-09-05** `path_provider_foundation` >= 2.5.0 pulls `objective_c`, whose native build hooks make `dart compile aot-snapshot` fail — which is how both `build_runner` and `custom_lint` compile their entrypoints, so codegen and linting broke outright. Pinned to 2.4.1 in `dependency_overrides` with the reason in a comment. Revisit once the Flutter/Dart toolchain supports build hooks in `dart compile`.
+- [ ] **2026-09-05** No IANA timezone database is in the stack, so `lib/domain/format/dates.dart` models org timezones as fixed UTC offsets (`Asia/Kathmandu` = +05:45, exact — Nepal has no DST). Adding a DST-observing org later means adding the `timezone` package to `PLANNING.md` §2 first.
+- [ ] **2026-09-05** Date-only Postgres columns (`joined_on`, `left_on`, `date_of_birth`, `start_date`, `end_date`, `issued_on`) are modelled as `DateTime`; `toJson` writes a full ISO timestamp. Harmless while these are read-only, but needs a date-only converter before the app ever writes one.
+- [ ] **2026-09-05** `Override` is not exported by flutter_riverpod 3.1.0, so test override lists must stay untyped literals. Remove the workaround if a later riverpod re-exports it.
 
 ## Open questions
 

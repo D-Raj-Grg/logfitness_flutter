@@ -201,16 +201,24 @@ sync · chain administration on mobile (timetable editing, staff CRUD, plan cata
 
 ## 9. Current state (2026-09-05)
 
-- This repo is **empty**. No `pubspec.yaml`, no `lib/`, no platform folders, no git history. Nothing has been scaffolded.
-- Toolchain installed globally: Flutter 3.38.7 stable (Dart 3.10.7). No fvm, no melos. No platform toggles set in `flutter config`.
-- Git remote is decided but not yet wired: `https://github.com/D-Raj-Grg/logfitness_flutter.git`.
-- Upstream backend is **mid-Phase-1**. The member spine (members, plans, memberships, invoices and payments, status derivation, RLS, RPCs, reports) is written as migrations in `logfitness_saas`, but the Phase 6 prerequisites this app depends on — member-scope RLS, `current_member()`, the member invite/link flow, the QR token Edge Function, push fanout — are **unbuilt**.
+- **Phase 1 is complete.** Scaffold, pinned SDK constraint, stack deps, strict lints (`flutter analyze`
+  and `dart run custom_lint` both clean), Supabase client + secure session storage + claims decoding,
+  Riverpod root, `go_router` guard with a test per redirect branch, freezed models and Dart enums for
+  the member spine, money and date formatters ported from the console, Material 3 light/dark theme,
+  and GitHub Actions CI. 55 tests pass.
+- Toolchain: Flutter 3.38.7 stable (Dart 3.10.7). No fvm, no melos.
+- `path_provider_foundation` is pinned to 2.4.1 in `dependency_overrides` — 2.5.0+ pulls `objective_c`,
+  whose native build hooks break `dart compile aot-snapshot`, which is how `build_runner` and
+  `custom_lint` compile their entrypoints.
+- Git remote: `https://github.com/D-Raj-Grg/logfitness_flutter.git`.
+- Upstream backend is mid-Phase-1. The member spine (members, plans, memberships, invoices and
+  payments, status derivation, RLS, RPCs, reports) is applied. The Phase 0 items this app depends on —
+  member-scope RLS, `current_member()`, the member invite/link flow, the QR token Edge Function, push
+  fanout — are still **unbuilt**.
 - Supabase project ref: `hefptanjhwxcuhikuhwd`, shared with the web console.
 
-**Next task: Phase 0.** Phase 1 scaffolding can begin in parallel, but nothing in Phases 2+ is
-buildable until the Phase 0 items land upstream.
-
----
+**Next task: Phase 0, upstream.** Nothing in Phase 2+ is buildable until those land. The screens behind
+`/login`, `/link`, `/member`, and `/staff` are placeholders wired to the router, waiting on them.
 
 ## 10. Open questions
 
