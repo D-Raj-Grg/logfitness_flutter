@@ -23,9 +23,9 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 
 ## Phase 1 — App foundation
 
-- [ ] `flutter create` with org `com.lordofgyms`, project `logfitness_flutter`, platforms `ios,android` only
-- [ ] `git init`, first commit, push to `https://github.com/D-Raj-Grg/logfitness_flutter.git`
-- [ ] `.gitignore` covers `.env*`, `*.jks`, `GoogleService-Info.plist`, `google-services.json`
+- [x] `flutter create` with org `com.lordofgyms`, project `logfitness_flutter`, platforms `ios,android` only
+- [x] `git init`, first commit, push to `https://github.com/D-Raj-Grg/logfitness_flutter.git`
+- [x] `.gitignore` covers `.env*`, `*.jks`, `GoogleService-Info.plist`, `google-services.json`
 - [ ] Pin Flutter/Dart SDK constraint in `pubspec.yaml` (Flutter 3.38, Dart 3.10)
 - [ ] `analysis_options.yaml` with `flutter_lints` + `custom_lint` + `riverpod_lint`; `flutter analyze` clean
 - [ ] Add stack deps from `PLANNING.md` §2 — nothing outside the table
