@@ -11,15 +11,15 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 ## Phase 0 — Backend prerequisites
 
 - [ ] Apply the Phase 1 member-spine migrations to the remote project and confirm `members`, `memberships`, `invoices`, `payments` exist with RLS enabled → logfitness_saas
-- [ ] Backend: phone-OTP provider enabled in Supabase Auth, with a Nepal-capable SMS gateway → logfitness_saas
-- [ ] Backend: link flow that populates `members.auth_user_id` from the OTP-verified phone (RPC or Edge Function; unique per org, never overwrites an existing link) → logfitness_saas
+- [ ] Backend: member invitation flow — staff invites a member by email, accept sets password and links `auth.users.id` to `members.auth_user_id` (mirror of the staff invite flow) → logfitness_saas
+- [ ] Backend: link flow that populates `members.auth_user_id` from the accepted invitation (RPC or Edge Function; unique per org, never overwrites an existing link) → logfitness_saas
 - [ ] Backend: `current_member()` RPC mirroring `current_staff()` — readable before claims exist → logfitness_saas
 - [ ] Backend: access-token hook emits `{org_id, role: 'member', branch_ids[]}` for a member principal → logfitness_saas
 - [ ] Backend: member-scope RLS policies — a member reads only their own `members`, `memberships`, `invoices`, `payments`, `attendance`, `class_bookings` rows — with a cross-tenant and cross-member negative test → logfitness_saas
 - [ ] Backend: QR token mint/verify Edge Function (short-lived, member-bound, single-use) → logfitness_saas Phase 2
 - [ ] Backend: class self-booking RPC with capacity check and cancellation window → logfitness_saas Phase 4
 - [ ] Backend: `device_tokens` table + push fanout Edge Function → logfitness_saas Phase 5
-- [ ] Backend: define the "authenticated but not yet linked" contract — what a member session sees between OTP success and `auth_user_id` link (analogue of the console's `/auth/link` + refresh marker) → logfitness_saas
+- [ ] Backend: define the "authenticated but not yet linked" contract — what a member session sees between sign-in and `auth_user_id` link (analogue of the console's `/auth/link` + refresh marker) → logfitness_saas
 
 ## Phase 1 — App foundation
 
@@ -42,9 +42,9 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 ## Phase 2 — Auth and role shell
 
 - [ ] Staff login — email + password, same accounts as the web console
-- [ ] Member login — phone entry → OTP → verify; Nepal `+977` default country code
+- [ ] Member login — email + password; accept-invite deep link sets the password on first open
 - [ ] Post-login link step calling the Phase 0 link flow, then refreshing the session so claims arrive (no redirect loop)
-- [ ] "Not yet linked" screen — OTP succeeded but no `members` row matches the phone in any org
+- [ ] "Not yet linked" screen — signed in but no `members` row is linked to this auth user
 - [ ] Role router — `member` claim → member shell, any `staff_role` → staff shell, no claims → link step
 - [ ] Session persisted in `flutter_secure_storage`; cold start restores without re-login
 - [ ] Sign-out clears session, claims, and cached data
@@ -68,6 +68,7 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] Check-in result surfaces plan status and dues so the desk can act on an expired or owing member
 - [ ] Collect payment via `record_payment` — method from the `payment_method` enum, amount entered in rupees and converted with `toPaisa` once
 - [ ] Walk-in member signup — name, phone, gender, home branch; phone-unique-per-org error handled
+- [ ] Invite member to the app by email from member detail and from walk-in signup
 - [ ] Renew via `renew_membership` — plan picker from `membership_plans` available at the branch
 - [ ] Today's collection sheet via `daily_collection`, grouped by method
 - [ ] Every mutation shows the audit-visible actor (the signed-in staff member) before confirming
@@ -113,3 +114,4 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] How much staff parity belongs on mobile — is Phase 6 worth building, or does the console stay sole surface?
 - [ ] Push provider — FCM directly, or OneSignal? Affects the upstream fanout contract
 - [ ] Do trainers get PT-session tooling in v1, or a read-only shell?
+- [ ] Phone OTP member login — deferred until an SMS gateway is chosen; invite/email is v1

@@ -11,8 +11,9 @@ One Flutter binary, two role-shells, one Supabase project — the same Postgres 
 staff web console at `logfitness_saas`. There is no separate backend and no bespoke API: the
 app speaks `supabase_flutter` to the same tables under the same RLS policies.
 
-**Members** authenticate by phone OTP, which links a Supabase auth user to the existing
-`members.auth_user_id`. Until this app ships, members are records in the system, not users.
+**Members** authenticate with email + password after accepting a staff-sent invitation —
+the same invite mechanism the console uses for staff. Accepting links the Supabase auth user
+to the existing `members.auth_user_id`. Phone OTP is deferred. Until this app ships, members are records in the system, not users.
 They get plan status and dues, payment history, QR check-in, class booking, and push.
 
 **Staff** authenticate with email and password using the same accounts as the web console.
@@ -104,7 +105,7 @@ and `../logfitness_saas/supabase/migrations/`.** Do not restate or fork it here.
 must know:
 
 **Identity.** `members.phone` is unique per org — phone is the identity anchor in this market,
-which is why member auth is phone OTP. `members.auth_user_id` is nullable and is the link this
+and stays the search key. Login is by invited email; phone OTP is deferred. `members.auth_user_id` is nullable and is the link this
 app populates. `members.home_branch_id` sets the member's home branch.
 
 **Postgres enums the client mirrors:**
@@ -178,9 +179,9 @@ Remote: `https://github.com/D-Raj-Grg/logfitness_flutter.git`.
 
 Ordered and sequential. Do not skip ahead without an explicit instruction.
 
-0. **Backend prerequisites** — member RLS, `current_member()`, phone OTP, QR token and push Edge Functions. Lives in `logfitness_saas`; blocks everything here.
+0. **Backend prerequisites** — member RLS, `current_member()`, member invite + link flow, QR token and push Edge Functions. Lives in `logfitness_saas`; blocks everything here.
 1. **App foundation** — scaffold, repo, lints, Supabase client, router skeleton, Riverpod root, generated models, money formatter, CI.
-2. **Auth and role shell** — staff email/password, member phone OTP, claims handling, the role router, session persistence.
+2. **Auth and role shell** — staff email/password, member invite accept + email/password, claims handling, the role router, session persistence.
 3. **Member app** — plan and dues, payment history, QR check-in, class browsing and booking, push.
 4. **Staff front desk** — scan check-in, manual fallback, collect payment, walk-in signup, renewals, today's collection.
 5. **Staff member management** — search, detail, freeze/cancel/reactivate, arrears, refunds, branch switcher.
@@ -203,7 +204,7 @@ sync · chain administration on mobile (timetable editing, staff CRUD, plan cata
 - This repo is **empty**. No `pubspec.yaml`, no `lib/`, no platform folders, no git history. Nothing has been scaffolded.
 - Toolchain installed globally: Flutter 3.38.7 stable (Dart 3.10.7). No fvm, no melos. No platform toggles set in `flutter config`.
 - Git remote is decided but not yet wired: `https://github.com/D-Raj-Grg/logfitness_flutter.git`.
-- Upstream backend is **mid-Phase-1**. The member spine (members, plans, memberships, invoices and payments, status derivation, RLS, RPCs, reports) is written as migrations in `logfitness_saas`, but the Phase 6 prerequisites this app depends on — member-scope RLS, `current_member()`, phone OTP, the QR token Edge Function, push fanout — are **unbuilt**.
+- Upstream backend is **mid-Phase-1**. The member spine (members, plans, memberships, invoices and payments, status derivation, RLS, RPCs, reports) is written as migrations in `logfitness_saas`, but the Phase 6 prerequisites this app depends on — member-scope RLS, `current_member()`, the member invite/link flow, the QR token Edge Function, push fanout — are **unbuilt**.
 - Supabase project ref: `hefptanjhwxcuhikuhwd`, shared with the web console.
 
 **Next task: Phase 0.** Phase 1 scaffolding can begin in parallel, but nothing in Phases 2+ is
@@ -218,3 +219,4 @@ buildable until the Phase 0 items land upstream.
 - How much staff parity actually belongs on mobile? Phases 5 and 6 are scoped on an assumption that can be revisited.
 - Push provider: FCM directly, or OneSignal? Affects the Edge Function fanout contract upstream.
 - Do trainers get PT-session tooling in v1, or is the trainer shell read-only?
+- Phone OTP login for members — deferred; revisit once an SMS gateway is chosen. Invite/email is the v1 path.
