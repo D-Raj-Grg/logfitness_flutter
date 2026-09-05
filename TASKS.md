@@ -10,16 +10,16 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 
 ## Phase 0 — Backend prerequisites
 
-- [ ] Apply the Phase 1 member-spine migrations to the remote project and confirm `members`, `memberships`, `invoices`, `payments` exist with RLS enabled → logfitness_saas
-- [ ] Backend: member invitation flow — staff invites a member by email, accept sets password and links `auth.users.id` to `members.auth_user_id` (mirror of the staff invite flow) → logfitness_saas
-- [ ] Backend: link flow that populates `members.auth_user_id` from the accepted invitation (RPC or Edge Function; unique per org, never overwrites an existing link) → logfitness_saas
-- [ ] Backend: `current_member()` RPC mirroring `current_staff()` — readable before claims exist → logfitness_saas
-- [ ] Backend: access-token hook emits `{org_id, role: 'member', branch_ids[]}` for a member principal → logfitness_saas
-- [ ] Backend: member-scope RLS policies — a member reads only their own `members`, `memberships`, `invoices`, `payments`, `attendance`, `class_bookings` rows — with a cross-tenant and cross-member negative test → logfitness_saas
-- [ ] Backend: QR token mint/verify Edge Function (short-lived, member-bound, single-use) → logfitness_saas Phase 2
-- [ ] Backend: class self-booking RPC with capacity check and cancellation window → logfitness_saas Phase 4
-- [ ] Backend: `device_tokens` table + push fanout Edge Function → logfitness_saas Phase 5
-- [ ] Backend: define the "authenticated but not yet linked" contract — what a member session sees between sign-in and `auth_user_id` link (analogue of the console's `/auth/link` + refresh marker) → logfitness_saas
+- [x] Apply the Phase 1 member-spine migrations to the remote project and confirm `members`, `memberships`, `invoices`, `payments` exist with RLS enabled → logfitness_saas
+- [x] Backend: member invitation flow — staff invites a member by email, accept sets password and links `auth.users.id` to `members.auth_user_id` (mirror of the staff invite flow) → logfitness_saas
+- [x] Backend: link flow that populates `members.auth_user_id` from the accepted invitation (RPC or Edge Function; unique per org, never overwrites an existing link) → logfitness_saas
+- [x] Backend: `current_member()` RPC mirroring `current_staff()` — readable before claims exist → logfitness_saas
+- [x] Backend: access-token hook emits member claims → logfitness_saas. Shipped as `{org_id, member_id, branch_ids: [home_branch_id]}`: there is no `role` claim, because PostgREST reads that one to pick the Postgres role for the request. Principal type is read off `member_id` vs `staff_role`.
+- [x] Backend: member-scope RLS policies — a member reads only their own `members`, `memberships`, `invoices`, `payments`, `attendance`, `class_bookings` rows — with a cross-tenant and cross-member negative test → logfitness_saas
+- [x] Backend: QR token mint/verify — built as Postgres RPCs (`mint_qr_token`, `verify_qr_token`), not an Edge Function: the project secret an Edge Function needs cannot be set from this tooling. Short-lived and member-bound; **not single-use** — replay inside the 90s window is stopped by the duplicate same-day check-in guard instead → logfitness_saas
+- [x] Backend: class self-booking RPC with capacity check and cancellation window → logfitness_saas Phase 4
+- [x] Backend: `device_tokens` table + push fanout Edge Function → logfitness_saas Phase 5 — table, RLS and RPCs tested; the FCM send path is unverified until `FCM_SERVICE_ACCOUNT_JSON` is set in the dashboard
+- [x] Backend: define the "authenticated but not yet linked" contract — what a member session sees between sign-in and `auth_user_id` link (analogue of the console's `/auth/link` + refresh marker) → logfitness_saas
 
 ## Phase 1 — App foundation
 
@@ -41,14 +41,14 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 
 ## Phase 2 — Auth and role shell
 
-- [ ] Staff login — email + password, same accounts as the web console
-- [ ] Member login — email + password; accept-invite deep link sets the password on first open
-- [ ] Post-login link step calling the Phase 0 link flow, then refreshing the session so claims arrive (no redirect loop)
-- [ ] "Not yet linked" screen — signed in but no `members` row is linked to this auth user
-- [ ] Role router — `member` claim → member shell, any `staff_role` → staff shell, no claims → link step
-- [ ] Session persisted in `flutter_secure_storage`; cold start restores without re-login
-- [ ] Sign-out clears session, claims, and cached data
-- [ ] Widget tests for every redirect branch of the guard
+- [x] Staff login — email + password, same accounts as the web console
+- [x] Member login — email + password; accept-invite deep link sets the password on first open
+- [x] Post-login link step calling the Phase 0 link flow, then refreshing the session so claims arrive (no redirect loop)
+- [x] "Not yet linked" screen — signed in but no `members` row is linked to this auth user
+- [x] Role router — routes on `principalProvider`: `member_id` claim → member shell, `staff_role` → staff shell, neither → link step, still resolving → splash, and a linked-but-stale token renders its shell while the refresh lands rather than parking on `/link`
+- [x] Session persisted in `flutter_secure_storage`; cold start restores without re-login
+- [x] Sign-out clears session, claims, and cached data
+- [x] Widget tests for every redirect branch of the guard
 
 ## Phase 3 — Member app
 
@@ -112,6 +112,7 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] **2026-09-05** No IANA timezone database is in the stack, so `lib/domain/format/dates.dart` models org timezones as fixed UTC offsets (`Asia/Kathmandu` = +05:45, exact — Nepal has no DST). Adding a DST-observing org later means adding the `timezone` package to `PLANNING.md` §2 first.
 - [ ] **2026-09-05** Date-only Postgres columns (`joined_on`, `left_on`, `date_of_birth`, `start_date`, `end_date`, `issued_on`) are modelled as `DateTime`; `toJson` writes a full ISO timestamp. Harmless while these are read-only, but needs a date-only converter before the app ever writes one.
 - [ ] **2026-09-05** `Override` is not exported by flutter_riverpod 3.1.0, so test override lists must stay untyped literals. Remove the workaround if a later riverpod re-exports it.
+- [ ] **2026-09-05** Auth deep link redirect `com.lordofgyms.logfitness_flutter://login-callback` (see README.md "Deep links", `lib/supabase/auth_deep_links.dart`) needs to be added to the Supabase dashboard's Auth → URL Configuration → Redirect URLs allow-list for project `hefptanjhwxcuhikuhwd`. Cannot be done from this machine — the Supabase CLI is not logged in. Until someone with dashboard access adds it, invite/recovery emails will not open this app; treat the platform-side wiring as unverified end-to-end until confirmed.
 
 ## Open questions
 

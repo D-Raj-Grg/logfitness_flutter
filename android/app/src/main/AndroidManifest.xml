@@ -24,6 +24,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Supabase Auth deep link: invite/recovery emails redirect here.
+                 supabase_flutter's built-in app_links observer picks this up
+                 automatically once the OS hands the app the Intent; no extra
+                 Dart-side listener code is required. Keep the scheme aligned
+                 with android/app/build.gradle.kts applicationId. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="com.lordofgyms.logfitness_flutter" android:host="login-callback"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -40,6 +51,13 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- supabase_flutter's auth flows use url_launcher (e.g. to open a
+             browser for OAuth); Android 11+ package visibility requires this
+             query for canLaunchUrl/launchUrl to see a browser at all. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>

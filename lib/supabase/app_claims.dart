@@ -3,8 +3,14 @@ import 'dart:convert';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// The claims the Supabase access-token hook injects into a session's JWT:
-/// `{org_id, role, branch_ids[]}`. See PLANNING.md §5 ("Claims contract").
+/// The claims the Supabase access-token hook injects into a session's JWT.
+///
+/// The hook does NOT set a `role` claim -- `role` belongs to PostgREST and
+/// stays `authenticated` for every request. Instead, the principal type is
+/// carried by which id claim is present: `staff_role` for a staff principal,
+/// `member_id` for a member principal. Both carry `org_id` and
+/// `branch_ids[]`; staff also carry `staff_id`. See
+/// `../logfitness_saas/supabase/migrations/20260905150300_hook_leaves_the_postgrest_role_claim_alone.sql`.
 ///
 /// A freshly created session, before the principal row (`members` or
 /// `staff`) is linked to the auth user, carries none of these claims. That
@@ -13,49 +19,70 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AppClaims {
   const AppClaims({
     required this.orgId,
-    required this.role,
     required this.branchIds,
+    this.staffRole,
+    this.memberId,
+    this.staffId,
   });
 
   final String orgId;
-  final String role;
   final List<String> branchIds;
 
-  /// Whether this session belongs to a member principal, as opposed to a
-  /// staff principal.
-  bool get isMember => role == 'member';
+  /// The staff role, or `null` when this session belongs to a member (or
+  /// carries no principal claims at all — which [fromSession] already
+  /// filters out).
+  final StaffRole? staffRole;
 
-  /// The staff role, or `null` when this session belongs to a member.
-  ///
-  /// Throws [UnknownEnumValue] if `role` is neither `'member'` nor a known
-  /// `staff_role` value — an unrecognised role must fail loudly, per
-  /// PLANNING.md §5, rather than be silently treated as either shell.
-  StaffRole? get staffRole => isMember ? null : StaffRole.fromDb(role);
+  /// The linked member id, or `null` for a staff principal.
+  final String? memberId;
+
+  /// The linked staff id, or `null` for a member principal.
+  final String? staffId;
+
+  /// Whether this session belongs to a member principal, as opposed to a
+  /// staff principal. A member carries `member_id` and no `staff_role`.
+  bool get isMember => memberId != null && staffRole == null;
+
+  /// Whether this session belongs to a staff principal.
+  bool get isStaff => staffRole != null;
 
   /// Decodes the claims carried by [session]'s access token.
   ///
-  /// Returns `null` when the token carries no claims yet.
+  /// Returns `null` when the token carries no principal claims yet.
   static AppClaims? fromSession(Session session) =>
       fromJwtPayload(_decodeJwtPayload(session.accessToken));
 
   /// Decodes claims out of an already-parsed JWT payload map.
   ///
-  /// Returns `null` when `org_id`, `role`, or `branch_ids` is missing —
-  /// the normal shape of a session created before the principal row is
-  /// linked.
+  /// Returns `null` when `org_id` or `branch_ids` is missing, or when
+  /// neither `staff_role` nor `member_id` is present — the normal shape of
+  /// a session created before the principal row is linked.
+  ///
+  /// Throws [UnknownEnumValue] if `staff_role` is present but not a
+  /// recognised `staff_role` value — an unrecognised role must fail loudly,
+  /// per PLANNING.md §5, rather than be silently treated as either shell.
   static AppClaims? fromJwtPayload(Map<String, dynamic> payload) {
     final orgId = payload['org_id'];
-    final role = payload['role'];
     final branchIds = payload['branch_ids'];
+    final staffRoleWire = payload['staff_role'];
+    final memberId = payload['member_id'];
+    final staffId = payload['staff_id'];
 
-    if (orgId is! String || role is! String || branchIds is! List) {
+    if (orgId is! String || branchIds is! List) {
+      return null;
+    }
+
+    if (staffRoleWire is! String && memberId is! String) {
+      // Neither principal claim is present: signed in, not yet linked.
       return null;
     }
 
     return AppClaims(
       orgId: orgId,
-      role: role,
       branchIds: branchIds.map((dynamic id) => id as String).toList(),
+      staffRole: staffRoleWire is String ? StaffRole.fromDb(staffRoleWire) : null,
+      memberId: memberId is String ? memberId : null,
+      staffId: staffId is String ? staffId : null,
     );
   }
 

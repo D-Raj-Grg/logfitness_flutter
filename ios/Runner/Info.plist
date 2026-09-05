@@ -45,5 +45,21 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Supabase Auth deep link: invite/recovery emails redirect here.
+	     supabase_flutter's built-in app_links observer picks up the incoming
+	     URL automatically once iOS hands it to the app via
+	     application(_:open:options:); no extra Dart-side listener code is
+	     required. Keep the scheme aligned with the Android applicationId. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lordofgyms.logfitness_flutter.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.lordofgyms.logfitness_flutter</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

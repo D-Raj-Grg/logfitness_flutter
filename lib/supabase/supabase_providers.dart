@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'app_claims.dart';
+import 'package:logfitness_flutter/supabase/app_claims.dart';
 
 /// The shared Supabase client, initialized in `initSupabase()` before
 /// `runApp`.

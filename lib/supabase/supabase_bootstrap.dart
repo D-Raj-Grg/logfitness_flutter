@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'secure_session_storage.dart';
-import 'supabase_config.dart';
+import 'package:logfitness_flutter/supabase/secure_session_storage.dart';
+import 'package:logfitness_flutter/supabase/supabase_config.dart';
 
 /// Initializes the Supabase client for the whole app.
 ///

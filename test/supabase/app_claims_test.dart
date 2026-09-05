@@ -33,58 +33,100 @@ Session _sessionWithPayload(Map<String, dynamic> payload) {
 
 void main() {
   group('AppClaims.fromJwtPayload', () {
-    test('decodes a full claims payload', () {
+    test('decodes a staff claims payload', () {
       final claims = AppClaims.fromJwtPayload({
+        'role': 'authenticated', // PostgREST's claim -- never read by AppClaims.
         'org_id': 'org-1',
-        'role': 'manager',
+        'staff_id': 'staff-1',
+        'staff_role': 'manager',
         'branch_ids': ['branch-1', 'branch-2'],
       });
 
       expect(claims, isNotNull);
       expect(claims!.orgId, 'org-1');
-      expect(claims.role, 'manager');
+      expect(claims.staffId, 'staff-1');
+      expect(claims.staffRole, StaffRole.manager);
+      expect(claims.memberId, isNull);
       expect(claims.branchIds, ['branch-1', 'branch-2']);
+      expect(claims.isStaff, isTrue);
+      expect(claims.isMember, isFalse);
     });
 
-    test('returns null for a payload with no claims', () {
+    test('decodes a member claims payload', () {
+      final claims = AppClaims.fromJwtPayload({
+        'role': 'authenticated',
+        'org_id': 'org-1',
+        'member_id': 'member-1',
+        'branch_ids': ['branch-1'],
+      });
+
+      expect(claims, isNotNull);
+      expect(claims!.orgId, 'org-1');
+      expect(claims.memberId, 'member-1');
+      expect(claims.staffId, isNull);
+      expect(claims.staffRole, isNull);
+      expect(claims.isMember, isTrue);
+      expect(claims.isStaff, isFalse);
+    });
+
+    test('returns null for a payload with no principal claims', () {
       final claims = AppClaims.fromJwtPayload({
         'sub': 'user-1',
+        'role': 'authenticated',
         'aud': 'authenticated',
       });
 
       expect(claims, isNull);
     });
 
-    test('member payload: isMember is true and staffRole is null', () {
-      final claims = AppClaims.fromJwtPayload({
-        'org_id': 'org-1',
-        'role': 'member',
-        'branch_ids': <String>[],
-      });
+    test(
+      'returns null when org_id/branch_ids are present but no principal id is',
+      () {
+        final claims = AppClaims.fromJwtPayload({
+          'role': 'authenticated',
+          'org_id': 'org-1',
+          'branch_ids': <String>[],
+        });
 
-      expect(claims, isNotNull);
-      expect(claims!.isMember, isTrue);
-      expect(claims.staffRole, isNull);
+        expect(claims, isNull);
+      },
+    );
+
+    test('throws UnknownEnumValue for an unrecognised staff_role', () {
+      expect(
+        () => AppClaims.fromJwtPayload({
+          'org_id': 'org-1',
+          'staff_id': 'staff-1',
+          'staff_role': 'ceo',
+          'branch_ids': <String>[],
+        }),
+        throwsA(isA<UnknownEnumValue>()),
+      );
     });
 
-    test('staff payload: staffRole resolves to StaffRole.frontDesk', () {
-      final claims = AppClaims.fromJwtPayload({
-        'org_id': 'org-1',
-        'role': 'front_desk',
-        'branch_ids': ['branch-1'],
-      });
+    for (final role in StaffRole.values) {
+      test('staff payload: staffRole resolves to StaffRole.${role.name}', () {
+        final claims = AppClaims.fromJwtPayload({
+          'org_id': 'org-1',
+          'staff_id': 'staff-1',
+          'staff_role': role.wire,
+          'branch_ids': ['branch-1'],
+        });
 
-      expect(claims, isNotNull);
-      expect(claims!.isMember, isFalse);
-      expect(claims.staffRole, StaffRole.frontDesk);
-    });
+        expect(claims, isNotNull);
+        expect(claims!.isMember, isFalse);
+        expect(claims.isStaff, isTrue);
+        expect(claims.staffRole, role);
+      });
+    }
   });
 
   group('AppClaims.fromSession', () {
     test('decodes unpadded base64url JWT payloads', () {
       final payload = {
         'org_id': 'org-1',
-        'role': 'owner',
+        'staff_id': 'staff-1',
+        'staff_role': 'owner',
         'branch_ids': ['branch-1', 'branch-2', 'branch-3'],
       };
       final session = _sessionWithPayload(payload);

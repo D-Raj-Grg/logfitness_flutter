@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'brand.dart';
+import 'package:logfitness_flutter/app/brand.dart';
 
 /// Shared Material 3 theming for Lord of Gyms.
 ///

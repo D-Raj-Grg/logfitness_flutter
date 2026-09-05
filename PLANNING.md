@@ -133,10 +133,30 @@ daily_collection(...) arrears_report(p_branch_id default null)
 `current_staff()` is read instead of the `staff` table, because a fresh session may carry no
 claims yet. A member-side `current_member()` equivalent does not exist and is Phase 0 work.
 
-**Claims contract.** The Supabase access-token hook injects `{org_id, role, branch_ids[]}`.
+**Claims contract.** The Supabase access-token hook injects `{org_id, branch_ids[]}` plus a
+principal marker: `staff_role` (and `staff_id`) for staff, `member_id` for members. It does **not**
+set a `role` claim — that one belongs to PostgREST, which reads it to choose the Postgres role for
+the request, and overwriting it breaks every authenticated call. Principal type is therefore read
+off which marker is present, never off `role`.
 The client reads them off the session, not off a table. A session created before the principal
 row is linked carries no claims; the web console solves this with a link route plus a
 refresh marker, and the app must handle the analogous state rather than looping.
+
+**Not-yet-linked contract.** A session exists in three states and the app must render all three
+without looping:
+
+| State | How it is detected | Where it lands |
+| --- | --- | --- |
+| No session | `sessionProvider` is null | `/login` |
+| Signed in, not linked | Session present, no `member_id` / `staff_role` claim, and `current_member()` / `current_staff()` both return nothing | `/link` — offers to claim a pending invitation via `link_member_account()`, then refreshes the session so claims arrive |
+| Linked | Claims present, or the `current_*` RPC returns a row | Member shell or staff shell |
+
+`current_member()` and `current_staff()` are security-definer RPCs precisely so they can be read
+before claims exist. Linking only takes effect after `refreshSession()`, so the link step must
+refresh once and then re-evaluate rather than redirect blindly — the web console solves the same
+problem with `/auth/link` plus a short-lived refresh marker cookie, and the app carries a marker in
+memory for the same reason. An account that refreshes and still has no claims stays on `/link` with
+an explanation; it never bounces.
 
 **Formatting inputs.** `orgs.currency` (default `NPR`) and `orgs.timezone` (default
 `Asia/Kathmandu`) drive all money and date rendering. Mirror `../logfitness_saas/lib/format.ts`

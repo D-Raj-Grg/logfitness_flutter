@@ -41,6 +41,30 @@ flutter run \
 
 Startup asserts both are present and fails loudly with the flag names if they are not.
 
+## Deep links
+
+Supabase Auth emails (member invite, password recovery) must redirect back into this app so
+the member can set a password on first open. The redirect URL is:
+
+```
+com.lordofgyms.logfitness_flutter://login-callback
+```
+
+It is a custom URL scheme (not a universal/app link), matching the Android `applicationId`
+in `android/app/build.gradle.kts` and the `CFBundleURLTypes` entry in `ios/Runner/Info.plist`.
+The Android intent filter and iOS `CFBundleURLSchemes` are already wired up; `supabase_flutter`
+2.17's bundled `app_links` observer picks up the incoming link automatically once the OS hands
+it to the app — no extra listener code lives in this repo. See
+`lib/supabase/auth_deep_links.dart` for the `kAuthRedirectUrl` constant and the helper for any
+mobile-initiated email flow that needs to pass a `redirectTo`.
+
+**This is unverified end-to-end.** Supabase silently ignores a redirect URL it doesn't
+recognise and falls back to the project's default site URL, so the link above must be added to
+the Supabase dashboard for project `hefptanjhwxcuhikuhwd`, under **Auth → URL Configuration →
+Redirect URLs**. That step cannot be done from this machine — the Supabase CLI here is not
+logged in — so it needs someone with dashboard access. Until it's added, an invite email will
+not open this app.
+
 ## Checks
 
 `flutter analyze` clean is a merge gate. CI runs the same four commands on every push:

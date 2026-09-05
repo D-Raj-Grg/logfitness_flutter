@@ -2,26 +2,27 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:logfitness_flutter/features/auth/auth_controller.dart';
 import 'package:logfitness_flutter/features/auth/link_screen.dart';
 import 'package:logfitness_flutter/features/auth/login_screen.dart';
+import 'package:logfitness_flutter/features/auth/set_password_screen.dart';
 import 'package:logfitness_flutter/features/auth/splash_screen.dart';
 import 'package:logfitness_flutter/features/member/member_shell.dart';
 import 'package:logfitness_flutter/features/staff/staff_shell.dart';
-import 'package:logfitness_flutter/supabase/supabase_providers.dart';
 
 const splashPath = '/splash';
 const loginPath = '/login';
 const linkPath = '/link';
 const memberPath = '/member';
 const staffPath = '/staff';
+const setPasswordPath = '/set-password';
 
-/// Bumps whenever session or claims change so [GoRouter] re-evaluates its
-/// redirect. A plain [ValueNotifier]/[ChangeNotifier] driven off provider
-/// listeners, per go_router's `refreshListenable` contract.
+/// Bumps whenever [principalProvider] changes so [GoRouter] re-evaluates
+/// its redirect. A plain [ChangeNotifier] driven off a provider listener,
+/// per go_router's `refreshListenable` contract.
 class RouterRefreshNotifier extends ChangeNotifier {
   RouterRefreshNotifier(Ref ref) {
-    ref.listen(sessionProvider, (previous, next) => notifyListeners());
-    ref.listen(claimsProvider, (previous, next) => notifyListeners());
+    ref.listen(principalProvider, (previous, next) => notifyListeners());
   }
 }
 
@@ -55,6 +56,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LinkScreen(),
       ),
       GoRoute(
+        path: setPasswordPath,
+        builder: (context, state) => const SetPasswordScreen(),
+      ),
+      GoRoute(
         path: memberPath,
         builder: (context, state) => const MemberShell(),
       ),
@@ -68,29 +73,43 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
 String? _redirect(Ref ref, GoRouterState state) {
   final currentPath = state.matchedLocation;
-  final session = ref.read(sessionProvider);
 
-  if (session == null) {
-    return currentPath == loginPath ? null : loginPath;
+  // A session that arrives from an invite email lands here to set a
+  // password before any principal can be resolved from it. This is the one
+  // route the guard must respect over the principal state, so it is checked
+  // before reading `principalProvider` at all.
+  if (currentPath == setPasswordPath) {
+    return null;
   }
 
-  final claims = ref.read(claimsProvider);
-  if (claims == null) {
-    // Authenticated but not yet linked to a member/staff principal. This is
-    // a normal, stable state (see PLANNING.md §5 "Claims contract") — never
-    // bounce a user already sitting on /link back through itself.
-    return currentPath == linkPath ? null : linkPath;
+  final principalAsync = ref.read(principalProvider);
+
+  // Still resolving `principalProvider` (cold start, or a refresh in
+  // flight). Park on /splash rather than flashing /login at a returning
+  // user, and never let an error state loop either.
+  if (!principalAsync.hasValue) {
+    return currentPath == splashPath ? null : splashPath;
   }
 
-  if (claims.isMember) {
-    return currentPath == memberPath ? null : memberPath;
-  }
+  final principal = principalAsync.requireValue;
 
-  if (claims.staffRole != null) {
-    return currentPath == staffPath ? null : staffPath;
-  }
+  return switch (principal) {
+    PrincipalSignedOut() => currentPath == loginPath ? null : loginPath,
 
-  // Linked but neither a member nor a recognised staff role — treat like
-  // the not-yet-linked state rather than looping.
-  return currentPath == linkPath ? null : linkPath;
+    // Role gating here is UX only — it picks which shell renders. The
+    // database, via RLS, is what actually decides what the session can
+    // read or write (PLANNING.md §3/§6).
+    PrincipalStaff() => currentPath == staffPath ? null : staffPath,
+    PrincipalMember() => currentPath == memberPath ? null : memberPath,
+
+    // The principal row exists but the token predates it — the matching
+    // shell renders while a refresh happens, exactly as the web console
+    // does. This must NOT land on /link: the account is linked.
+    PrincipalStaffPendingRefresh() =>
+      currentPath == staffPath ? null : staffPath,
+    PrincipalMemberPendingRefresh() =>
+      currentPath == memberPath ? null : memberPath,
+
+    PrincipalNotLinked() => currentPath == linkPath ? null : linkPath,
+  };
 }

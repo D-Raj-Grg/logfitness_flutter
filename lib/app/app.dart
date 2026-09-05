@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'router.dart';
-import 'theme.dart';
+import 'package:logfitness_flutter/app/router.dart';
+import 'package:logfitness_flutter/app/theme.dart';
 
 /// Root widget: wires the two Material 3 themes and the [goRouterProvider]
 /// into a single [MaterialApp.router].
