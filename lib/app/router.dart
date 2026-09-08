@@ -53,10 +53,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: loginPath,
         builder: (context, state) => const LoginScreen(),
       ),
-      GoRoute(
-        path: linkPath,
-        builder: (context, state) => const LinkScreen(),
-      ),
+      GoRoute(path: linkPath, builder: (context, state) => const LinkScreen()),
       GoRoute(
         path: setPasswordPath,
         builder: (context, state) => const SetPasswordScreen(),
@@ -65,10 +62,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: memberPath,
         builder: (context, state) => const MemberShell(),
       ),
-      GoRoute(
-        path: staffPath,
-        builder: (context, state) => const StaffShell(),
-      ),
+      // One route for the whole staff surface. [StaffShell] owns its own
+      // destinations rather than each being a nested route, because this
+      // redirect is the single navigation authority and it lands every staff
+      // principal on exactly `/staff` — giving each tab a URL would need
+      // `/staff` to redirect onward to whichever tab the role can see, which
+      // is a second, role-dependent navigation decision, and no child path is
+      // granted to all four roles for it to land on. See the header comment
+      // in `staff_shell.dart`.
+      GoRoute(path: staffPath, builder: (context, state) => const StaffShell()),
     ],
   );
 
@@ -79,8 +81,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   // the one navigation decided outside `_redirect`, because it is a response
   // to an event rather than to a state.
   ref.listen(authStateChangesProvider, (previous, next) {
-    if (next case AsyncData(:final value)
-        when value.event == AuthChangeEvent.passwordRecovery) {
+    if (next case AsyncData(
+      :final value,
+    ) when value.event == AuthChangeEvent.passwordRecovery) {
       router.go(setPasswordPath);
     }
   });

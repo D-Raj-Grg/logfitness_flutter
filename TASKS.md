@@ -81,8 +81,8 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] Cancel via `cancel_membership`; mark left via `set_member_left`; reactivate via `reactivate_member`
 - [ ] Refund via `refund_payment` — reason required, renders as a negative payment
 - [ ] Arrears list via `arrears_report`, filterable by branch
-- [ ] Branch switcher in the staff shell, options limited to `branch_ids[]` from claims
-- [ ] Role gating in the UI matches `PLANNING.md` §4 (front desk cannot see refund or cancel)
+- [x] Branch switcher in the staff shell, options limited to `branch_ids[]` from claims — selection exposed as `branchScopeProvider`; an owner's empty claim reads as org-wide, matching the RLS policies. Branch *names* still need a `branches` repository; the switcher shows shortened ids until one lands (see Discovered).
+- [x] Role gating in the UI matches `PLANNING.md` §4 (front desk cannot see refund or cancel) — `StaffCapability` is the single declarative table; nav destinations and, once they exist, actions are derived from it. UX only: the database refuses independently and `FailureView` renders that refusal.
 
 ## Phase 6 — Staff reports and admin
 
@@ -113,6 +113,9 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] **2026-09-05** Date-only Postgres columns (`joined_on`, `left_on`, `date_of_birth`, `start_date`, `end_date`, `issued_on`) are modelled as `DateTime`; `toJson` writes a full ISO timestamp. Harmless while these are read-only, but needs a date-only converter before the app ever writes one.
 - [ ] **2026-09-05** `Override` is not exported by flutter_riverpod 3.1.0, so test override lists must stay untyped literals. Remove the workaround if a later riverpod re-exports it.
 - [ ] **2026-09-05** Auth deep link redirect `com.lordofgyms.logfitness_flutter://login-callback` (see README.md "Deep links", `lib/supabase/auth_deep_links.dart`) needs to be added to the Supabase dashboard's Auth → URL Configuration → Redirect URLs allow-list for project `hefptanjhwxcuhikuhwd`. Cannot be done from this machine — the Supabase CLI is not logged in. Until someone with dashboard access adds it, invite/recovery emails will not open this app; treat the platform-side wiring as unverified end-to-end until confirmed.
+
+- [ ] **2026-09-09** The branch switcher can only show ids. Claims carry `branch_ids[]` and nothing else, and there is no `branches` repository in this app, so `branchNamesProvider` (`lib/features/staff/branch_scope.dart`) resolves to an empty map and the switcher degrades to `Branch 3f2504e0`. Back it with a `lib/data/branches/` repository mirroring the console's `lib/db/branches.ts` and the switcher needs no other change. An owner's claim is empty by design (empty `branch_ids` means the whole org to the RLS policies), so that repository is also the only way an owner ever gets a *per-branch* option rather than "All branches".
+- [ ] **2026-09-09** `lib/features/members/member_lookup_panel.dart` renders its error state as `Text('Lookup failed: $error')` — the exact shape `AppFailure` and `FailureView` exist to prevent, since a `42501` refusal there is indistinguishable from any other error and carries no distinct treatment. It belongs to the Members sub-project (C); swap it for `AsyncValueView` when that screen is built.
 
 ## Discovered — audit fixes (2026-09-05)
 
