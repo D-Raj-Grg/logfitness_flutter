@@ -22,6 +22,14 @@ class _FakeMembersRepository implements MembersRepository {
     lastQuery = phone;
     return rows;
   }
+
+  // Only the two methods the controller actually calls are faked. Anything
+  // else this repository grows -- the list, the RPC wrappers -- must fail the
+  // test that reached for it rather than quietly returning a default, which is
+  // how a fake starts asserting nothing.
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
 }
 
 Member _member() => Member(

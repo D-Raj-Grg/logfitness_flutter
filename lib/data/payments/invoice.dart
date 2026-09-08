@@ -1,7 +1,10 @@
 // Mirrors `public.invoices`. See
 // `logfitness_saas/supabase/migrations/20260905120400_invoices_and_payments.sql`.
+//
+// Verified column-for-column against the live schema on 2026-09-09.
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
+import 'package:logfitness_flutter/domain/format/plain_date.dart';
 
 part 'invoice.freezed.dart';
 part 'invoice.g.dart';
@@ -27,7 +30,9 @@ abstract class Invoice with _$Invoice {
     // the app never writes this field.
     required int duePaisa,
     required InvoiceStatus status,
-    required DateTime issuedOn,
+    // `date`, not `timestamptz`. The default converter read it as local
+    // midnight, which moves the billing day for any org east of UTC.
+    @PlainDateConverter() required DateTime issuedOn,
     String? notes,
     required DateTime createdAt,
     required DateTime updatedAt,
