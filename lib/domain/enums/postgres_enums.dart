@@ -148,7 +148,15 @@ enum PaymentKind {
   @JsonValue('payment')
   payment('payment'),
   @JsonValue('refund')
-  refund('refund');
+  refund('refund'),
+  // Added 2026-09-09. `reverse_payment` has written this kind since
+  // `20260907120500_payment_reversal.sql`, and this enum did not carry it, so
+  // `fromDb` threw for any org that had ever reversed an entry -- taking out
+  // payment history and the collection sheet, not just the reversed row. A
+  // refund says cash left the drawer; a reversal says a note that was rung up
+  // never arrived. They are different facts and the app has to read both.
+  @JsonValue('reversal')
+  reversal('reversal');
 
   const PaymentKind(this.wire);
 

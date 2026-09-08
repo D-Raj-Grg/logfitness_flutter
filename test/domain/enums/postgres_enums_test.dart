@@ -97,9 +97,20 @@ void main() {
 
   group('PaymentKind', () {
     test('round-trips every wire value', () {
-      for (final value in ['payment', 'refund']) {
+      // `reversal` was missing here until 2026-09-09, and this list is why it
+      // survived: the test asserted the values the enum happened to have
+      // rather than the values `public.payment_kind` actually declares. A
+      // list written from the migration is the point of the test.
+      for (final value in ['payment', 'refund', 'reversal']) {
         expect(PaymentKind.fromDb(value).toDb(), value);
       }
+    });
+
+    test('covers the whole Postgres enum, with nothing left over', () {
+      expect(
+        PaymentKind.values.map((e) => e.wire).toSet(),
+        <String>{'payment', 'refund', 'reversal'},
+      );
     });
 
     test('throws UnknownEnumValue on a bogus value', () {
