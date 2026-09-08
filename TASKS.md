@@ -155,8 +155,8 @@ Decisions taken while scoping it, so they are not re-litigated:
 - [ ] Cancel via `cancel_membership`; mark left via `set_member_left`; reactivate via `reactivate_member`
 - [ ] Refund via `refund_payment` — reason required, renders as a negative payment
 - [ ] Arrears list via `arrears_report`, filterable by branch
-- [ ] Branch switcher in the staff shell, options limited to `branch_ids[]` from claims
-- [ ] Role gating in the UI matches `PLANNING.md` §4 (front desk cannot see refund or cancel)
+- [x] Branch switcher in the staff shell, options limited to `branch_ids[]` from claims — selection exposed as `branchScopeProvider`; an owner's empty claim reads as org-wide, matching the RLS policies. Branch *names* still need a `branches` repository; the switcher shows shortened ids until one lands (see Discovered).
+- [x] Role gating in the UI matches `PLANNING.md` §4 (front desk cannot see refund or cancel) — `StaffCapability` is the single declarative table; nav destinations and, once they exist, actions are derived from it. UX only: the database refuses independently and `FailureView` renders that refusal.
 
 ## Phase 6 — Staff reports and admin
 
@@ -191,6 +191,9 @@ Decisions taken while scoping it, so they are not re-litigated:
 - [ ] **2026-09-09** The console's `setMemberLeft` (`logfitness_saas/lib/db/memberships.ts`) passes two arguments, but the live `set_member_left` takes three: `p_member_id, p_reason, p_left_on date`. The console can therefore only ever record a departure as the org's today. Mobile passes the third argument optionally; the console should too, or the argument should be dropped upstream.
 - [ ] **2026-09-09** `daily_collection` and `arrears_report` return `TABLE(...)`, but the console's `dailyCollection`/`arrearsReport` return the generated `Json` type with no row model. Mobile models them (`DailyCollectionRow`, `ArrearsRow` in `lib/data/payments/payment_rpc_results.dart`); `arrears_report.bucket` is plain `text` from the function, not a Postgres enum, so it is carried as a `String` on both sides.
 - [ ] **2026-09-09** `register_member`'s `hint` (`'member'` or `'sale'`, which half of the transaction refused) is not surfaced by PostgREST on a `PostgrestException`, so the Flutter caller cannot land the error on the right form field the way the console's Server Action does. Either move the discriminator into the message text upstream, or accept that mobile shows one combined error.
+
+- [ ] **2026-09-09** The branch switcher can only show ids. Claims carry `branch_ids[]` and nothing else, and there is no `branches` repository in this app, so `branchNamesProvider` (`lib/features/staff/branch_scope.dart`) resolves to an empty map and the switcher degrades to `Branch 3f2504e0`. Back it with a `lib/data/branches/` repository mirroring the console's `lib/db/branches.ts` and the switcher needs no other change. An owner's claim is empty by design (empty `branch_ids` means the whole org to the RLS policies), so that repository is also the only way an owner ever gets a *per-branch* option rather than "All branches".
+- [ ] **2026-09-09** `lib/features/members/member_lookup_panel.dart` renders its error state as `Text('Lookup failed: $error')` — the exact shape `AppFailure` and `FailureView` exist to prevent, since a `42501` refusal there is indistinguishable from any other error and carries no distinct treatment. It belongs to the Members sub-project (C); swap it for `AsyncValueView` when that screen is built.
 
 ## Discovered — audit fixes (2026-09-05)
 
