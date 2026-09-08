@@ -175,7 +175,7 @@ lib/app/                  router, theme, role shell, bootstrap
 lib/supabase/             client, session, claims
 lib/data/<module>/        repository + generated models
                           (members, memberships, payments, plans,
-                           classes, attendance)
+                           classes, attendance, visitors)
 lib/domain/               formatters, enums, shared value types
 lib/features/<module>/    screens, widgets, controllers
 test/                     mirrors lib/ one-to-one

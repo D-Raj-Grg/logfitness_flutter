@@ -57,3 +57,6 @@ key.properties
 # the real one carries project keys and never is.
 /env/*.json
 !/env/local.example.json
+
+# Agent worktrees (isolated checkouts; never part of the tree)
+.claude/worktrees/

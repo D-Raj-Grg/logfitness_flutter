@@ -61,6 +61,80 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 - [ ] Profile — name, phone, home branch; read-only in v1
 - [ ] Push registration — write device token on login, delete on sign-out; foreground and background receipt
 
+## Staff parity programme (decided 2026-09-09)
+
+The staff half of this app is being built to **full parity with the web
+console** -- all ~19 console routes and the 33 Server Actions behind them.
+That is a scope decision taken on 2026-09-09, and it changes two rules written
+here earlier: plan editing is no longer "web console only" (PLANNING.md §4's
+"chain administration stays on the web console" now covers branch and staff
+administration only), and `visitors` becomes a module of this app.
+
+Parity is cheap in one specific way and expensive in another. Cheap: **every
+RPC it needs already exists and is gate-tested upstream.** The console's
+`lib/db/*.ts` is 1908 lines of thin wrappers around 37 Postgres functions, so
+there is no business logic to re-derive -- CLAUDE.md's "keep logic the Flutter
+app will need in the database" was actually honoured. Expensive: it is still
+~19 screens. So it is decomposed into six sub-projects, each with its own
+spec and plan:
+
+```
+A. Staff foundation  --+--> B. Visitors (+ register)
+   (prerequisite)      |
+                       +--> C. Members read --+--> D. Sales
+                                              +--> E. Lifecycle
+                                              +--> F. Admin
+```
+
+Decisions taken while scoping it, so they are not re-litigated:
+
+- **Repositories mirror the console's `lib/db/*.ts` one-for-one** -- same
+  function names, same RPCs. Parity across 37 RPCs is only auditable if the
+  correspondence is mechanical. The one deliberate deviation is pagination:
+  the console pages by `searchParams`, mobile wants keyset infinite scroll, and
+  porting the offset pagination first to fix it later is worse than doing it
+  once.
+- **Register is pulled forward into B**, out of D. Converting a visitor *is*
+  registering a member -- the console's own member form already takes a
+  `visitorId` and prefills from it -- so a visitor log that cannot convert is
+  the feature with its point removed.
+- **The no-local-write-queue rule holds.** B takes cash, which is exactly when
+  it would be tempting to break. It stays broken-loudly instead: a write with
+  no connection says so and saves nothing. `register_member` and
+  `record_payment` are not idempotent, so a replay queue would need
+  idempotency keys added upstream first -- a separate scope decision, not a
+  detail.
+- **Member photo defers to F**, and is a separate action from registration when
+  it lands, so a failed upload can never cost the member or the payment that
+  was taken with them.
+
+- [x] **A. Staff foundation.** Models regenerated against the live schema (the
+      `Member` model was seven columns behind -- `archived_at`/`archived_reason`/
+      `archived_by`, `invited_by`/`invited_at`/`accepted_at`,
+      `notifications_opt_out` -- and the archive columns are the dangerous half,
+      because a staff search that cannot see `archived_at` shows the desk people
+      it has deliberately put away). Date-only converter shipped, closing the
+      2026-09-05 Discovered item before the write that needed it. `AppFailure`
+      maps Postgres error codes to sentences, and exists because the console
+      shipped a swallowed `42501` on 2026-09-07 that made a refusal look like
+      success. `visitor_kind`/`visitor_status` enums and the `Visitor` model.
+- [ ] **B. Visitors + register.** Visitor log (list, filter by status/branch/
+      date, phone lookup), log a walk-in, edit, mark contacted/lost, and convert
+      via `convert_visitor` into a prefilled `register_member` including the
+      optional sale block.
+- [ ] **C. Members read.** List with search, filters and pagination (archived
+      excluded by default); detail with membership, invoice, payment and
+      attendance history; photo display via signed URLs.
+- [ ] **D. Sales.** `renew_membership`, `record_payment`, today's collection
+      sheet via `daily_collection`.
+- [ ] **E. Lifecycle.** `freeze_membership`, `unfreeze_membership`,
+      `cancel_membership`, `set_member_left`, `reactivate_member`,
+      `adjust_membership_dates`, `refund_payment`, `reverse_payment`. Role-gated
+      per PLANNING.md §4: front desk sees neither refund nor cancel -- and the
+      hidden button is UX only, the refusal still comes from the database.
+- [ ] **F. Admin.** Member edit, photo capture and upload, archive/restore,
+      invite-to-app.
+
 ## Phase 4 — Staff front desk
 
 - [ ] Scan check-in via `mobile_scanner` verifying against the token Edge Function (≤3s from scan to confirmation; optimistic success state)
@@ -123,7 +197,10 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 
 - [ ] Nepali-language UI at launch, or English-only? (bites harder on the member shell)
 - [ ] Is the home branch binding for billing, or can any branch collect a renewal?
-- [ ] How much staff parity belongs on mobile — is Phase 6 worth building, or does the console stay sole surface?
+- [x] How much staff parity belongs on mobile — is Phase 6 worth building, or does the console stay sole surface?
+      Answered 2026-09-09: **full parity**, both surfaces. See "Staff parity
+      programme" above. The console is not retired; the two ship the same
+      capabilities and the database stays the single boundary for both.
 - [ ] Push provider — FCM directly, or OneSignal? Affects the upstream fanout contract
 - [ ] Do trainers get PT-session tooling in v1, or a read-only shell?
 - [ ] Phone OTP member login — deferred until an SMS gateway is chosen; invite/email is v1
