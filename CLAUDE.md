@@ -27,7 +27,16 @@ Product context lives in `../logfitness_saas/docs/PRD.md`. The backend contract 
 
 v1 excludes: card-on-file/Stripe recurring billing, member web self-service, POS and
 inventory, payroll/HR, biometric hardware, workout program builder, exercise library,
-body-composition tracking, marketing/CRM, accounting integrations. Mobile adds two of its
+body-composition tracking, marketing/CRM, accounting integrations. Mobile adds one of its
 own: **offline-first is deferred, not solved** — aggressive caching and optimistic check-in
-UI only, no local write queue — and chain administration stays on the web console. Do not
-build these without an explicit scope decision.
+UI only, no local write queue. That rule survived contact with the cash drawer on
+2026-09-09 and is not a placeholder: `register_member` and `record_payment` are not
+idempotent, so a replay queue needs idempotency keys added upstream before it is even
+discussable. Do not build these without an explicit scope decision.
+
+**Chain administration** was a third exclusion until 2026-09-09, when the staff half of
+this app was scoped to full parity with the web console (see `TASKS.md`, "Staff parity
+programme"). Member, membership, payment, plan and visitor management all belong here now.
+What is still console-only is **branch and staff administration** — creating branches,
+inviting staff, setting roles and branch assignments — along with notification gateway
+configuration.

@@ -91,7 +91,7 @@ queue, a sync engine, or a local database in v1.
 | `front_desk` | Staff shell | Check-in (scan and manual), collect payment, walk-in signup, renewals, today's collection. Scoped to assigned branches. |
 | `trainer` | Staff shell | Own classes and sessions, attendance for them. Scoped to assigned branches. |
 | `manager` | Staff shell | Everything front desk can do, plus member management, freezes, cancellations, refunds, and branch reports. Scoped to assigned branches. |
-| `owner` | Staff shell | Manager capability across every branch in the org. Chain administration stays on the web console. |
+| `owner` | Staff shell | Manager capability across every branch in the org. Branch and staff administration — creating branches, inviting staff, setting roles and branch assignments — and notification gateway configuration stay on the web console. Everything else reached parity on 2026-09-09; see `TASKS.md`, "Staff parity programme". |
 
 Staff roles match the `staff_role` Postgres enum exactly. `member` is a distinct principal type
 that reaches the database through its own RLS policies.
