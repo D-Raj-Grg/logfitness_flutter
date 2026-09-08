@@ -208,3 +208,53 @@ enum StaffRole {
 
   String toDb() => wire;
 }
+
+/// Mirrors `public.visitor_kind`.
+///
+/// Two kinds of person walk in: one asking what a month costs, one here to
+/// train for a day as a guest. See
+/// `logfitness_saas/supabase/migrations/20260908110100_visitors.sql`.
+enum VisitorKind {
+  @JsonValue('enquiry')
+  enquiry('enquiry'),
+  @JsonValue('guest')
+  guest('guest');
+
+  const VisitorKind(this.wire);
+
+  final String wire;
+
+  static VisitorKind fromDb(String value) => VisitorKind.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('VisitorKind', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.visitor_status`.
+///
+/// `converted` is not settable from the app: the database's
+/// `visitors_converted_shape` constraint requires the member id and the
+/// timestamp to move with it, which is what `convert_visitor` is for.
+enum VisitorStatus {
+  @JsonValue('new')
+  isNew('new'),
+  @JsonValue('contacted')
+  contacted('contacted'),
+  @JsonValue('converted')
+  converted('converted'),
+  @JsonValue('lost')
+  lost('lost');
+
+  const VisitorStatus(this.wire);
+
+  final String wire;
+
+  static VisitorStatus fromDb(String value) => VisitorStatus.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('VisitorStatus', value),
+      );
+
+  String toDb() => wire;
+}

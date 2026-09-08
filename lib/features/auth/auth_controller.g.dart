@@ -55,7 +55,7 @@ final class PrincipalProvider
   }
 }
 
-String _$principalHash() => r'ec91dc6f77295df49143baa72de5822468b9b854';
+String _$principalHash() => r'815f5fc09c41f50a202a6c7de57e37f922b3911b';
 
 /// Sign-in, sign-out, and account-linking, as one `AsyncValue<LinkOutcome?>`
 /// state: `null` before anything has been attempted, `loading` mid-call,

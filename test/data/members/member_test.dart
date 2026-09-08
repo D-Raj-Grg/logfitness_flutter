@@ -39,7 +39,9 @@ void main() {
     expect(member.fullName, 'Anjali Shrestha');
     expect(member.phone, '9800000000');
     expect(member.email, isNull);
-    expect(member.dateOfBirth, DateTime.parse('1995-06-12'));
+    // Date-only columns are pinned to UTC midnight so no offset can move
+    // the day -- see lib/domain/format/plain_date.dart.
+    expect(member.dateOfBirth, DateTime.utc(1995, 6, 12));
     expect(member.gender, MemberGender.female);
     expect(member.address, isNull);
     expect(member.photoPath, isNull);
@@ -47,7 +49,7 @@ void main() {
     expect(member.emergencyContactPhone, isNull);
     expect(member.notes, isNull);
     expect(member.status, MemberStatus.active);
-    expect(member.joinedOn, DateTime.parse('2024-01-15'));
+    expect(member.joinedOn, DateTime.utc(2024, 1, 15));
     expect(member.leftOn, isNull);
     expect(member.leftReason, isNull);
     expect(member.createdBy, isNull);
@@ -93,7 +95,7 @@ void main() {
     expect(member.emergencyContactPhone, '9822222222');
     expect(member.notes, 'Prefers evening sessions.');
     expect(member.status, MemberStatus.left);
-    expect(member.leftOn, DateTime.parse('2024-02-01'));
+    expect(member.leftOn, DateTime.utc(2024, 2, 1));
     expect(member.leftReason, 'Relocated');
     expect(member.createdBy, '55555555-5555-5555-5555-555555555555');
   });

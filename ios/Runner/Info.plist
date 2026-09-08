@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -20,9 +22,31 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<!-- Supabase Auth deep link: invite/recovery emails redirect here.
+	     supabase_flutter's built-in app_links observer picks up the incoming
+	     URL automatically once iOS hands it to the app via
+	     application(_:open:options:); no extra Dart-side listener code is
+	     required. Keep the scheme aligned with the Android applicationId. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lordofgyms.logfitness_flutter.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.lordofgyms.logfitness_flutter</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scanning a member QR code at the front desk needs the camera.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
@@ -40,26 +64,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<!-- Supabase Auth deep link: invite/recovery emails redirect here.
-	     supabase_flutter's built-in app_links observer picks up the incoming
-	     URL automatically once iOS hands it to the app via
-	     application(_:open:options:); no extra Dart-side listener code is
-	     required. Keep the scheme aligned with the Android applicationId. -->
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.lordofgyms.logfitness_flutter.auth</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>com.lordofgyms.logfitness_flutter</string>
-			</array>
-		</dict>
 	</array>
 </dict>
 </plist>

@@ -60,3 +60,13 @@ int daysUntil(Object value, {String timeZone = kDefaultTimezone}) {
 
   return (diffMs / dayInMs).round();
 }
+
+/// Formats a date-only value (see `plain_date.dart`). Unlike [formatDate],
+/// this applies **no** timezone shift: a `date` column is a calendar day that
+/// already happened in the org's own reckoning, and moving it by an offset
+/// can only turn it into the wrong day.
+String formatPlainDate(DateTime value) {
+  final utc = value.isUtc ? value : value.toUtc();
+  return DateFormat('dd MMM yyyy', 'en_US')
+      .format(DateTime(utc.year, utc.month, utc.day));
+}
