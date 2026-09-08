@@ -20,7 +20,9 @@ mixin _$Invoice {
 // this field.
  int get paidPaisa;// Generated column (`total_paisa - paid_paisa`, stored). Read-only —
 // the app never writes this field.
- int get duePaisa; InvoiceStatus get status; DateTime get issuedOn; String? get notes; DateTime get createdAt; DateTime get updatedAt;
+ int get duePaisa; InvoiceStatus get status;// `date`, not `timestamptz`. The default converter read it as local
+// midnight, which moves the billing day for any org east of UTC.
+@PlainDateConverter() DateTime get issuedOn; String? get notes; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of Invoice
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -53,7 +55,7 @@ abstract mixin class $InvoiceCopyWith<$Res>  {
   factory $InvoiceCopyWith(Invoice value, $Res Function(Invoice) _then) = _$InvoiceCopyWithImpl;
 @useResult
 $Res call({
- String id, String orgId, String branchId, String memberId, String? membershipId, String invoiceNo, int subtotalPaisa, int discountPaisa, int totalPaisa, int paidPaisa, int duePaisa, InvoiceStatus status, DateTime issuedOn, String? notes, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String branchId, String memberId, String? membershipId, String invoiceNo, int subtotalPaisa, int discountPaisa, int totalPaisa, int paidPaisa, int duePaisa, InvoiceStatus status,@PlainDateConverter() DateTime issuedOn, String? notes, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -173,7 +175,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status,  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status, @PlainDateConverter()  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Invoice() when $default != null:
 return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.membershipId,_that.invoiceNo,_that.subtotalPaisa,_that.discountPaisa,_that.totalPaisa,_that.paidPaisa,_that.duePaisa,_that.status,_that.issuedOn,_that.notes,_that.createdAt,_that.updatedAt);case _:
@@ -194,7 +196,7 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.members
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status,  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status, @PlainDateConverter()  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Invoice():
 return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.membershipId,_that.invoiceNo,_that.subtotalPaisa,_that.discountPaisa,_that.totalPaisa,_that.paidPaisa,_that.duePaisa,_that.status,_that.issuedOn,_that.notes,_that.createdAt,_that.updatedAt);case _:
@@ -214,7 +216,7 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.members
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status,  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String branchId,  String memberId,  String? membershipId,  String invoiceNo,  int subtotalPaisa,  int discountPaisa,  int totalPaisa,  int paidPaisa,  int duePaisa,  InvoiceStatus status, @PlainDateConverter()  DateTime issuedOn,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Invoice() when $default != null:
 return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.membershipId,_that.invoiceNo,_that.subtotalPaisa,_that.discountPaisa,_that.totalPaisa,_that.paidPaisa,_that.duePaisa,_that.status,_that.issuedOn,_that.notes,_that.createdAt,_that.updatedAt);case _:
@@ -229,7 +231,7 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.members
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class _Invoice implements Invoice {
-  const _Invoice({required this.id, required this.orgId, required this.branchId, required this.memberId, this.membershipId, required this.invoiceNo, required this.subtotalPaisa, required this.discountPaisa, required this.totalPaisa, required this.paidPaisa, required this.duePaisa, required this.status, required this.issuedOn, this.notes, required this.createdAt, required this.updatedAt});
+  const _Invoice({required this.id, required this.orgId, required this.branchId, required this.memberId, this.membershipId, required this.invoiceNo, required this.subtotalPaisa, required this.discountPaisa, required this.totalPaisa, required this.paidPaisa, required this.duePaisa, required this.status, @PlainDateConverter() required this.issuedOn, this.notes, required this.createdAt, required this.updatedAt});
   factory _Invoice.fromJson(Map<String, dynamic> json) => _$InvoiceFromJson(json);
 
 @override final  String id;
@@ -249,7 +251,9 @@ class _Invoice implements Invoice {
 // the app never writes this field.
 @override final  int duePaisa;
 @override final  InvoiceStatus status;
-@override final  DateTime issuedOn;
+// `date`, not `timestamptz`. The default converter read it as local
+// midnight, which moves the billing day for any org east of UTC.
+@override@PlainDateConverter() final  DateTime issuedOn;
 @override final  String? notes;
 @override final  DateTime createdAt;
 @override final  DateTime updatedAt;
@@ -287,7 +291,7 @@ abstract mixin class _$InvoiceCopyWith<$Res> implements $InvoiceCopyWith<$Res> {
   factory _$InvoiceCopyWith(_Invoice value, $Res Function(_Invoice) _then) = __$InvoiceCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String orgId, String branchId, String memberId, String? membershipId, String invoiceNo, int subtotalPaisa, int discountPaisa, int totalPaisa, int paidPaisa, int duePaisa, InvoiceStatus status, DateTime issuedOn, String? notes, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String branchId, String memberId, String? membershipId, String invoiceNo, int subtotalPaisa, int discountPaisa, int totalPaisa, int paidPaisa, int duePaisa, InvoiceStatus status,@PlainDateConverter() DateTime issuedOn, String? notes, DateTime createdAt, DateTime updatedAt
 });
 
 

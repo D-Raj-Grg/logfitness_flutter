@@ -16,8 +16,20 @@ T _$identity<T>(T value) => value;
 mixin _$Membership {
 
  String get id; String get orgId; String get branchId; String get memberId; String get planId;// Snapshot of the plan as sold at the time of sale.
- String get planName; PlanType get planType; DateTime get startDate; DateTime? get endDate; int? get sessionsTotal; int? get sessionsRemaining;// Money is integer paisa end to end. Never a double, never converted here.
- int get pricePaisa; int get discountPaisa; MembershipStatus get status; DateTime? get frozenOn; int get frozenDays; DateTime? get cancelledAt; String? get cancelReason; String? get previousMembershipId; String? get soldBy; String? get notes; DateTime get createdAt; DateTime get updatedAt;
+ String get planName; PlanType get planType;// `date`, not `timestamptz` -- a membership window is calendar days. Left
+// on the default converter these decoded to *local* midnight, so once the
+// value reached `formatPlainDate` the day drifted for any org east of
+// UTC. TASKS.md Discovered 2026-09-05 called this out for exactly these
+// columns; see lib/domain/format/plain_date.dart.
+@PlainDateConverter() DateTime get startDate;// Null for a session pack sold with no validity window -- the shape
+// `adjust_membership_dates` explicitly accepts a null end date for.
+@NullablePlainDateConverter() DateTime? get endDate; int? get sessionsTotal; int? get sessionsRemaining;// Money is integer paisa end to end. Never a double, never converted here.
+ int get pricePaisa; int get discountPaisa;// The joining fee this sale charged, kept apart from the plan price so a
+// renewal that waives it stays legible on the invoice.
+ int get signupFeePaisa;// Written by the RPCs (`renew_membership`, `freeze_membership`,
+// `cancel_membership`) and by the status derivation trigger, never by the
+// app.
+ MembershipStatus get status;@NullablePlainDateConverter() DateTime? get frozenOn; int get frozenDays; DateTime? get cancelledAt; String? get cancelReason; String? get previousMembershipId; String? get soldBy; String? get notes; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of Membership
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,16 +42,16 @@ $MembershipCopyWith<Membership> get copyWith => _$MembershipCopyWithImpl<Members
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Membership&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.planId, planId) || other.planId == planId)&&(identical(other.planName, planName) || other.planName == planName)&&(identical(other.planType, planType) || other.planType == planType)&&(identical(other.startDate, startDate) || other.startDate == startDate)&&(identical(other.endDate, endDate) || other.endDate == endDate)&&(identical(other.sessionsTotal, sessionsTotal) || other.sessionsTotal == sessionsTotal)&&(identical(other.sessionsRemaining, sessionsRemaining) || other.sessionsRemaining == sessionsRemaining)&&(identical(other.pricePaisa, pricePaisa) || other.pricePaisa == pricePaisa)&&(identical(other.discountPaisa, discountPaisa) || other.discountPaisa == discountPaisa)&&(identical(other.status, status) || other.status == status)&&(identical(other.frozenOn, frozenOn) || other.frozenOn == frozenOn)&&(identical(other.frozenDays, frozenDays) || other.frozenDays == frozenDays)&&(identical(other.cancelledAt, cancelledAt) || other.cancelledAt == cancelledAt)&&(identical(other.cancelReason, cancelReason) || other.cancelReason == cancelReason)&&(identical(other.previousMembershipId, previousMembershipId) || other.previousMembershipId == previousMembershipId)&&(identical(other.soldBy, soldBy) || other.soldBy == soldBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Membership&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.planId, planId) || other.planId == planId)&&(identical(other.planName, planName) || other.planName == planName)&&(identical(other.planType, planType) || other.planType == planType)&&(identical(other.startDate, startDate) || other.startDate == startDate)&&(identical(other.endDate, endDate) || other.endDate == endDate)&&(identical(other.sessionsTotal, sessionsTotal) || other.sessionsTotal == sessionsTotal)&&(identical(other.sessionsRemaining, sessionsRemaining) || other.sessionsRemaining == sessionsRemaining)&&(identical(other.pricePaisa, pricePaisa) || other.pricePaisa == pricePaisa)&&(identical(other.discountPaisa, discountPaisa) || other.discountPaisa == discountPaisa)&&(identical(other.signupFeePaisa, signupFeePaisa) || other.signupFeePaisa == signupFeePaisa)&&(identical(other.status, status) || other.status == status)&&(identical(other.frozenOn, frozenOn) || other.frozenOn == frozenOn)&&(identical(other.frozenDays, frozenDays) || other.frozenDays == frozenDays)&&(identical(other.cancelledAt, cancelledAt) || other.cancelledAt == cancelledAt)&&(identical(other.cancelReason, cancelReason) || other.cancelReason == cancelReason)&&(identical(other.previousMembershipId, previousMembershipId) || other.previousMembershipId == previousMembershipId)&&(identical(other.soldBy, soldBy) || other.soldBy == soldBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,planId,planName,planType,startDate,endDate,sessionsTotal,sessionsRemaining,pricePaisa,discountPaisa,status,frozenOn,frozenDays,cancelledAt,cancelReason,previousMembershipId,soldBy,notes,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,planId,planName,planType,startDate,endDate,sessionsTotal,sessionsRemaining,pricePaisa,discountPaisa,signupFeePaisa,status,frozenOn,frozenDays,cancelledAt,cancelReason,previousMembershipId,soldBy,notes,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'Membership(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, planId: $planId, planName: $planName, planType: $planType, startDate: $startDate, endDate: $endDate, sessionsTotal: $sessionsTotal, sessionsRemaining: $sessionsRemaining, pricePaisa: $pricePaisa, discountPaisa: $discountPaisa, status: $status, frozenOn: $frozenOn, frozenDays: $frozenDays, cancelledAt: $cancelledAt, cancelReason: $cancelReason, previousMembershipId: $previousMembershipId, soldBy: $soldBy, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Membership(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, planId: $planId, planName: $planName, planType: $planType, startDate: $startDate, endDate: $endDate, sessionsTotal: $sessionsTotal, sessionsRemaining: $sessionsRemaining, pricePaisa: $pricePaisa, discountPaisa: $discountPaisa, signupFeePaisa: $signupFeePaisa, status: $status, frozenOn: $frozenOn, frozenDays: $frozenDays, cancelledAt: $cancelledAt, cancelReason: $cancelReason, previousMembershipId: $previousMembershipId, soldBy: $soldBy, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -50,7 +62,7 @@ abstract mixin class $MembershipCopyWith<$Res>  {
   factory $MembershipCopyWith(Membership value, $Res Function(Membership) _then) = _$MembershipCopyWithImpl;
 @useResult
 $Res call({
- String id, String orgId, String branchId, String memberId, String planId, String planName, PlanType planType, DateTime startDate, DateTime? endDate, int? sessionsTotal, int? sessionsRemaining, int pricePaisa, int discountPaisa, MembershipStatus status, DateTime? frozenOn, int frozenDays, DateTime? cancelledAt, String? cancelReason, String? previousMembershipId, String? soldBy, String? notes, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String branchId, String memberId, String planId, String planName, PlanType planType,@PlainDateConverter() DateTime startDate,@NullablePlainDateConverter() DateTime? endDate, int? sessionsTotal, int? sessionsRemaining, int pricePaisa, int discountPaisa, int signupFeePaisa, MembershipStatus status,@NullablePlainDateConverter() DateTime? frozenOn, int frozenDays, DateTime? cancelledAt, String? cancelReason, String? previousMembershipId, String? soldBy, String? notes, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -67,7 +79,7 @@ class _$MembershipCopyWithImpl<$Res>
 
 /// Create a copy of Membership
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? orgId = null,Object? branchId = null,Object? memberId = null,Object? planId = null,Object? planName = null,Object? planType = null,Object? startDate = null,Object? endDate = freezed,Object? sessionsTotal = freezed,Object? sessionsRemaining = freezed,Object? pricePaisa = null,Object? discountPaisa = null,Object? status = null,Object? frozenOn = freezed,Object? frozenDays = null,Object? cancelledAt = freezed,Object? cancelReason = freezed,Object? previousMembershipId = freezed,Object? soldBy = freezed,Object? notes = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? orgId = null,Object? branchId = null,Object? memberId = null,Object? planId = null,Object? planName = null,Object? planType = null,Object? startDate = null,Object? endDate = freezed,Object? sessionsTotal = freezed,Object? sessionsRemaining = freezed,Object? pricePaisa = null,Object? discountPaisa = null,Object? signupFeePaisa = null,Object? status = null,Object? frozenOn = freezed,Object? frozenDays = null,Object? cancelledAt = freezed,Object? cancelReason = freezed,Object? previousMembershipId = freezed,Object? soldBy = freezed,Object? notes = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -82,6 +94,7 @@ as DateTime?,sessionsTotal: freezed == sessionsTotal ? _self.sessionsTotal : ses
 as int?,sessionsRemaining: freezed == sessionsRemaining ? _self.sessionsRemaining : sessionsRemaining // ignore: cast_nullable_to_non_nullable
 as int?,pricePaisa: null == pricePaisa ? _self.pricePaisa : pricePaisa // ignore: cast_nullable_to_non_nullable
 as int,discountPaisa: null == discountPaisa ? _self.discountPaisa : discountPaisa // ignore: cast_nullable_to_non_nullable
+as int,signupFeePaisa: null == signupFeePaisa ? _self.signupFeePaisa : signupFeePaisa // ignore: cast_nullable_to_non_nullable
 as int,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as MembershipStatus,frozenOn: freezed == frozenOn ? _self.frozenOn : frozenOn // ignore: cast_nullable_to_non_nullable
 as DateTime?,frozenDays: null == frozenDays ? _self.frozenDays : frozenDays // ignore: cast_nullable_to_non_nullable
@@ -177,10 +190,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType,  DateTime startDate,  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  MembershipStatus status,  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType, @PlainDateConverter()  DateTime startDate, @NullablePlainDateConverter()  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  int signupFeePaisa,  MembershipStatus status, @NullablePlainDateConverter()  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Membership() when $default != null:
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.signupFeePaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -198,10 +211,10 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType,  DateTime startDate,  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  MembershipStatus status,  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType, @PlainDateConverter()  DateTime startDate, @NullablePlainDateConverter()  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  int signupFeePaisa,  MembershipStatus status, @NullablePlainDateConverter()  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Membership():
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.signupFeePaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -218,10 +231,10 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType,  DateTime startDate,  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  MembershipStatus status,  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String branchId,  String memberId,  String planId,  String planName,  PlanType planType, @PlainDateConverter()  DateTime startDate, @NullablePlainDateConverter()  DateTime? endDate,  int? sessionsTotal,  int? sessionsRemaining,  int pricePaisa,  int discountPaisa,  int signupFeePaisa,  MembershipStatus status, @NullablePlainDateConverter()  DateTime? frozenOn,  int frozenDays,  DateTime? cancelledAt,  String? cancelReason,  String? previousMembershipId,  String? soldBy,  String? notes,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Membership() when $default != null:
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,_that.planName,_that.planType,_that.startDate,_that.endDate,_that.sessionsTotal,_that.sessionsRemaining,_that.pricePaisa,_that.discountPaisa,_that.signupFeePaisa,_that.status,_that.frozenOn,_that.frozenDays,_that.cancelledAt,_that.cancelReason,_that.previousMembershipId,_that.soldBy,_that.notes,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -233,7 +246,7 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.planId,
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class _Membership implements Membership {
-  const _Membership({required this.id, required this.orgId, required this.branchId, required this.memberId, required this.planId, required this.planName, required this.planType, required this.startDate, this.endDate, this.sessionsTotal, this.sessionsRemaining, required this.pricePaisa, required this.discountPaisa, required this.status, this.frozenOn, required this.frozenDays, this.cancelledAt, this.cancelReason, this.previousMembershipId, this.soldBy, this.notes, required this.createdAt, required this.updatedAt});
+  const _Membership({required this.id, required this.orgId, required this.branchId, required this.memberId, required this.planId, required this.planName, required this.planType, @PlainDateConverter() required this.startDate, @NullablePlainDateConverter() this.endDate, this.sessionsTotal, this.sessionsRemaining, required this.pricePaisa, required this.discountPaisa, required this.signupFeePaisa, required this.status, @NullablePlainDateConverter() this.frozenOn, required this.frozenDays, this.cancelledAt, this.cancelReason, this.previousMembershipId, this.soldBy, this.notes, required this.createdAt, required this.updatedAt});
   factory _Membership.fromJson(Map<String, dynamic> json) => _$MembershipFromJson(json);
 
 @override final  String id;
@@ -244,15 +257,28 @@ class _Membership implements Membership {
 // Snapshot of the plan as sold at the time of sale.
 @override final  String planName;
 @override final  PlanType planType;
-@override final  DateTime startDate;
-@override final  DateTime? endDate;
+// `date`, not `timestamptz` -- a membership window is calendar days. Left
+// on the default converter these decoded to *local* midnight, so once the
+// value reached `formatPlainDate` the day drifted for any org east of
+// UTC. TASKS.md Discovered 2026-09-05 called this out for exactly these
+// columns; see lib/domain/format/plain_date.dart.
+@override@PlainDateConverter() final  DateTime startDate;
+// Null for a session pack sold with no validity window -- the shape
+// `adjust_membership_dates` explicitly accepts a null end date for.
+@override@NullablePlainDateConverter() final  DateTime? endDate;
 @override final  int? sessionsTotal;
 @override final  int? sessionsRemaining;
 // Money is integer paisa end to end. Never a double, never converted here.
 @override final  int pricePaisa;
 @override final  int discountPaisa;
+// The joining fee this sale charged, kept apart from the plan price so a
+// renewal that waives it stays legible on the invoice.
+@override final  int signupFeePaisa;
+// Written by the RPCs (`renew_membership`, `freeze_membership`,
+// `cancel_membership`) and by the status derivation trigger, never by the
+// app.
 @override final  MembershipStatus status;
-@override final  DateTime? frozenOn;
+@override@NullablePlainDateConverter() final  DateTime? frozenOn;
 @override final  int frozenDays;
 @override final  DateTime? cancelledAt;
 @override final  String? cancelReason;
@@ -275,16 +301,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Membership&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.planId, planId) || other.planId == planId)&&(identical(other.planName, planName) || other.planName == planName)&&(identical(other.planType, planType) || other.planType == planType)&&(identical(other.startDate, startDate) || other.startDate == startDate)&&(identical(other.endDate, endDate) || other.endDate == endDate)&&(identical(other.sessionsTotal, sessionsTotal) || other.sessionsTotal == sessionsTotal)&&(identical(other.sessionsRemaining, sessionsRemaining) || other.sessionsRemaining == sessionsRemaining)&&(identical(other.pricePaisa, pricePaisa) || other.pricePaisa == pricePaisa)&&(identical(other.discountPaisa, discountPaisa) || other.discountPaisa == discountPaisa)&&(identical(other.status, status) || other.status == status)&&(identical(other.frozenOn, frozenOn) || other.frozenOn == frozenOn)&&(identical(other.frozenDays, frozenDays) || other.frozenDays == frozenDays)&&(identical(other.cancelledAt, cancelledAt) || other.cancelledAt == cancelledAt)&&(identical(other.cancelReason, cancelReason) || other.cancelReason == cancelReason)&&(identical(other.previousMembershipId, previousMembershipId) || other.previousMembershipId == previousMembershipId)&&(identical(other.soldBy, soldBy) || other.soldBy == soldBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Membership&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.planId, planId) || other.planId == planId)&&(identical(other.planName, planName) || other.planName == planName)&&(identical(other.planType, planType) || other.planType == planType)&&(identical(other.startDate, startDate) || other.startDate == startDate)&&(identical(other.endDate, endDate) || other.endDate == endDate)&&(identical(other.sessionsTotal, sessionsTotal) || other.sessionsTotal == sessionsTotal)&&(identical(other.sessionsRemaining, sessionsRemaining) || other.sessionsRemaining == sessionsRemaining)&&(identical(other.pricePaisa, pricePaisa) || other.pricePaisa == pricePaisa)&&(identical(other.discountPaisa, discountPaisa) || other.discountPaisa == discountPaisa)&&(identical(other.signupFeePaisa, signupFeePaisa) || other.signupFeePaisa == signupFeePaisa)&&(identical(other.status, status) || other.status == status)&&(identical(other.frozenOn, frozenOn) || other.frozenOn == frozenOn)&&(identical(other.frozenDays, frozenDays) || other.frozenDays == frozenDays)&&(identical(other.cancelledAt, cancelledAt) || other.cancelledAt == cancelledAt)&&(identical(other.cancelReason, cancelReason) || other.cancelReason == cancelReason)&&(identical(other.previousMembershipId, previousMembershipId) || other.previousMembershipId == previousMembershipId)&&(identical(other.soldBy, soldBy) || other.soldBy == soldBy)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,planId,planName,planType,startDate,endDate,sessionsTotal,sessionsRemaining,pricePaisa,discountPaisa,status,frozenOn,frozenDays,cancelledAt,cancelReason,previousMembershipId,soldBy,notes,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,planId,planName,planType,startDate,endDate,sessionsTotal,sessionsRemaining,pricePaisa,discountPaisa,signupFeePaisa,status,frozenOn,frozenDays,cancelledAt,cancelReason,previousMembershipId,soldBy,notes,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'Membership(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, planId: $planId, planName: $planName, planType: $planType, startDate: $startDate, endDate: $endDate, sessionsTotal: $sessionsTotal, sessionsRemaining: $sessionsRemaining, pricePaisa: $pricePaisa, discountPaisa: $discountPaisa, status: $status, frozenOn: $frozenOn, frozenDays: $frozenDays, cancelledAt: $cancelledAt, cancelReason: $cancelReason, previousMembershipId: $previousMembershipId, soldBy: $soldBy, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Membership(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, planId: $planId, planName: $planName, planType: $planType, startDate: $startDate, endDate: $endDate, sessionsTotal: $sessionsTotal, sessionsRemaining: $sessionsRemaining, pricePaisa: $pricePaisa, discountPaisa: $discountPaisa, signupFeePaisa: $signupFeePaisa, status: $status, frozenOn: $frozenOn, frozenDays: $frozenDays, cancelledAt: $cancelledAt, cancelReason: $cancelReason, previousMembershipId: $previousMembershipId, soldBy: $soldBy, notes: $notes, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -295,7 +321,7 @@ abstract mixin class _$MembershipCopyWith<$Res> implements $MembershipCopyWith<$
   factory _$MembershipCopyWith(_Membership value, $Res Function(_Membership) _then) = __$MembershipCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String orgId, String branchId, String memberId, String planId, String planName, PlanType planType, DateTime startDate, DateTime? endDate, int? sessionsTotal, int? sessionsRemaining, int pricePaisa, int discountPaisa, MembershipStatus status, DateTime? frozenOn, int frozenDays, DateTime? cancelledAt, String? cancelReason, String? previousMembershipId, String? soldBy, String? notes, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String branchId, String memberId, String planId, String planName, PlanType planType,@PlainDateConverter() DateTime startDate,@NullablePlainDateConverter() DateTime? endDate, int? sessionsTotal, int? sessionsRemaining, int pricePaisa, int discountPaisa, int signupFeePaisa, MembershipStatus status,@NullablePlainDateConverter() DateTime? frozenOn, int frozenDays, DateTime? cancelledAt, String? cancelReason, String? previousMembershipId, String? soldBy, String? notes, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -312,7 +338,7 @@ class __$MembershipCopyWithImpl<$Res>
 
 /// Create a copy of Membership
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? orgId = null,Object? branchId = null,Object? memberId = null,Object? planId = null,Object? planName = null,Object? planType = null,Object? startDate = null,Object? endDate = freezed,Object? sessionsTotal = freezed,Object? sessionsRemaining = freezed,Object? pricePaisa = null,Object? discountPaisa = null,Object? status = null,Object? frozenOn = freezed,Object? frozenDays = null,Object? cancelledAt = freezed,Object? cancelReason = freezed,Object? previousMembershipId = freezed,Object? soldBy = freezed,Object? notes = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? orgId = null,Object? branchId = null,Object? memberId = null,Object? planId = null,Object? planName = null,Object? planType = null,Object? startDate = null,Object? endDate = freezed,Object? sessionsTotal = freezed,Object? sessionsRemaining = freezed,Object? pricePaisa = null,Object? discountPaisa = null,Object? signupFeePaisa = null,Object? status = null,Object? frozenOn = freezed,Object? frozenDays = null,Object? cancelledAt = freezed,Object? cancelReason = freezed,Object? previousMembershipId = freezed,Object? soldBy = freezed,Object? notes = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_Membership(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -327,6 +353,7 @@ as DateTime?,sessionsTotal: freezed == sessionsTotal ? _self.sessionsTotal : ses
 as int?,sessionsRemaining: freezed == sessionsRemaining ? _self.sessionsRemaining : sessionsRemaining // ignore: cast_nullable_to_non_nullable
 as int?,pricePaisa: null == pricePaisa ? _self.pricePaisa : pricePaisa // ignore: cast_nullable_to_non_nullable
 as int,discountPaisa: null == discountPaisa ? _self.discountPaisa : discountPaisa // ignore: cast_nullable_to_non_nullable
+as int,signupFeePaisa: null == signupFeePaisa ? _self.signupFeePaisa : signupFeePaisa // ignore: cast_nullable_to_non_nullable
 as int,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as MembershipStatus,frozenOn: freezed == frozenOn ? _self.frozenOn : frozenOn // ignore: cast_nullable_to_non_nullable
 as DateTime?,frozenDays: null == frozenDays ? _self.frozenDays : frozenDays // ignore: cast_nullable_to_non_nullable
