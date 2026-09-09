@@ -45,6 +45,7 @@ Map<String, dynamic> _$PaymentToJson(_Payment instance) => <String, dynamic>{
 const _$PaymentKindEnumMap = {
   PaymentKind.payment: 'payment',
   PaymentKind.refund: 'refund',
+  PaymentKind.reversal: 'reversal',
 };
 
 const _$PaymentMethodEnumMap = {

@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:logfitness_flutter/data/members/member.dart';
+import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/members/member_lookup_controller.dart';
 
 class MemberLookupPanel extends ConsumerWidget {
@@ -26,21 +28,25 @@ class MemberLookupPanel extends ConsumerWidget {
               ref.read(memberLookupProvider.notifier).search(value),
         ),
         const SizedBox(height: 16),
-        results.when(
-          data: (members) => members.isEmpty
-              ? const Text('No members searched yet.')
-              : Column(
-                  children: <Widget>[
-                    for (final member in members)
-                      ListTile(
-                        title: Text(member.fullName),
-                        subtitle: Text(member.phone),
-                        trailing: Text(member.status.wire),
-                      ),
-                  ],
+        // Routed through AsyncValueView so a `42501` arrives as a refusal
+        // with its own treatment rather than as a Dart `toString()` in a
+        // Text widget. A refusal that reads like a network hiccup is the
+        // failure this whole surface exists to prevent.
+        AsyncValueView<List<Member>>(
+          value: results,
+          isEmpty: (List<Member> members) => members.isEmpty,
+          emptyMessage: 'No members searched yet.',
+          onRetry: () => ref.invalidate(memberLookupProvider),
+          data: (List<Member> members) => Column(
+            children: <Widget>[
+              for (final Member member in members)
+                ListTile(
+                  title: Text(member.fullName),
+                  subtitle: Text(member.phone),
+                  trailing: Text(member.status.wire),
                 ),
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Lookup failed: $error'),
+            ],
+          ),
         ),
       ],
     );

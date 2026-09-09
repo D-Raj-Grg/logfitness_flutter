@@ -105,6 +105,7 @@ const _$PaymentMethodEnumMap = {
 const _$PaymentKindEnumMap = {
   PaymentKind.payment: 'payment',
   PaymentKind.refund: 'refund',
+  PaymentKind.reversal: 'reversal',
 };
 
 _ArrearsRow _$ArrearsRowFromJson(Map<String, dynamic> json) => _ArrearsRow(
