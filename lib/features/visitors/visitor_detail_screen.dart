@@ -11,10 +11,10 @@ import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/visitors/visitor.dart';
 import 'package:logfitness_flutter/data/visitors/visitors_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
-import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/members/register_member_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_actions_controller.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
@@ -114,7 +114,7 @@ class _Detail extends ConsumerWidget {
         else ...<Widget>[
           FilledButton.icon(
             key: const ValueKey<String>('visitor-register'),
-            onPressed: busy ? null : () => _register(context),
+            onPressed: busy ? null : () => _register(context, ref),
             icon: const Icon(Icons.person_add_alt_1),
             label: const Text('Register as a member'),
           ),
@@ -185,19 +185,23 @@ class _Detail extends ConsumerWidget {
     );
   }
 
-  Future<void> _register(BuildContext context) async {
-    // TODO(staff-parity-B): route to RegisterMemberScreen with the visitor's
-    // name and phone prefilled and `visitorId: visitor.id`, so registering
-    // also calls `convert_visitor`. The console's own member form takes a
-    // `visitorId` for exactly this. The screen is not built yet.
-    showFailureSnackBar(
-      context,
-      const AppFailure(
-        FailureKind.invalid,
-        'Registering from a walk-in is not on the phone yet. Register them on '
-        'the web console for now — it will link back to this walk-in.',
+  Future<void> _register(BuildContext context, WidgetRef ref) async {
+    // Registering from a walk-in *is* a prefilled registration, and passing
+    // the visitor id is what makes the new member get linked back — the
+    // console's own member form takes a `visitorId` for exactly this.
+    final memberId = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => RegisterMemberScreen(
+          prefillName: visitor.fullName,
+          prefillPhone: visitor.phone,
+          visitorId: visitor.id,
+        ),
       ),
     );
+
+    if (memberId != null) {
+      ref.invalidate(visitorDetailProvider(visitor.id));
+    }
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
