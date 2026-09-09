@@ -118,10 +118,12 @@ Decisions taken while scoping it, so they are not re-litigated:
       maps Postgres error codes to sentences, and exists because the console
       shipped a swallowed `42501` on 2026-09-07 that made a refusal look like
       success. `visitor_kind`/`visitor_status` enums and the `Visitor` model.
-- [ ] **B. Visitors + register.** Visitor log (list, filter by status/branch/
+- [x] **B. Visitors + register.** Visitor log (list, filter by status/branch/
       date, phone lookup), log a walk-in, edit, mark contacted/lost, and convert
       via `convert_visitor` into a prefilled `register_member` including the
-      optional sale block.
+      optional sale block. Shipped 2026-09-09. Not walked in a browser or on a
+      device -- see the unchecked item below, which is the same gap Phase 3 and
+      Phase 5 carry on the console side.
 - [ ] **C. Members read.** List with search, filters and pagination (archived
       excluded by default); detail with membership, invoice, payment and
       attendance history; photo display via signed URLs.
@@ -199,6 +201,36 @@ Decisions taken while scoping it, so they are not re-litigated:
 
 - [x] **2026-09-05** Adversarial audit of Phases 0–2 found six real defects; all fixed and covered by tests. In this repo: `/set-password` was exempt from the redirect guard unconditionally (a linked member was stranded there forever, and nothing ever navigated *to* it, so an invited member could be linked without ever setting a password); an error out of `principalProvider` — an unrecognised `staff_role` throws by design — rendered a blank splash with no way out; `PendingRefresh` routed into a shell whose stale token would have made every RLS-scoped read come back empty, with no refresh actually triggered; and `AppClaims` read a malformed claim set as "not linked yet", hiding a backend regression behind a friendly screen.
 - [x] **2026-09-05** Backend fixes (in `logfitness_saas`): the member-photos storage policy still tested `is_org_member()` alone, so any member could download every other member's photo; `link_member_account()` did not check `email_confirmed_at`, so signing up with a member's address was enough to claim their record; `push-fanout` only branch-scoped the `branch_id` target, letting a single-branch front desk push arbitrary content to the whole chain; and `book_class_session` skipped `has_branch_access()` and accepted members whose derived status was `left` or whose session pack was spent.
+
+- [ ] **2026-09-09** Sub-project B has **not** been run on a device or a
+      simulator. `flutter analyze`, `dart run custom_lint` and 288 tests are
+      green, and the widget tests drive the log, the form and the registration
+      controller against fakes -- but nobody has signed in as staff, logged a
+      real walk-in, and watched `set_visitor_defaults` fill the date. The
+      blocker is the same one recorded on 2026-09-05: the auth deep link
+      redirect is not on the Supabase dashboard's allow-list, so an invited
+      account cannot open the app, and no environment variable on this machine
+      carries a password for a seeded staff account. Do this before calling B
+      finished.
+- [ ] **2026-09-09** `build_runner` in this repo takes **450-900s from a cold
+      cache** and 4s warm. Two things made it worse and are worth knowing
+      before someone concludes the toolchain is broken: agent worktrees created
+      under `.claude/worktrees/` sit *inside* the package root, so the builder
+      globs a full copy of the project per worktree; and killing a run
+      mid-AOT leaves the build script to recompile from scratch next time. The
+      worktree directory is now gitignored and removed. If it is slow again,
+      check for nested checkouts before deleting `.dart_tool/build`.
+- [ ] **2026-09-09** The register screen's payment-method dropdown renders
+      `PaymentMethod.wire` -- `esewa`, `fonepay` -- rather than display names.
+      The console has proper labels. Wants the same treatment the visitor
+      labels got (`visitor_labels.dart`, pinned to the console's wording by a
+      test), extended to payment methods, member status and membership status,
+      in sub-project C.
+- [ ] **2026-09-09** Nothing reads `members.notifications_opt_out` on this side
+      yet. The console puts it on the member edit form and every enqueue job
+      checks it; the mobile register screen does not offer it, so a member
+      registered on a phone always starts opted in. Add it with the member edit
+      screen in sub-project F.
 
 ## Open questions
 
