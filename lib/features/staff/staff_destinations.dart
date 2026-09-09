@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/features/members/member_lookup_panel.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
+import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
 
 /// One place a staff member can go.
 @immutable
@@ -77,6 +78,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     icon: Icons.meeting_room_outlined,
     selectedIcon: Icons.meeting_room,
     requires: StaffCapability.walkInSignup,
+    builder: _visitorsScreen,
   ),
   StaffDestination(
     id: 'collection',
@@ -124,6 +126,10 @@ Widget _membersScreen() => const SingleChildScrollView(
   padding: EdgeInsets.all(Brand.spaceLg),
   child: MemberLookupPanel(),
 );
+
+/// The visitor log, sub-project B's screen. A top-level function rather than
+/// a closure so [staffDestinations] can stay `const`.
+Widget _visitorsScreen() => const VisitorLogScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
 /// "More". Four is the Material 3 comfortable maximum for a
