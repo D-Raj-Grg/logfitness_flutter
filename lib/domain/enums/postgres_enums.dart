@@ -266,3 +266,27 @@ enum VisitorStatus {
 
   String toDb() => wire;
 }
+
+/// Mirrors `public.branch_status`.
+///
+/// A branch is deactivated, never deleted: it keeps every row it owns, and an
+/// `owners delete branches` policy left over from the foundation migrations
+/// was dropped upstream on 2026-09-08 so the rule is enforced by the database
+/// rather than by the absence of a button.
+enum BranchStatus {
+  @JsonValue('active')
+  active('active'),
+  @JsonValue('inactive')
+  inactive('inactive');
+
+  const BranchStatus(this.wire);
+
+  final String wire;
+
+  static BranchStatus fromDb(String value) => BranchStatus.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('BranchStatus', value),
+      );
+
+  String toDb() => wire;
+}

@@ -9,6 +9,8 @@
 // `staff_capabilities.dart` for the full statement of that rule.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:logfitness_flutter/data/branches/branch.dart';
+import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/supabase/app_claims.dart';
 import 'package:logfitness_flutter/supabase/supabase_providers.dart';
@@ -141,14 +143,19 @@ final branchScopeProvider = Provider<BranchScope>((ref) {
 /// Display names for branch ids, keyed by id.
 ///
 /// Claims carry ids and nothing else, so a readable switcher needs a read of
-/// the `branches` table. That table has no repository in this app yet —
-/// `lib/data/branches/` is not mine to add — so this resolves to an empty map
-/// and the switcher falls back to a shortened id. Overriding this provider
-/// with a real `branchesRepository` lookup is the only change the switcher
-/// needs; see the report accompanying this branch.
+/// the `branches` table — hence `lib/data/branches/`, which exists for this.
 ///
-/// TODO(staff-parity-A): back this with a `branches` repository so the
-/// switcher shows names rather than ids.
+/// Resolves to an empty map while the read is in flight or if it fails, and
+/// the switcher falls back to a shortened id. That fallback is deliberate: a
+/// branch switcher is navigation, and failing to load one branch's *name* is
+/// not a reason to take the switcher away from someone standing at a counter.
+/// The rows themselves are still bounded by RLS either way.
 final branchNamesProvider = Provider<Map<String, String>>((ref) {
-  return const <String, String>{};
+  final branches = ref.watch(branchesProvider);
+  return branches.maybeWhen(
+    data: (List<Branch> rows) => <String, String>{
+      for (final Branch branch in rows) branch.id: branch.name,
+    },
+    orElse: () => const <String, String>{},
+  );
 });
