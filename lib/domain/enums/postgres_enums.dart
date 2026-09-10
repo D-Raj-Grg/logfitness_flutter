@@ -290,3 +290,32 @@ enum BranchStatus {
 
   String toDb() => wire;
 }
+
+/// Mirrors `public.attendance_method`.
+///
+/// `biometric` exists in the database and has since the attendance schema
+/// shipped, even though biometric hardware is out of scope for v1 -- a device
+/// integration would write this value. It is carried here so a row written by
+/// anything other than this app still reads.
+enum AttendanceMethod {
+  @JsonValue('manual')
+  manual('manual'),
+  @JsonValue('qr')
+  qr('qr'),
+  @JsonValue('card')
+  card('card'),
+  @JsonValue('biometric')
+  biometric('biometric');
+
+  const AttendanceMethod(this.wire);
+
+  final String wire;
+
+  static AttendanceMethod fromDb(String value) =>
+      AttendanceMethod.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('AttendanceMethod', value),
+      );
+
+  String toDb() => wire;
+}
