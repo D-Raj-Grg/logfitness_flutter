@@ -58,6 +58,10 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
+        // Unique hero tag: the staff shell keeps every destination mounted, so
+        // two default-tagged FABs land in one route subtree and Flutter
+        // asserts. Not a test artefact — it throws in the running app too.
+        heroTag: 'check-in-scan-fab',
         // The reason to reach for the phone at all. Search stays the fallback
         // for a member whose screen is dead or who never opened the app.
         onPressed: () => Navigator.of(context).push<void>(

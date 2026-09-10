@@ -173,6 +173,9 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        // See the note in check_in_screen.dart: destinations share a route
+        // subtree, so every FAB in the shell needs its own hero tag.
+        heroTag: 'visitor-log-fab',
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.person_add_alt),
         label: const Text('Log walk-in'),
