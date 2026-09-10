@@ -124,9 +124,13 @@ Decisions taken while scoping it, so they are not re-litigated:
       optional sale block. Shipped 2026-09-09. Not walked in a browser or on a
       device -- see the unchecked item below, which is the same gap Phase 3 and
       Phase 5 carry on the console side.
-- [ ] **C. Members read.** List with search, filters and pagination (archived
+- [x] **C. Members read.** List with search, filters and pagination (archived
       excluded by default); detail with membership, invoice, payment and
-      attendance history; photo display via signed URLs.
+      attendance history; photo display via signed URLs. Two of those did not
+      land: **attendance** has no repository in `lib/data/`, so that tab says
+      so rather than inventing a query (see Discovered), and **photos** stay
+      deferred with the rest of the photo work in sub-project F -- the list and
+      the profile render without one.
 - [ ] **D. Sales.** `renew_membership`, `record_payment`, today's collection
       sheet via `daily_collection`.
 - [ ] **E. Lifecycle.** `freeze_membership`, `unfreeze_membership`,
@@ -197,6 +201,15 @@ Decisions taken while scoping it, so they are not re-litigated:
 - [ ] **2026-09-09** The branch switcher can only show ids. Claims carry `branch_ids[]` and nothing else, and there is no `branches` repository in this app, so `branchNamesProvider` (`lib/features/staff/branch_scope.dart`) resolves to an empty map and the switcher degrades to `Branch 3f2504e0`. Back it with a `lib/data/branches/` repository mirroring the console's `lib/db/branches.ts` and the switcher needs no other change. An owner's claim is empty by design (empty `branch_ids` means the whole org to the RLS policies), so that repository is also the only way an owner ever gets a *per-branch* option rather than "All branches".
 - [x] **2026-09-09** `lib/features/members/member_lookup_panel.dart` renders its error state as `Text('Lookup failed: $error')` — the exact shape `AppFailure` and `FailureView` exist to prevent, since a `42501` refusal there is indistinguishable from any other error and carries no distinct treatment. Fixed 2026-09-09 rather than deferred to sub-project C: the panel is mounted as the Members destination today, so it was the one live screen in the app that could show a refusal as an unreadable `toString()`. It now renders through `AsyncValueView`. Still open there: the row renders `member.status.wire`, the raw enum value, where the console shows a label — that wants a `MemberStatusBadge` alongside the visitor one, in sub-project C.
 
+- [ ] **2026-09-10** There is no attendance data layer. `lib/data/` has
+      members, memberships, payments, plans, branches and visitors, and nothing
+      that reads `attendance`; the console's `listAttendanceForMember` and
+      `AttendanceDetailRow` have no Dart counterpart. The member profile's
+      fourth tab therefore says attendance is not available yet rather than
+      rendering an empty list, because an empty tab reads as "never checked in"
+      -- a different claim entirely. Wants `lib/data/attendance/` before the
+      check-in work in Phase 4.
+
 ## Discovered — audit fixes (2026-09-05)
 
 - [x] **2026-09-05** Adversarial audit of Phases 0–2 found six real defects; all fixed and covered by tests. In this repo: `/set-password` was exempt from the redirect guard unconditionally (a linked member was stranded there forever, and nothing ever navigated *to* it, so an invited member could be linked without ever setting a password); an error out of `principalProvider` — an unrecognised `staff_role` throws by design — rendered a blank splash with no way out; `PendingRefresh` routed into a shell whose stale token would have made every RLS-scoped read come back empty, with no refresh actually triggered; and `AppClaims` read a malformed claim set as "not linked yet", hiding a backend regression behind a friendly screen.
@@ -220,12 +233,16 @@ Decisions taken while scoping it, so they are not re-litigated:
       mid-AOT leaves the build script to recompile from scratch next time. The
       worktree directory is now gitignored and removed. If it is slow again,
       check for nested checkouts before deleting `.dart_tool/build`.
-- [ ] **2026-09-09** The register screen's payment-method dropdown renders
+- [x] **2026-09-09** The register screen's payment-method dropdown renders
       `PaymentMethod.wire` -- `esewa`, `fonepay` -- rather than display names.
       The console has proper labels. Wants the same treatment the visitor
       labels got (`visitor_labels.dart`, pinned to the console's wording by a
       test), extended to payment methods, member status and membership status,
-      in sub-project C.
+      in sub-project C. Done 2026-09-10: `lib/features/members/member_labels.dart`
+      covers member status, membership status, payment method, payment kind,
+      invoice status and plan type, each pinned across the *whole* enum by
+      `test/features/members/member_labels_test.dart`. The lookup panel's
+      `member.status.wire` went with it.
 - [ ] **2026-09-09** Nothing reads `members.notifications_opt_out` on this side
       yet. The console puts it on the member edit form and every enqueue job
       checks it; the mobile register screen does not offer it, so a member

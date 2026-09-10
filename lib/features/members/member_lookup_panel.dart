@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/data/members/member.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/members/member_lookup_controller.dart';
 
 class MemberLookupPanel extends ConsumerWidget {
@@ -43,7 +44,11 @@ class MemberLookupPanel extends ConsumerWidget {
                 ListTile(
                   title: Text(member.fullName),
                   subtitle: Text(member.phone),
-                  trailing: Text(member.status.wire),
+                  // The label, not `status.wire`: a Postgres enum value is
+                  // not what a person at a counter calls it, and the console
+                  // says "Active" where this used to say `active`. See
+                  // `member_labels.dart`.
+                  trailing: Text(memberStatusText(member.status)),
                 ),
             ],
           ),

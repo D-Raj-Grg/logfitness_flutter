@@ -7,9 +7,8 @@
 // actually refuses, and its refusal must always be rendered.
 import 'package:flutter/material.dart';
 
-import 'package:logfitness_flutter/app/brand.dart';
-import 'package:logfitness_flutter/features/members/member_lookup_panel.dart';
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
+import 'package:logfitness_flutter/features/members/member_list_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
 
@@ -119,15 +118,11 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
   ),
 ];
 
-/// The only destination with a screen so far: the Phase 1 phone lookup, kept
-/// mounted so the widget → controller → repository → supabase chain stays
-/// exercised until sub-project C replaces it with the real member list
-/// (TASKS.md, "Staff parity programme"). A top-level function rather than a
-/// closure so [staffDestinations] can stay `const`.
-Widget _membersScreen() => const SingleChildScrollView(
-  padding: EdgeInsets.all(Brand.spaceLg),
-  child: MemberLookupPanel(),
-);
+/// The member list, sub-project C's screen. It replaces the Phase 1 phone
+/// lookup panel, which searched one column and could not say which people it
+/// was leaving out. A top-level function rather than a closure so
+/// [staffDestinations] can stay `const`.
+Widget _membersScreen() => const MemberListScreen();
 
 /// The counter's check-in console. A top-level function rather than a closure
 /// so [staffDestinations] can stay `const`.

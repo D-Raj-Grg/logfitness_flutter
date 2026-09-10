@@ -17,6 +17,7 @@ import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/members/register_member_controller.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
@@ -332,7 +333,13 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
         decoration: const InputDecoration(labelText: 'Payment method'),
         items: <DropdownMenuItem<PaymentMethod>>[
           for (final PaymentMethod m in PaymentMethod.values)
-            DropdownMenuItem<PaymentMethod>(value: m, child: Text(m.wire)),
+            // `eSewa`, not `esewa`: the label the console prints on the
+            // receipt, from `member_labels.dart`. The wire value was showing
+            // through here.
+            DropdownMenuItem<PaymentMethod>(
+              value: m,
+              child: Text(paymentMethodLabel(m)),
+            ),
         ],
         onChanged: (PaymentMethod? v) =>
             setState(() => _method = v ?? PaymentMethod.cash),
