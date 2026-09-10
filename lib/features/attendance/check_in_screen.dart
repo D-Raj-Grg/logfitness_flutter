@@ -15,6 +15,7 @@ import 'package:logfitness_flutter/data/attendance/attendance_rpc_results.dart';
 import 'package:logfitness_flutter/data/members/member_overview.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/attendance/check_in_controller.dart';
+import 'package:logfitness_flutter/features/attendance/scan_check_in_screen.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
@@ -56,6 +57,15 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     final busy = ref.watch(checkInControllerProvider);
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        // The reason to reach for the phone at all. Search stays the fallback
+        // for a member whose screen is dead or who never opened the app.
+        onPressed: () => Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const ScanCheckInScreen()),
+        ),
+        icon: const Icon(Icons.qr_code_scanner),
+        label: const Text('Scan'),
+      ),
       body: Column(
         children: <Widget>[
           Padding(

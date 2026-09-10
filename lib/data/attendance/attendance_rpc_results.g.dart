@@ -84,3 +84,36 @@ const _$CheckInBannerEnumMap = {
   CheckInBanner.none: 'none',
   CheckInBanner.left: 'left',
 };
+
+_QrVerifyResult _$QrVerifyResultFromJson(Map<String, dynamic> json) =>
+    _QrVerifyResult(
+      valid: json['valid'] as bool,
+      reason: $enumDecodeNullable(_$QrRefusalEnumMap, json['reason']),
+      memberId: json['member_id'] as String?,
+      orgId: json['org_id'] as String?,
+      memberCode: json['member_code'] as String?,
+      fullName: json['full_name'] as String?,
+      homeBranchId: json['home_branch_id'] as String?,
+      expiresAt: json['expires_at'] == null
+          ? null
+          : DateTime.parse(json['expires_at'] as String),
+    );
+
+Map<String, dynamic> _$QrVerifyResultToJson(_QrVerifyResult instance) =>
+    <String, dynamic>{
+      'valid': instance.valid,
+      'reason': ?_$QrRefusalEnumMap[instance.reason],
+      'member_id': ?instance.memberId,
+      'org_id': ?instance.orgId,
+      'member_code': ?instance.memberCode,
+      'full_name': ?instance.fullName,
+      'home_branch_id': ?instance.homeBranchId,
+      'expires_at': ?instance.expiresAt?.toIso8601String(),
+    };
+
+const _$QrRefusalEnumMap = {
+  QrRefusal.malformed: 'malformed',
+  QrRefusal.badSignature: 'bad_signature',
+  QrRefusal.expired: 'expired',
+  QrRefusal.notVisible: 'not_visible',
+};

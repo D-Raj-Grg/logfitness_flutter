@@ -143,3 +143,65 @@ abstract class CheckInResult with _$CheckInResult {
   bool get needsAttention =>
       duePaisa > 0 || (banner?.needsAttention ?? false);
 }
+
+/// Why a scanned QR token was not accepted. Null when it was.
+///
+/// Mirrors `public.verify_qr_token`, which is **staff-only**
+/// (`20260905150400_only_staff_verify_qr_tokens.sql`): a member's own app can
+/// mint a token but cannot verify one, so a member cannot check themselves in.
+enum QrRefusal {
+  /// Not a token this system minted — a random QR code, or a truncated scan.
+  @JsonValue('malformed')
+  malformed('malformed'),
+
+  /// Right shape, wrong signature. Someone edited a token.
+  @JsonValue('bad_signature')
+  badSignature('bad_signature'),
+
+  /// Minted, correctly signed, and past its short life. Tokens are
+  /// deliberately short-lived, so this is the common one: the member's screen
+  /// has been open too long and needs a refresh.
+  @JsonValue('expired')
+  expired('expired'),
+
+  /// The token is valid but RLS does not show this staff member that member —
+  /// another org, or a branch they do not cover.
+  @JsonValue('not_visible')
+  notVisible('not_visible');
+
+  const QrRefusal(this.wire);
+
+  final String wire;
+
+  static QrRefusal fromDb(String value) => QrRefusal.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('QrRefusal', value),
+      );
+
+  String toDb() => wire;
+}
+
+@freezed
+abstract class QrVerifyResult with _$QrVerifyResult {
+  @JsonSerializable(fieldRename: FieldRename.snake)
+  const factory QrVerifyResult({
+    required bool valid,
+    QrRefusal? reason,
+    String? memberId,
+    String? orgId,
+    String? memberCode,
+    String? fullName,
+    String? homeBranchId,
+    DateTime? expiresAt,
+  }) = _QrVerifyResult;
+
+  const QrVerifyResult._();
+
+  factory QrVerifyResult.fromJson(Map<String, dynamic> json) =>
+      _$QrVerifyResultFromJson(json);
+
+  /// Whether showing the member a "try again" is the right advice. An expired
+  /// token is the member's screen having been open too long, which they can
+  /// fix in a second; the others are not.
+  bool get isRetryable => reason == QrRefusal.expired;
+}

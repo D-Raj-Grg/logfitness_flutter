@@ -883,4 +883,288 @@ $CheckInBranchSummaryCopyWith<$Res>? get branch {
 }
 }
 
+
+/// @nodoc
+mixin _$QrVerifyResult {
+
+ bool get valid; QrRefusal? get reason; String? get memberId; String? get orgId; String? get memberCode; String? get fullName; String? get homeBranchId; DateTime? get expiresAt;
+/// Create a copy of QrVerifyResult
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$QrVerifyResultCopyWith<QrVerifyResult> get copyWith => _$QrVerifyResultCopyWithImpl<QrVerifyResult>(this as QrVerifyResult, _$identity);
+
+  /// Serializes this QrVerifyResult to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is QrVerifyResult&&(identical(other.valid, valid) || other.valid == valid)&&(identical(other.reason, reason) || other.reason == reason)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.homeBranchId, homeBranchId) || other.homeBranchId == homeBranchId)&&(identical(other.expiresAt, expiresAt) || other.expiresAt == expiresAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,valid,reason,memberId,orgId,memberCode,fullName,homeBranchId,expiresAt);
+
+@override
+String toString() {
+  return 'QrVerifyResult(valid: $valid, reason: $reason, memberId: $memberId, orgId: $orgId, memberCode: $memberCode, fullName: $fullName, homeBranchId: $homeBranchId, expiresAt: $expiresAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $QrVerifyResultCopyWith<$Res>  {
+  factory $QrVerifyResultCopyWith(QrVerifyResult value, $Res Function(QrVerifyResult) _then) = _$QrVerifyResultCopyWithImpl;
+@useResult
+$Res call({
+ bool valid, QrRefusal? reason, String? memberId, String? orgId, String? memberCode, String? fullName, String? homeBranchId, DateTime? expiresAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$QrVerifyResultCopyWithImpl<$Res>
+    implements $QrVerifyResultCopyWith<$Res> {
+  _$QrVerifyResultCopyWithImpl(this._self, this._then);
+
+  final QrVerifyResult _self;
+  final $Res Function(QrVerifyResult) _then;
+
+/// Create a copy of QrVerifyResult
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? valid = null,Object? reason = freezed,Object? memberId = freezed,Object? orgId = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? homeBranchId = freezed,Object? expiresAt = freezed,}) {
+  return _then(_self.copyWith(
+valid: null == valid ? _self.valid : valid // ignore: cast_nullable_to_non_nullable
+as bool,reason: freezed == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
+as QrRefusal?,memberId: freezed == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
+as String?,orgId: freezed == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
+as String?,memberCode: freezed == memberCode ? _self.memberCode : memberCode // ignore: cast_nullable_to_non_nullable
+as String?,fullName: freezed == fullName ? _self.fullName : fullName // ignore: cast_nullable_to_non_nullable
+as String?,homeBranchId: freezed == homeBranchId ? _self.homeBranchId : homeBranchId // ignore: cast_nullable_to_non_nullable
+as String?,expiresAt: freezed == expiresAt ? _self.expiresAt : expiresAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [QrVerifyResult].
+extension QrVerifyResultPatterns on QrVerifyResult {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _QrVerifyResult value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _QrVerifyResult() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _QrVerifyResult value)  $default,){
+final _that = this;
+switch (_that) {
+case _QrVerifyResult():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _QrVerifyResult value)?  $default,){
+final _that = this;
+switch (_that) {
+case _QrVerifyResult() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( bool valid,  QrRefusal? reason,  String? memberId,  String? orgId,  String? memberCode,  String? fullName,  String? homeBranchId,  DateTime? expiresAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _QrVerifyResult() when $default != null:
+return $default(_that.valid,_that.reason,_that.memberId,_that.orgId,_that.memberCode,_that.fullName,_that.homeBranchId,_that.expiresAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( bool valid,  QrRefusal? reason,  String? memberId,  String? orgId,  String? memberCode,  String? fullName,  String? homeBranchId,  DateTime? expiresAt)  $default,) {final _that = this;
+switch (_that) {
+case _QrVerifyResult():
+return $default(_that.valid,_that.reason,_that.memberId,_that.orgId,_that.memberCode,_that.fullName,_that.homeBranchId,_that.expiresAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( bool valid,  QrRefusal? reason,  String? memberId,  String? orgId,  String? memberCode,  String? fullName,  String? homeBranchId,  DateTime? expiresAt)?  $default,) {final _that = this;
+switch (_that) {
+case _QrVerifyResult() when $default != null:
+return $default(_that.valid,_that.reason,_that.memberId,_that.orgId,_that.memberCode,_that.fullName,_that.homeBranchId,_that.expiresAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+@JsonSerializable(fieldRename: FieldRename.snake)
+class _QrVerifyResult extends QrVerifyResult {
+  const _QrVerifyResult({required this.valid, this.reason, this.memberId, this.orgId, this.memberCode, this.fullName, this.homeBranchId, this.expiresAt}): super._();
+  factory _QrVerifyResult.fromJson(Map<String, dynamic> json) => _$QrVerifyResultFromJson(json);
+
+@override final  bool valid;
+@override final  QrRefusal? reason;
+@override final  String? memberId;
+@override final  String? orgId;
+@override final  String? memberCode;
+@override final  String? fullName;
+@override final  String? homeBranchId;
+@override final  DateTime? expiresAt;
+
+/// Create a copy of QrVerifyResult
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$QrVerifyResultCopyWith<_QrVerifyResult> get copyWith => __$QrVerifyResultCopyWithImpl<_QrVerifyResult>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$QrVerifyResultToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _QrVerifyResult&&(identical(other.valid, valid) || other.valid == valid)&&(identical(other.reason, reason) || other.reason == reason)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.homeBranchId, homeBranchId) || other.homeBranchId == homeBranchId)&&(identical(other.expiresAt, expiresAt) || other.expiresAt == expiresAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,valid,reason,memberId,orgId,memberCode,fullName,homeBranchId,expiresAt);
+
+@override
+String toString() {
+  return 'QrVerifyResult(valid: $valid, reason: $reason, memberId: $memberId, orgId: $orgId, memberCode: $memberCode, fullName: $fullName, homeBranchId: $homeBranchId, expiresAt: $expiresAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$QrVerifyResultCopyWith<$Res> implements $QrVerifyResultCopyWith<$Res> {
+  factory _$QrVerifyResultCopyWith(_QrVerifyResult value, $Res Function(_QrVerifyResult) _then) = __$QrVerifyResultCopyWithImpl;
+@override @useResult
+$Res call({
+ bool valid, QrRefusal? reason, String? memberId, String? orgId, String? memberCode, String? fullName, String? homeBranchId, DateTime? expiresAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$QrVerifyResultCopyWithImpl<$Res>
+    implements _$QrVerifyResultCopyWith<$Res> {
+  __$QrVerifyResultCopyWithImpl(this._self, this._then);
+
+  final _QrVerifyResult _self;
+  final $Res Function(_QrVerifyResult) _then;
+
+/// Create a copy of QrVerifyResult
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? valid = null,Object? reason = freezed,Object? memberId = freezed,Object? orgId = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? homeBranchId = freezed,Object? expiresAt = freezed,}) {
+  return _then(_QrVerifyResult(
+valid: null == valid ? _self.valid : valid // ignore: cast_nullable_to_non_nullable
+as bool,reason: freezed == reason ? _self.reason : reason // ignore: cast_nullable_to_non_nullable
+as QrRefusal?,memberId: freezed == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
+as String?,orgId: freezed == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
+as String?,memberCode: freezed == memberCode ? _self.memberCode : memberCode // ignore: cast_nullable_to_non_nullable
+as String?,fullName: freezed == fullName ? _self.fullName : fullName // ignore: cast_nullable_to_non_nullable
+as String?,homeBranchId: freezed == homeBranchId ? _self.homeBranchId : homeBranchId // ignore: cast_nullable_to_non_nullable
+as String?,expiresAt: freezed == expiresAt ? _self.expiresAt : expiresAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
+  ));
+}
+
+
+}
+
 // dart format on

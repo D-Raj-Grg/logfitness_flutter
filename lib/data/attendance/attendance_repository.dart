@@ -145,6 +145,27 @@ class AttendanceRepository {
     });
   }
 
+  /// Checks a member's QR token.
+  ///
+  /// Staff-only upstream (`20260905150400_only_staff_verify_qr_tokens.sql`):
+  /// a member's app can mint a token but cannot verify one, so a member
+  /// cannot check themselves in by scanning their own screen.
+  ///
+  /// Verifying does **not** check anyone in. It says who the token belongs to;
+  /// `checkInMember` is still what records the visit, and the desk still sees
+  /// the banner and the dues before it does.
+  Future<QrVerifyResult> verifyQrToken(String token) {
+    return guardFailures(() async {
+      final result = await _client.rpc<dynamic>(
+        'verify_qr_token',
+        params: <String, dynamic>{'p_token': token},
+      );
+      return QrVerifyResult.fromJson(
+        Map<String, dynamic>.from(result as Map<dynamic, dynamic>),
+      );
+    });
+  }
+
   /// Closes an open visit.
   Future<Map<String, dynamic>> checkOutMember(String attendanceId) {
     return guardFailures(() async {
