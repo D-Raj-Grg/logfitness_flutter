@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/features/members/member_lookup_panel.dart';
+import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
 
@@ -63,6 +64,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     icon: Icons.qr_code_scanner_outlined,
     selectedIcon: Icons.qr_code_scanner,
     requires: StaffCapability.checkIn,
+    builder: _checkInScreen,
   ),
   StaffDestination(
     id: 'members',
@@ -126,6 +128,10 @@ Widget _membersScreen() => const SingleChildScrollView(
   padding: EdgeInsets.all(Brand.spaceLg),
   child: MemberLookupPanel(),
 );
+
+/// The counter's check-in console. A top-level function rather than a closure
+/// so [staffDestinations] can stay `const`.
+Widget _checkInScreen() => const CheckInScreen();
 
 /// The visitor log, sub-project B's screen. A top-level function rather than
 /// a closure so [staffDestinations] can stay `const`.

@@ -11,6 +11,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:logfitness_flutter/data/attendance/attendance_detail.dart';
+import 'package:logfitness_flutter/data/attendance/attendance_rpc_results.dart';
 import 'package:logfitness_flutter/data/repository_guard.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/format/plain_date.dart';
@@ -118,7 +119,7 @@ class AttendanceRepository {
   /// [override] is how a desk lets in a member the rules would refuse, and
   /// [overrideReason] is what makes that decision auditable rather than
   /// invisible.
-  Future<Map<String, dynamic>> checkInMember({
+  Future<CheckInResult> checkInMember({
     required String memberId,
     required String branchId,
     AttendanceMethod method = AttendanceMethod.manual,
@@ -138,7 +139,9 @@ class AttendanceRepository {
           'p_notes': notes,
         }),
       );
-      return Map<String, dynamic>.from(result as Map<dynamic, dynamic>);
+      return CheckInResult.fromJson(
+        Map<String, dynamic>.from(result as Map<dynamic, dynamic>),
+      );
     });
   }
 
