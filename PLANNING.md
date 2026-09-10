@@ -18,9 +18,12 @@ They get plan status and dues, payment history, QR check-in, class booking, and 
 
 **Staff** authenticate with email and password using the same accounts as the web console.
 Mobile owns the counter: scan check-in, collect payment, walk-in signup, renewals, today's
-collection. Broader staff surface follows in later phases. **The web console remains the
-primary surface for chain administration** — timetable editing, staff CRUD, and plan catalog
-management are not mobile work in v1.
+collection — and, since the parity decision of 2026-09-09, the rest of the member surface too:
+the visitor log, the member list and detail, the membership lifecycle, refunds and reversals,
+archiving, and member-app invitations. **What stays on the web console is branch and staff
+administration** — creating branches, inviting staff, setting roles and branch assignments —
+along with timetable editing, plan catalog management and notification gateway configuration.
+See `TASKS.md`, "Staff parity programme".
 
 ---
 
@@ -115,7 +118,7 @@ member_status      active | expired | frozen | left
 membership_status  upcoming | active | frozen | expired | cancelled
 plan_type          time | session_pack
 payment_method     cash | esewa | khalti | fonepay | bank | card
-payment_kind       payment | refund
+payment_kind       payment | refund | reversal
 invoice_status     unpaid | partial | paid | void
 staff_role         owner | manager | front_desk | trainer
 member_gender      male | female | other
@@ -124,11 +127,21 @@ member_gender      male | female | other
 **RPC surface — call these, do not reimplement:**
 
 ```
-renew_membership      record_payment       refund_payment
+register_member       renew_membership     record_payment
+refund_payment        reverse_payment      adjust_membership_dates
 freeze_membership     unfreeze_membership  cancel_membership
-set_member_left       reactivate_member    current_staff
+set_member_left       reactivate_member    archive_member
+restore_member        invite_member        convert_visitor
+check_in_member       check_out_member     in_gym_now
+mint_qr_token         verify_qr_token      current_staff
 daily_collection(...) arrears_report(p_branch_id default null)
 ```
+
+Seventeen of these now have a **second consumer**. Changing an argument list or
+a returned shape breaks a shipped app that updates on a store's schedule rather
+than on deploy; the corresponding note lives in
+`../logfitness_saas/TASKS.md`. Adding an argument with a default is safe;
+reordering or renaming is not.
 
 `current_staff()` is read instead of the `staff` table, because a fresh session may carry no
 claims yet. A member-side `current_member()` equivalent does not exist and is Phase 0 work.
