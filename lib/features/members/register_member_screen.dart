@@ -206,7 +206,7 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
                 for (final MemberGender g in MemberGender.values)
                   DropdownMenuItem<MemberGender>(
                     value: g,
-                    child: Text(_genderLabel(g)),
+                    child: Text(memberGenderLabel(g)),
                   ),
               ],
               onChanged: (MemberGender? v) => setState(() => _gender = v),
@@ -468,11 +468,6 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
     return trimmed.isEmpty ? null : trimmed;
   }
 
-  static String _genderLabel(MemberGender gender) => switch (gender) {
-        MemberGender.male => 'Male',
-        MemberGender.female => 'Female',
-        MemberGender.other => 'Other',
-      };
 }
 
 class _SaleSummary extends StatelessWidget {

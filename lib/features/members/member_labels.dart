@@ -254,3 +254,12 @@ class MemberStatusBadge extends StatelessWidget {
     );
   }
 }
+
+/// Mirrors `public.member_gender`. Kept here rather than private to a form,
+/// because the register screen and the edit screen must not drift into
+/// spelling the same three values differently.
+String memberGenderLabel(MemberGender gender) => switch (gender) {
+      MemberGender.male => 'Male',
+      MemberGender.female => 'Female',
+      MemberGender.other => 'Other',
+    };
