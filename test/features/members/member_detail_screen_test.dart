@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logfitness_flutter/data/branches/branch.dart';
+import 'package:logfitness_flutter/data/attendance/attendance_detail.dart';
+import 'package:logfitness_flutter/data/attendance/attendance_repository.dart';
 import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/data/members/member.dart';
 import 'package:logfitness_flutter/data/members/member_overview.dart';
@@ -196,10 +198,41 @@ class _FakeBranchesRepository implements BranchesRepository {
       throw UnimplementedError('${invocation.memberName} is not faked');
 }
 
+
+class _FakeAttendanceRepository implements AttendanceRepository {
+  _FakeAttendanceRepository({this.rows = const <AttendanceDetail>[]});
+
+  final List<AttendanceDetail> rows;
+
+  @override
+  Future<List<AttendanceDetail>> listForMember(
+    String memberId, {
+    int limit = 60,
+  }) async =>
+      rows;
+
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
+AttendanceDetail _visit({bool isOverride = false}) => AttendanceDetail(
+      id: 'a-1',
+      memberId: 'm-1',
+      orgId: 'org-1',
+      branchId: 'branch-1',
+      branchName: 'Thamel',
+      attendedOn: DateTime.utc(2026, 9, 9),
+      checkedInAt: DateTime.utc(2026, 9, 9, 0, 45),
+      isOverride: isOverride,
+      overrideReason: isOverride ? 'Manager waved through' : null,
+    );
+
 List<dynamic> _overrides({
   required _FakeMembersRepository members,
   _FakeMembershipsRepository? memberships,
   _FakePaymentsRepository? payments,
+  _FakeAttendanceRepository? attendance,
 }) {
   const AppClaims claims = AppClaims(
     orgId: 'org-1',
@@ -214,6 +247,9 @@ List<dynamic> _overrides({
     ),
     paymentsRepositoryProvider.overrideWithValue(
       payments ?? _FakePaymentsRepository(),
+    ),
+    attendanceRepositoryProvider.overrideWithValue(
+      attendance ?? _FakeAttendanceRepository(),
     ),
     branchesRepositoryProvider.overrideWithValue(_FakeBranchesRepository()),
     claimsProvider.overrideWithValue(claims),
@@ -475,18 +511,52 @@ void main() {
     });
   });
 
-  testWidgets('the attendance tab admits it has no data layer', (
+  testWidgets('the attendance tab lists visits', (WidgetTester tester) async {
+    await _pump(
+      tester,
+      _overrides(
+        members: _FakeMembersRepository(),
+        attendance: _FakeAttendanceRepository(
+          rows: <AttendanceDetail>[_visit()],
+        ),
+      ),
+    );
+    await tester.tap(find.text('Attendance'));
+    await tester.pumpAndSettle();
+
+    // A calendar day, rendered unshifted: a 00:45 UTC check-in is the 9th in
+    // Kathmandu, and treating `attended_on` as an instant would print the 8th.
+    expect(find.text('09 Sep 2026'), findsOneWidget);
+    // The header also names the home branch, so this is not a single match.
+    expect(find.textContaining('Thamel'), findsWidgets);
+  });
+
+  testWidgets('an empty attendance tab says no visits, not no feature', (
     WidgetTester tester,
   ) async {
     await _pump(tester, _overrides(members: _FakeMembersRepository()));
     await tester.tap(find.text('Attendance'));
     await tester.pumpAndSettle();
 
-    // There is no attendance repository in `lib/data/`, and an empty tab would
-    // read as "never checked in" -- a different claim entirely.
-    expect(
-      find.textContaining('Attendance is not available in the app yet'),
-      findsOneWidget,
+    expect(find.textContaining('No visits recorded'), findsOneWidget);
+  });
+
+  testWidgets('an override is flagged on the visit', (
+    WidgetTester tester,
+  ) async {
+    await _pump(
+      tester,
+      _overrides(
+        members: _FakeMembersRepository(),
+        attendance: _FakeAttendanceRepository(
+          rows: <AttendanceDetail>[_visit(isOverride: true)],
+        ),
+      ),
     );
+    await tester.tap(find.text('Attendance'));
+    await tester.pumpAndSettle();
+
+    // The row a manager looks for when a month's numbers do not add up.
+    expect(find.byIcon(Icons.report_gmailerrorred_outlined), findsOneWidget);
   });
 }

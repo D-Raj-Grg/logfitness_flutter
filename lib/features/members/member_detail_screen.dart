@@ -21,6 +21,10 @@ import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/data/attendance/attendance_detail.dart';
+import 'package:logfitness_flutter/data/attendance/attendance_repository.dart';
+import 'package:logfitness_flutter/features/members/member_admin_panel.dart';
+import 'package:logfitness_flutter/features/memberships/membership_action_panel.dart';
 import 'package:logfitness_flutter/features/members/member_detail_controller.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
@@ -37,7 +41,7 @@ class MemberDetailScreen extends ConsumerWidget {
     );
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: Text(profile.value?.overview.fullName ?? 'Member'),
@@ -48,6 +52,7 @@ class MemberDetailScreen extends ConsumerWidget {
               Tab(text: 'Invoices'),
               Tab(text: 'Payments'),
               Tab(text: 'Attendance'),
+              Tab(text: 'Actions'),
             ],
           ),
         ),
@@ -69,7 +74,8 @@ class MemberDetailScreen extends ConsumerWidget {
                       _MembershipsTab(memberId: memberId),
                       _InvoicesTab(memberId: memberId),
                       _PaymentsTab(memberId: memberId),
-                      const _AttendanceTab(),
+                      _AttendanceTab(memberId: memberId),
+                      _ActionsTab(profile: loaded),
                     ],
                   ),
                 ),
@@ -399,15 +405,91 @@ class _PaymentsTab extends ConsumerWidget {
 /// silently shows nothing, this says what is actually true: an empty
 /// attendance tab and a missing one look identical to a desk, and only one of
 /// them means "this member has never checked in".
-class _AttendanceTab extends StatelessWidget {
-  const _AttendanceTab();
+class _AttendanceTab extends ConsumerWidget {
+  const _AttendanceTab({required this.memberId});
+
+  final String memberId;
 
   @override
-  Widget build(BuildContext context) {
-    return const EmptyView(
-      icon: Icons.event_busy_outlined,
-      message: 'Attendance is not available in the app yet. Check-in history '
-          'is on the web console until the attendance data layer lands.',
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visits = ref.watch(memberAttendanceProvider(memberId));
+
+    return AsyncValueView<List<AttendanceDetail>>(
+      value: visits,
+      onRetry: () => ref.invalidate(memberAttendanceProvider(memberId)),
+      isEmpty: (List<AttendanceDetail> rows) => rows.isEmpty,
+      emptyMessage: 'No visits recorded.',
+      data: (List<AttendanceDetail> rows) => ListView.separated(
+        itemCount: rows.length,
+        separatorBuilder: (_, _) => const Divider(height: 1),
+        itemBuilder: (BuildContext context, int index) {
+          final AttendanceDetail visit = rows[index];
+          return ListTile(
+            title: Text(
+              visit.attendedOn == null
+                  ? 'Visit'
+                  : formatPlainDate(visit.attendedOn!),
+            ),
+            subtitle: Text(
+              <String>[
+                if (visit.branchName != null) visit.branchName!,
+                if (visit.checkedInAt != null)
+                  formatTime(visit.checkedInAt!),
+                if (visit.isOpen) 'still inside',
+              ].join(' · '),
+            ),
+            trailing: visit.wasOverridden
+                // The row a manager looks for when a month's numbers do not
+                // add up: someone let in despite the membership saying no.
+                ? Tooltip(
+                    message: visit.overrideReason ?? 'Let in on an override',
+                    child: Icon(
+                      Icons.report_gmailerrorred_outlined,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  )
+                : null,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Everything a desk can *do* to this member, in one scrolling column.
+///
+/// Both panels below are plain `Column`s by design — nesting a scrollable
+/// inside another one is the alternative and it is worse — so this tab is the
+/// scrolling host their mounting contracts require.
+class _ActionsTab extends ConsumerWidget {
+  const _ActionsTab({required this.profile});
+
+  final MemberProfile profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memberships = ref.watch(memberMembershipsProvider(profile.member.id));
+    final payments = ref.watch(memberPaymentsProvider(profile.member.id));
+
+    return ListView(
+      padding: const EdgeInsets.all(Brand.spaceMd),
+      children: <Widget>[
+        MembershipActionPanel(
+          member: profile.member,
+          // The membership the lifecycle actions act on is the current one;
+          // an expired row from two years ago is history, not a thing to
+          // freeze.
+          membership: memberships.value?.firstOrNull,
+          payments: payments.value ?? const <PaymentWithCollector>[],
+          onChanged: () {
+            ref.invalidate(memberProfileProvider(profile.member.id));
+            ref.invalidate(memberMembershipsProvider(profile.member.id));
+            ref.invalidate(memberPaymentsProvider(profile.member.id));
+          },
+        ),
+        const Divider(height: Brand.spaceXl),
+        MemberAdminPanel(member: profile.member),
+      ],
     );
   }
 }
