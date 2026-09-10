@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/members/member_list_screen.dart';
+import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
 
@@ -87,6 +88,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     icon: Icons.payments_outlined,
     selectedIcon: Icons.payments,
     requires: StaffCapability.viewTodaysCollection,
+    builder: _collectionScreen,
   ),
   // Trainers have no other destination — PLANNING.md §4 gives them classes
   // and nothing else — so this entry is what keeps their shell from being
@@ -131,6 +133,10 @@ Widget _checkInScreen() => const CheckInScreen();
 /// The visitor log, sub-project B's screen. A top-level function rather than
 /// a closure so [staffDestinations] can stay `const`.
 Widget _visitorsScreen() => const VisitorLogScreen();
+
+/// Today's drawer, sub-project D's screen. A top-level function rather than a
+/// closure so [staffDestinations] can stay `const`.
+Widget _collectionScreen() => const CollectionSheetScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
 /// "More". Four is the Material 3 comfortable maximum for a
