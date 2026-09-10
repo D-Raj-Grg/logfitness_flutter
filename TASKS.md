@@ -131,14 +131,14 @@ Decisions taken while scoping it, so they are not re-litigated:
       so rather than inventing a query (see Discovered), and **photos** stay
       deferred with the rest of the photo work in sub-project F -- the list and
       the profile render without one.
-- [ ] **D. Sales.** `renew_membership`, `record_payment`, today's collection
+- [x] **D. Sales.** `renew_membership`, `record_payment`, today's collection
       sheet via `daily_collection`.
-- [ ] **E. Lifecycle.** `freeze_membership`, `unfreeze_membership`,
+- [x] **E. Lifecycle.** `freeze_membership`, `unfreeze_membership`,
       `cancel_membership`, `set_member_left`, `reactivate_member`,
       `adjust_membership_dates`, `refund_payment`, `reverse_payment`. Role-gated
       per PLANNING.md §4: front desk sees neither refund nor cancel -- and the
       hidden button is UX only, the refusal still comes from the database.
-- [ ] **F. Admin.** Member edit, photo capture and upload, archive/restore,
+- [x] **F. Admin.** Member edit, photo capture and upload, archive/restore,
       invite-to-app.
 
 ## Phase 4 — Staff front desk
@@ -248,6 +248,41 @@ Decisions taken while scoping it, so they are not re-litigated:
       checks it; the mobile register screen does not offer it, so a member
       registered on a phone always starts opted in. Add it with the member edit
       screen in sub-project F.
+
+- [ ] **2026-09-10** Two role gates in the mobile lifecycle panel are stricter
+      than the console's and want a deliberate decision rather than drift.
+      `staff_capabilities.dart` has no capability for *adjust membership dates*,
+      so it was gated on `manageMembers` (manager and up), matching the
+      console's own owner/manager gate -- free days are money. But the console
+      lets a **front desk** mark a member as left, where our capability doc
+      binds `set_member_left` to manager and up, so mobile is the more
+      restrictive of the two. Pick one and make both surfaces agree.
+- [ ] **2026-09-10** The staff shell mounts sibling `Scaffold`s, so every
+      screen with a floating action button needs an explicit `heroTag` or
+      Flutter asserts "multiple heroes share the same tag" -- and it throws in
+      the running app, not only under test. Three screens hit it independently
+      (check-in, the visitor log, the member list) and each was fixed at the
+      call site. The shell-level fix is the real one.
+- [ ] **2026-09-10** `AsyncValueView` has no way to pass an `icon` through to
+      its `EmptyView`, so every empty state it renders is
+      `Icons.inbox_outlined` unless the caller builds `EmptyView` by hand.
+      Cosmetic, and easy.
+- [ ] **2026-09-10** The renewal screen restates `renew_membership`'s
+      `starts_on` logic in Dart to project the new period before it is written.
+      It can disagree with the database when the device's date differs from
+      `org_today`. It is labelled a projection on screen rather than hidden, but
+      a `preview_renewal` RPC upstream would remove the duplication -- worth a
+      `../logfitness_saas/TASKS.md` entry if it should go.
+- [ ] **2026-09-10** `PaymentsRepository.listInvoicesForMember` and
+      `MembershipsRepository.listInvoicesForMember` are byte-identical. The
+      duplication is deliberate upstream and the comments say so, but two
+      providers reading two copies can diverge later.
+- [ ] **2026-09-10** Member photos are still not rendered or captured anywhere.
+      The console mints signed URLs (`memberPhotoUrls`) and there is no Dart
+      equivalent of its `lib/db/photos`. Sub-project F shipped edit, archive,
+      restore and invite **without** the photo half; capture at registration was
+      deferred by an explicit decision, but display was not -- a member list
+      with no faces is a worse check-in surface than the console's.
 
 ## Open questions
 
