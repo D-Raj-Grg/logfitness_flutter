@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/members/member_list_screen.dart';
+import 'package:logfitness_flutter/features/payments/arrears_screen.dart';
 import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
@@ -100,12 +101,17 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     selectedIcon: Icons.event,
     requires: StaffCapability.manageOwnClasses,
   ),
+  // Arrears is the only report built, and it is the one a counter acts on
+  // rather than reads, so it is what Reports opens on. Phase 6's ranged
+  // collection and expiring-soon dashboards land beside it later; when they
+  // do this becomes an index and arrears becomes a row in it.
   StaffDestination(
     id: 'reports',
     label: 'Reports',
     icon: Icons.bar_chart_outlined,
     selectedIcon: Icons.bar_chart,
     requires: StaffCapability.viewBranchReports,
+    builder: _reportsScreen,
   ),
   // Settings is the signed-in person's own account and preferences — sign
   // out, app version, theme — not the org administration the console keeps
@@ -137,6 +143,10 @@ Widget _visitorsScreen() => const VisitorLogScreen();
 /// Today's drawer, sub-project D's screen. A top-level function rather than a
 /// closure so [staffDestinations] can stay `const`.
 Widget _collectionScreen() => const CollectionSheetScreen();
+
+/// Who owes money, sub-project D's other screen. A top-level function rather
+/// than a closure so [staffDestinations] can stay `const`.
+Widget _reportsScreen() => const ArrearsScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
 /// "More". Four is the Material 3 comfortable maximum for a

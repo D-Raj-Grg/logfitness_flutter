@@ -396,15 +396,15 @@ class _PaymentsTab extends ConsumerWidget {
   }
 }
 
-/// Attendance has no repository yet.
+/// One member's visit history.
 ///
-/// `lib/data/` carries members, memberships, payments, plans, branches and
-/// visitors, and nothing that reads `attendance` -- the console's
-/// `listAttendanceForMember` has no Dart counterpart. Rather than invent a
-/// query in a widget (a review failure, PLANNING.md §6) or leave a tab that
-/// silently shows nothing, this says what is actually true: an empty
-/// attendance tab and a missing one look identical to a desk, and only one of
-/// them means "this member has never checked in".
+/// Reads `lib/data/attendance/` -- the Dart counterpart of the console's
+/// `listAttendanceForMember` -- through a provider, never a query built in
+/// the widget (a review failure, PLANNING.md §6). The empty state says
+/// "never checked in" and means it: this tab shipped as a stub for exactly
+/// as long as the repository was missing, because an empty attendance tab
+/// and a missing one look identical to a desk and only one of them is a
+/// claim about the member.
 class _AttendanceTab extends ConsumerWidget {
   const _AttendanceTab({required this.memberId});
 

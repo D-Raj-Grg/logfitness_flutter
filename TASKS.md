@@ -52,6 +52,13 @@ Phase 0 items live in the `logfitness_saas` repo. They are listed here because t
 
 ## Phase 3 — Member app
 
+Untouched. `lib/features/member/member_shell.dart` is a `TODO(phase-3)` and
+nothing in `lib/` calls `mint_qr_token`, `book_class_session` or reads
+`class_sessions`; `firebase_messaging` is in `pubspec.yaml` with zero
+references behind it. The whole of the parity programme went first, so this
+is the largest remaining block of work in the app — and the half that has a
+backend waiting for it (Phase 0 is complete).
+
 - [ ] Home: plan status, expiry date, days remaining, dues outstanding (reads `members.status`, never computes it)
 - [ ] Payment history — invoices with status, payments with method and kind; refunds render as negative rows
 - [ ] QR check-in screen — mint a token from the Edge Function, render it, auto-refresh on expiry
@@ -138,36 +145,48 @@ Decisions taken while scoping it, so they are not re-litigated:
       `adjust_membership_dates`, `refund_payment`, `reverse_payment`. Role-gated
       per PLANNING.md §4: front desk sees neither refund nor cancel -- and the
       hidden button is UX only, the refusal still comes from the database.
-- [x] **F. Admin.** Member edit, photo capture and upload, archive/restore,
-      invite-to-app.
+- [x] **F. Admin.** Member edit (including `notifications_opt_out`, which
+      nothing on this side read before), archive/restore, invite-to-app.
+      **Photo capture and upload did not land** and was ticked here in error
+      on 2026-09-10 — there is no `lib/data/photos/`, no signed-URL minting,
+      and no capture anywhere; corrected 2026-09-11. That leaves the app with
+      no member faces at all, on a check-in surface where a face is the point
+      (see Discovered, 2026-09-10).
 
 ## Phase 4 — Staff front desk
 
-- [ ] Scan check-in via `mobile_scanner` verifying against the token Edge Function (≤3s from scan to confirmation; optimistic success state)
-- [ ] Manual check-in fallback by phone search
-- [ ] Check-in result surfaces plan status and dues so the desk can act on an expired or owing member
-- [ ] Collect payment via `record_payment` — method from the `payment_method` enum, amount entered in rupees and converted with `toPaisa` once
-- [ ] Walk-in member signup — name, phone, gender, home branch; phone-unique-per-org error handled
-- [ ] Invite member to the app by email from member detail and from walk-in signup
-- [ ] Renew via `renew_membership` — plan picker from `membership_plans` available at the branch
-- [ ] Today's collection sheet via `daily_collection`, grouped by method
-- [ ] Every mutation shows the audit-visible actor (the signed-in staff member) before confirming
+Ticked 2026-09-11 against the code, not from memory: the staff parity
+sub-projects B–F built most of this phase on their way past it, and the boxes
+were never came back to. Scan-to-confirmation timing is still unmeasured —
+nothing here has run on a device (see Discovered, 2026-09-09).
+
+- [x] Scan check-in via `mobile_scanner` verifying against the token RPC (`lib/features/attendance/scan_check_in_screen.dart`; `verify_qr_token` then `check_in_member`, because verifying is not checking in). Built as RPCs, not an Edge Function — see Phase 0. **≤3s not yet measured.**
+- [x] Manual check-in fallback by phone search — `lib/features/attendance/check_in_screen.dart`, and it is the default surface with the scanner behind a button
+- [x] Check-in result surfaces plan status and dues so the desk can act on an expired or owing member — dues render on the row *before* the check-in, not only in the result banner
+- [x] Collect payment via `record_payment` — `lib/features/payments/record_payment_screen.dart`
+- [x] Walk-in member signup — `lib/features/members/register_member_screen.dart`; phone-unique-per-org handled through `AppFailure`
+- [x] Invite member to the app by email from member detail — `lib/features/members/member_admin_panel.dart`. **Not offered from walk-in signup**; that half is unbuilt
+- [x] Renew via `renew_membership` — `lib/features/payments/renew_membership_screen.dart`
+- [x] Today's collection sheet via `daily_collection`, grouped by method — `lib/features/payments/collection_sheet_screen.dart`, mounted as the Collection destination
+- [ ] Every mutation shows the audit-visible actor (the signed-in staff member) before confirming — nothing reads `currentStaff` in a confirm dialog; the shell names the role in its chrome and that is all
 
 ## Phase 5 — Staff member management
 
-- [ ] Member search and list (phone, name); status chips from `member_status`
-- [ ] Member detail — membership history, invoices, payments, attendance
-- [ ] Freeze / unfreeze via `freeze_membership` / `unfreeze_membership`
-- [ ] Cancel via `cancel_membership`; mark left via `set_member_left`; reactivate via `reactivate_member`
-- [ ] Refund via `refund_payment` — reason required, renders as a negative payment
-- [ ] Arrears list via `arrears_report`, filterable by branch
+Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
+
+- [x] Member search and list (phone, name); status chips from `member_status` — `lib/features/members/member_list_screen.dart`, labels pinned to the console's wording by `member_labels.dart`
+- [x] Member detail — membership history, invoices, payments, attendance. All four tabs are live; attendance reads `lib/data/attendance/`
+- [x] Freeze / unfreeze via `freeze_membership` / `unfreeze_membership` — `lib/features/memberships/membership_action_panel.dart`
+- [x] Cancel via `cancel_membership`; mark left via `set_member_left`; reactivate via `reactivate_member`
+- [x] Refund via `refund_payment` — reason required, renders as a negative payment — `lib/features/memberships/refund_payment_screen.dart`
+- [x] Arrears list via `arrears_report`, filterable by branch — `lib/features/payments/arrears_screen.dart`, ageing buckets read off the row. It was built and then reachable from nothing for a day; mounted on the Reports destination 2026-09-11
 - [x] Branch switcher in the staff shell, options limited to `branch_ids[]` from claims — selection exposed as `branchScopeProvider`; an owner's empty claim reads as org-wide, matching the RLS policies. Branch *names* still need a `branches` repository; the switcher shows shortened ids until one lands (see Discovered).
 - [x] Role gating in the UI matches `PLANNING.md` §4 (front desk cannot see refund or cancel) — `StaffCapability` is the single declarative table; nav destinations and, once they exist, actions are derived from it. UX only: the database refuses independently and `FailureView` renders that refusal.
 
 ## Phase 6 — Staff reports and admin
 
-- [ ] Branch and chain collection reports, read-only, date-ranged
-- [ ] Expiring-soon and arrears dashboards for managers and owners
+- [ ] Branch and chain collection reports, read-only, date-ranged. `daily_collection` is today-only today; a ranged report is the new part
+- [ ] Expiring-soon and arrears dashboards for managers and owners. **Arrears half is done** (Phase 5) and is what the Reports destination opens on; expiring-soon is not built, and when it lands Reports becomes an index with both behind it
 - [ ] Plan catalog view (read-only; editing stays on the web console)
 - [ ] Class and trainer schedule view (read-only; editing stays on the web console)
 - [ ] Trainer shell — own upcoming sessions and attendance marking, if answered yes in Open questions
@@ -175,8 +194,8 @@ Decisions taken while scoping it, so they are not re-litigated:
 ## Phase 7 — Release
 
 - [ ] App icon and splash for iOS and Android
-- [ ] Bundle ids, signing configs, keystore handling outside the repo
-- [ ] Permission strings — camera (QR scan), notifications
+- [ ] Bundle ids, signing configs, keystore handling outside the repo. `applicationId` is set; release still builds with `signingConfig = debug`
+- [ ] Permission strings — camera (QR scan) is in `ios/Runner/Info.plist` already, notifications is not (and nothing requests them yet — see Phase 3 push)
 - [ ] iOS privacy manifest and App Store review prerequisites
 - [ ] Crash reporting and basic analytics
 - [ ] Semantic versioning + build number bump in CI
@@ -198,17 +217,20 @@ Decisions taken while scoping it, so they are not re-litigated:
 - [ ] **2026-09-09** `daily_collection` and `arrears_report` return `TABLE(...)`, but the console's `dailyCollection`/`arrearsReport` return the generated `Json` type with no row model. Mobile models them (`DailyCollectionRow`, `ArrearsRow` in `lib/data/payments/payment_rpc_results.dart`); `arrears_report.bucket` is plain `text` from the function, not a Postgres enum, so it is carried as a `String` on both sides.
 - [ ] **2026-09-09** `register_member`'s `hint` (`'member'` or `'sale'`, which half of the transaction refused) is not surfaced by PostgREST on a `PostgrestException`, so the Flutter caller cannot land the error on the right form field the way the console's Server Action does. Either move the discriminator into the message text upstream, or accept that mobile shows one combined error.
 
-- [ ] **2026-09-09** The branch switcher can only show ids. Claims carry `branch_ids[]` and nothing else, and there is no `branches` repository in this app, so `branchNamesProvider` (`lib/features/staff/branch_scope.dart`) resolves to an empty map and the switcher degrades to `Branch 3f2504e0`. Back it with a `lib/data/branches/` repository mirroring the console's `lib/db/branches.ts` and the switcher needs no other change. An owner's claim is empty by design (empty `branch_ids` means the whole org to the RLS policies), so that repository is also the only way an owner ever gets a *per-branch* option rather than "All branches".
+- [x] **2026-09-09** The branch switcher can only show ids. Claims carry `branch_ids[]` and nothing else, and there is no `branches` repository in this app, so `branchNamesProvider` (`lib/features/staff/branch_scope.dart`) resolves to an empty map and the switcher degrades to `Branch 3f2504e0`. Back it with a `lib/data/branches/` repository mirroring the console's `lib/db/branches.ts` and the switcher needs no other change. An owner's claim is empty by design (empty `branch_ids` means the whole org to the RLS policies), so that repository is also the only way an owner ever gets a *per-branch* option rather than "All branches". — Closed: `lib/data/branches/` landed with sub-project C and `branchNamesProvider` resolves through it.
 - [x] **2026-09-09** `lib/features/members/member_lookup_panel.dart` renders its error state as `Text('Lookup failed: $error')` — the exact shape `AppFailure` and `FailureView` exist to prevent, since a `42501` refusal there is indistinguishable from any other error and carries no distinct treatment. Fixed 2026-09-09 rather than deferred to sub-project C: the panel is mounted as the Members destination today, so it was the one live screen in the app that could show a refusal as an unreadable `toString()`. It now renders through `AsyncValueView`. Still open there: the row renders `member.status.wire`, the raw enum value, where the console shows a label — that wants a `MemberStatusBadge` alongside the visitor one, in sub-project C.
 
-- [ ] **2026-09-10** There is no attendance data layer. `lib/data/` has
+- [x] **2026-09-10** There is no attendance data layer. `lib/data/` has
       members, memberships, payments, plans, branches and visitors, and nothing
       that reads `attendance`; the console's `listAttendanceForMember` and
       `AttendanceDetailRow` have no Dart counterpart. The member profile's
       fourth tab therefore says attendance is not available yet rather than
       rendering an empty list, because an empty tab reads as "never checked in"
       -- a different claim entirely. Wants `lib/data/attendance/` before the
-      check-in work in Phase 4.
+      check-in work in Phase 4. — Closed by `ebe9cc7`: `lib/data/attendance/`
+      ships the repository, `AttendanceDetail` and the check-in RPC results,
+      and the fourth tab renders real visits. The stub's doc comment outlived
+      the stub by a day and was corrected 2026-09-11.
 
 ## Discovered — audit fixes (2026-09-05)
 
@@ -247,7 +269,9 @@ Decisions taken while scoping it, so they are not re-litigated:
       yet. The console puts it on the member edit form and every enqueue job
       checks it; the mobile register screen does not offer it, so a member
       registered on a phone always starts opted in. Add it with the member edit
-      screen in sub-project F.
+      screen in sub-project F. — Half closed: the **edit** screen carries it
+      (`member_edit_screen.dart`). The **register** screen still does not, so
+      the "always starts opted in" complaint stands exactly as written.
 
 - [ ] **2026-09-10** Two role gates in the mobile lifecycle panel are stricter
       than the console's and want a deliberate decision rather than drift.
@@ -283,6 +307,23 @@ Decisions taken while scoping it, so they are not re-litigated:
       restore and invite **without** the photo half; capture at registration was
       deferred by an explicit decision, but display was not -- a member list
       with no faces is a worse check-in surface than the console's.
+
+- [x] **2026-09-11** `arrears_screen.dart` was complete, tested and reachable
+      from nothing: the Reports destination in `staff_destinations.dart` still
+      carried `builder: null`, so managers and owners got
+      `StaffPlaceholderScreen` over a finished screen. Wired 2026-09-11. Worth
+      a habit rather than a fix — the destination table is the one place a
+      screen becomes reachable, and a sub-project that builds a screen without
+      touching it produces exactly this.
+
+- [ ] **2026-09-11** `TASKS.md` drifted badly enough to be misleading: Phases 4
+      and 5 read as 0/9 and 2/8 when the code had 8/9 and 8/8, sub-project F
+      claimed photo work that does not exist, and three Discovered items
+      described problems already fixed. Everything above is now ticked against
+      the code. The rule that failed is the one at the top of this file --
+      "mark tasks `[x]` the moment they are done" -- and it failed because the
+      parity sub-projects each had their own plan and ticked *that*. A
+      sub-project that crosses a phase should tick the phase too.
 
 ## Open questions
 
