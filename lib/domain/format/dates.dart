@@ -70,3 +70,18 @@ String formatPlainDate(DateTime value) {
   return DateFormat('dd MMM yyyy', 'en_US')
       .format(DateTime(utc.year, utc.month, utc.day));
 }
+
+/// The org's today, as a date-only value pinned to UTC midnight.
+///
+/// The Dart mirror of the console's `todayInTimezone()`. A phone set to another
+/// timezone must not decide what day it is at a gym in Kathmandu: at 00:30
+/// Kathmandu the device's UTC date is still yesterday, and a walk-in logged
+/// then would land on the wrong calendar day. So the wall clock is resolved
+/// through the org's offset first, and only then reduced to a day.
+///
+/// Returns the same shape `PlainDateConverter` produces, so it can be handed
+/// straight to a `date` column (see `plain_date.dart`).
+DateTime todayInOrgTimezone({String timeZone = kDefaultTimezone}) {
+  final DateTime wall = _wallClock(DateTime.now(), timeZone);
+  return DateTime.utc(wall.year, wall.month, wall.day);
+}

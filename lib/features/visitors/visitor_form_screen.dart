@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/visitors/visitor.dart';
+import 'package:logfitness_flutter/data/plans/membership_plan.dart';
+import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
@@ -39,6 +41,7 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
   late VisitorKind _kind;
   DateTime? _visitedOn;
   String? _branchId;
+  String? _interestedPlanId;
 
   @override
   void initState() {
@@ -48,12 +51,16 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
     _phone = TextEditingController(text: existing?.phone ?? '');
     _note = TextEditingController(text: existing?.note ?? '');
     _kind = existing?.kind ?? VisitorKind.enquiry;
-    // Only carried when editing. On a new row it stays null so the
-    // `set_visitor_defaults` trigger fills the org's own today -- Kathmandu's
-    // day is not UTC's, and the database is the only thing that knows the
-    // org's timezone.
-    _visitedOn = existing?.visitedOn;
+    // Prefilled with the org's today, matching the console, so the desk can see
+    // the date it is about to record rather than the word "Today".
+    //
+    // `todayInOrgTimezone()` and not `DateTime.now()`: at 00:30 in Kathmandu
+    // the device's UTC date is still yesterday, and a walk-in logged then would
+    // land on the wrong calendar day. Clearing the field still falls back to
+    // the `set_visitor_defaults` trigger, which remains the safety net.
+    _visitedOn = existing?.visitedOn ?? todayInOrgTimezone();
     _branchId = existing?.branchId;
+    _interestedPlanId = existing?.interestedPlanId;
   }
 
   @override
@@ -122,7 +129,7 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
                 for (final VisitorKind kind in VisitorKind.values)
                   ButtonSegment<VisitorKind>(
                     value: kind,
-                    label: Text(visitorKindLabel(kind)),
+                    label: Text(visitorKindDescription(kind)),
                   ),
               ],
               selected: <VisitorKind>{_kind},
@@ -141,7 +148,15 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
                       child: Text(names[id] ?? 'Branch ${id.substring(0, 8)}'),
                     ),
                 ],
-                onChanged: (String? value) => setState(() => _branchId = value),
+                onChanged: (String? value) => setState(() {
+                  _branchId = value;
+                  // The plan catalogue is per branch. Keeping a selection the
+                  // new branch does not sell would submit an id that looks
+                  // deliberate and is not, so it is dropped back to "not said"
+                  // -- the console derives it the same way rather than holding
+                  // an invalid value.
+                  _interestedPlanId = null;
+                }),
                 validator: (String? value) =>
                     value == null ? 'Pick the branch they walked into.' : null,
               ),
@@ -152,17 +167,25 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
               onPick: (DateTime? picked) => setState(() => _visitedOn = picked),
             ),
             const SizedBox(height: Brand.spaceMd),
+            _InterestedPlanField(
+              branchId: _branchId,
+              value: _interestedPlanId,
+              onChanged: (String? planId) =>
+                  setState(() => _interestedPlanId = planId),
+            ),
+            const SizedBox(height: Brand.spaceMd),
             TextFormField(
               controller: _note,
               maxLines: 3,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                labelText: 'Note',
-                hintText: 'What did they ask about?',
+                labelText: 'Note (optional)',
+                hintText: 'What they asked about, when to call back.',
               ),
             ),
             const SizedBox(height: Brand.spaceLg),
             FilledButton(
+              key: const ValueKey<String>('visitor-form-submit'),
               onPressed: saving ? null : _submit,
               child: Text(saving
                   ? 'Saving…'
@@ -181,10 +204,11 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
 
     final claims = ref.read(claimsProvider);
     final orgId = claims?.orgId;
-    final branchId = _branchId ??
-        (ref.read(branchScopeProvider).options.isNotEmpty
-            ? ref.read(branchScopeProvider).options.first
-            : null);
+    // `_branchId` is already resolved in `build` — a lone branch is adopted
+    // automatically and several force the picker, which validates. Reaching
+    // here with nothing means the org has no branch this session can read,
+    // which is a broken account rather than a missed field.
+    final branchId = _branchId;
 
     if (orgId == null || branchId == null) {
       // Rare, and a bug rather than a user error -- but it still has to say
@@ -194,8 +218,8 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
         context,
         const AppFailure(
           FailureKind.unknown,
-          'This session has no branch to log a walk-in against. Sign out and '
-          'back in, and tell whoever set up your account if it happens again.',
+          'No branch is set up for this gym yet, so there is nowhere to record '
+          'a walk-in. Add a branch on the web console first.',
         ),
       );
       return;
@@ -210,6 +234,9 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
             kind: _kind,
             visitedOn: _visitedOn,
             note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+            // Explicit null clears it: "not said" is an answer, and an edit
+            // that unsets the plan has to be able to say so.
+            interestedPlanId: _interestedPlanId,
           )
         : await actions.log(
             orgId: orgId,
@@ -217,10 +244,11 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
             fullName: _name.text.trim(),
             phone: _phone.text.trim(),
             kind: _kind,
-            // Null unless the desk deliberately backdated: the trigger fills
-            // the org's today, which is the only correct answer here.
+            // Prefilled with the org's today and editable for a backdated log.
+            // Cleared, the `set_visitor_defaults` trigger fills it instead.
             visitedOn: _visitedOn,
             note: _note.text.trim().isEmpty ? null : _note.text.trim(),
+            interestedPlanId: _interestedPlanId,
           );
 
     if (!mounted) {
@@ -236,6 +264,77 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
         // standing in front of.
         showFailureSnackBar(context, failure);
     }
+  }
+}
+
+/// Plans sellable at one branch.
+///
+/// Declared here rather than imported from the register screen: a visitors
+/// screen reaching into a members *screen* for a provider is the wrong
+/// direction, and `listPlansForBranch` already encodes the rule the console
+/// applies client-side — active plans whose `branch_ids` is empty (org-wide) or
+/// contains this branch.
+final visitorBranchPlansProvider =
+    FutureProvider.family<List<MembershipPlan>, String>((ref, String branchId) {
+  return ref.watch(plansRepositoryProvider).listPlansForBranch(branchId);
+});
+
+/// "Interested in" — which plan they asked about.
+///
+/// Optional, and the single most useful thing on an enquiry: it is the callback
+/// script. Offered per branch, because a plan that is not on sale where they
+/// walked in is not a thing they can be sold.
+class _InterestedPlanField extends ConsumerWidget {
+  const _InterestedPlanField({
+    required this.branchId,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String? branchId;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final branch = branchId;
+    if (branch == null) {
+      return const SizedBox.shrink();
+    }
+
+    final plans = ref.watch(visitorBranchPlansProvider(branch));
+
+    return plans.when(
+      loading: () => const InputDecorator(
+        decoration: InputDecoration(labelText: 'Interested in (optional)'),
+        child: LinearProgressIndicator(),
+      ),
+      // A plan list that failed to load must not look like a gym with no
+      // plans. It is optional either way, so the field simply stands down
+      // rather than claiming there is nothing to choose.
+      error: (Object _, StackTrace _) => const SizedBox.shrink(),
+      data: (List<MembershipPlan> rows) {
+        // A plan the branch does not sell -- carried over from an edit, or from
+        // a branch change -- is not offered and not kept.
+        final bool known = rows.any((MembershipPlan p) => p.id == value);
+        return DropdownButtonFormField<String?>(
+          key: const ValueKey<String>('visitor-interested-plan'),
+          initialValue: known ? value : null,
+          decoration: const InputDecoration(
+            labelText: 'Interested in (optional)',
+          ),
+          items: <DropdownMenuItem<String?>>[
+            const DropdownMenuItem<String?>(child: Text(kNoPlanSaid)),
+            for (final MembershipPlan plan in rows)
+              DropdownMenuItem<String?>(
+                value: plan.id,
+                child: Text(plan.name),
+              ),
+          ],
+          onChanged: onChanged,
+        );
+      },
+    );
   }
 }
 

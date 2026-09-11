@@ -10,6 +10,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/visitors/visitor.dart';
 import 'package:logfitness_flutter/data/visitors/visitors_repository.dart';
+import 'package:logfitness_flutter/data/plans/membership_plan.dart';
+import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
@@ -20,6 +22,38 @@ import 'package:logfitness_flutter/features/visitors/visitor_actions_controller.
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_labels.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_status_badge.dart';
+
+/// What they asked about, resolved to the plan's name.
+///
+/// Renders nothing at all if the plan cannot be resolved. A plan deleted since
+/// the visit nulls the column upstream (`on delete set null`), and a plan that
+/// simply fails to load is not worth an error here — the visit still happened,
+/// and the rest of the screen is what the desk came for.
+class _InterestedPlanLine extends ConsumerWidget {
+  const _InterestedPlanLine({required this.planId});
+
+  final String planId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final plan = ref.watch(visitorPlanProvider(planId)).value;
+    if (plan == null) {
+      return const SizedBox.shrink();
+    }
+    return Text(
+      'Interested in ${plan.name}',
+      style: theme.textTheme.bodyMedium
+          ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+    );
+  }
+}
+
+/// One plan by id, for rendering a visitor's interest.
+final visitorPlanProvider =
+    FutureProvider.family<MembershipPlan?, String>((ref, String planId) {
+  return ref.watch(plansRepositoryProvider).fetchById(planId);
+});
 
 /// One visitor, read fresh so an edit made elsewhere is not shown stale.
 final visitorDetailProvider =
@@ -86,6 +120,10 @@ class _Detail extends ConsumerWidget {
           style: theme.textTheme.bodyMedium
               ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
+        if (visitor.interestedPlanId != null) ...<Widget>[
+          const SizedBox(height: Brand.spaceXs),
+          _InterestedPlanLine(planId: visitor.interestedPlanId!),
+        ],
         if (visitor.note != null && visitor.note!.trim().isNotEmpty) ...<Widget>[
           const SizedBox(height: Brand.spaceMd),
           Card(

@@ -7,7 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logfitness_flutter/data/visitors/visitor.dart';
 import 'package:logfitness_flutter/data/visitors/visitors_repository.dart';
+import 'package:logfitness_flutter/data/plans/membership_plan.dart';
+import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
+import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/auth/auth_controller.dart';
 import 'package:logfitness_flutter/features/common/failure_view.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
@@ -73,6 +76,7 @@ class _FakeVisitorsRepository implements VisitorsRepository {
       'kind': kind,
       'visitedOn': visitedOn,
       'note': note,
+      'interestedPlanId': interestedPlanId,
     };
     return 'v-new';
   }
@@ -103,10 +107,47 @@ AppClaims _claims() => const AppClaims(
       branchIds: <String>['branch-1'],
     );
 
-List<dynamic> _overrides(_FakeVisitorsRepository repository) {
+class _FakePlansRepository implements PlansRepository {
+  _FakePlansRepository({this.plans = const <MembershipPlan>[]});
+
+  final List<MembershipPlan> plans;
+  String? lastBranchId;
+
+  @override
+  Future<List<MembershipPlan>> listPlansForBranch(String branchId) async {
+    lastBranchId = branchId;
+    return plans;
+  }
+
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
+MembershipPlan _plan(String id, String name) => MembershipPlan(
+      id: id,
+      orgId: 'org-1',
+      name: name,
+      planType: PlanType.time,
+      pricePaisa: 700000,
+      signupFeePaisa: 0,
+      branchIds: const <String>[],
+      isActive: true,
+      sortOrder: 0,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+
+List<dynamic> _overrides(
+  _FakeVisitorsRepository repository, {
+  _FakePlansRepository? plans,
+}) {
   final claims = _claims();
   return <dynamic>[
     visitorsRepositoryProvider.overrideWithValue(repository),
+    plansRepositoryProvider.overrideWithValue(
+      plans ?? _FakePlansRepository(),
+    ),
     claimsProvider.overrideWithValue(claims),
     principalProvider.overrideWithValue(
       AsyncValue<Principal>.data(Principal.staff(claims)),
@@ -114,13 +155,28 @@ List<dynamic> _overrides(_FakeVisitorsRepository repository) {
   ];
 }
 
-Future<void> _pump(WidgetTester tester, Widget child,
-    _FakeVisitorsRepository repository) async {
+/// The form is a ListView and the submit button sits below the fold once the
+/// plan picker is in play; a ListView does not build what is off screen, so it
+/// has to be scrolled into existence before it can be tapped.
+Future<void> _submitForm(WidgetTester tester) async {
+  final submit = find.byKey(const ValueKey<String>('visitor-form-submit'));
+  await tester.scrollUntilVisible(submit, 200, scrollable: find.byType(Scrollable).first);
+  await tester.pumpAndSettle();
+  await tester.tap(submit);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pump(
+  WidgetTester tester,
+  Widget child,
+  _FakeVisitorsRepository repository, {
+  _FakePlansRepository? plans,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       // Spread into an untyped literal so inference supplies `Override`,
       // which flutter_riverpod 3.1.0 does not export (TASKS.md, Discovered).
-      overrides: [..._overrides(repository)],
+      overrides: [..._overrides(repository, plans: plans)],
       child: MaterialApp(home: child),
     ),
   );
@@ -192,16 +248,16 @@ void main() {
       final repository = _FakeVisitorsRepository();
       await _pump(tester, const VisitorFormScreen(), repository);
 
-      await tester.tap(find.text('Log walk-in'));
-      await tester.pumpAndSettle();
+      await _submitForm(tester);
 
       expect(find.text('A name is required.'), findsOneWidget);
       expect(find.text('A phone number is required.'), findsOneWidget);
       expect(repository.lastInsert, isNull);
     });
 
-    testWidgets('sends no visited-on date unless one was picked',
-        (WidgetTester tester) async {
+    testWidgets('sends the gym\'s today, not the device\'s', (
+      WidgetTester tester,
+    ) async {
       final repository = _FakeVisitorsRepository();
       await _pump(tester, const VisitorFormScreen(), repository);
 
@@ -213,15 +269,117 @@ void main() {
         find.widgetWithText(TextFormField, 'Phone'),
         '9800000000',
       );
-      await tester.tap(find.text('Log walk-in'));
+      await _submitForm(tester);
+
+      // Prefilled and sent, matching the console -- but resolved through the
+      // org's offset, never `DateTime.now()`. At 00:30 in Kathmandu the
+      // device's UTC date is still yesterday, and a walk-in logged then would
+      // land on the wrong calendar day.
+      expect(repository.lastInsert, isNotNull);
+      final sent = repository.lastInsert!['visitedOn'] as DateTime?;
+      expect(sent, isNotNull);
+      expect(sent, todayInOrgTimezone());
+      // A date-only value: UTC midnight, so no offset can move the day.
+      expect(sent!.isUtc, isTrue);
+      expect(sent.hour, 0);
+      expect(repository.lastInsert!['fullName'], 'Anjali Shrestha');
+    });
+
+    testWidgets('offers the plans sold at that branch, and sends the choice', (
+      WidgetTester tester,
+    ) async {
+      final repository = _FakeVisitorsRepository();
+      final plans = _FakePlansRepository(
+        plans: <MembershipPlan>[
+          _plan('p-1', 'Gym Only'),
+          _plan('p-2', 'Gym + Cardio'),
+        ],
+      );
+      await _pump(tester, const VisitorFormScreen(), repository, plans: plans);
+
+      // Per branch, not per org: a plan not on sale where they walked in is not
+      // a thing they can be sold.
+      expect(plans.lastBranchId, 'branch-1');
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full name'),
+        'Anjali Shrestha',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Phone'),
+        '9800000000',
+      );
+
+      final picker = find.byKey(
+        const ValueKey<String>('visitor-interested-plan'),
+      );
+      await tester.scrollUntilVisible(picker, 200,
+          scrollable: find.byType(Scrollable).first);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gym + Cardio').last);
       await tester.pumpAndSettle();
 
-      // The `set_visitor_defaults` trigger fills the org's own today, and the
-      // database is the only thing that knows the org's timezone. Sending the
-      // device's date instead is how a 06:00 walk-in lands on yesterday.
+      await _submitForm(tester);
+
+      expect(repository.lastInsert!['interestedPlanId'], 'p-2');
+    });
+
+    testWidgets('a walk-in who did not say sends no plan', (
+      WidgetTester tester,
+    ) async {
+      final repository = _FakeVisitorsRepository();
+      final plans = _FakePlansRepository(
+        plans: <MembershipPlan>[_plan('p-1', 'Gym Only')],
+      );
+      await _pump(tester, const VisitorFormScreen(), repository, plans: plans);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full name'),
+        'Anjali Shrestha',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Phone'),
+        '9800000000',
+      );
+      await _submitForm(tester);
+
+      // "Not said" is an answer, and it is the default -- the field is optional
+      // and nobody should have to dismiss it.
+      expect(repository.lastInsert!['interestedPlanId'], isNull);
+    });
+
+    testWidgets('a single-branch gym is not asked which branch', (
+      WidgetTester tester,
+    ) async {
+      final repository = _FakeVisitorsRepository();
+      await _pump(tester, const VisitorFormScreen(), repository);
+
+      // One branch is a question with one answer. It is still sent.
+      expect(find.widgetWithText(DropdownButtonFormField<String>, 'Branch'),
+          findsNothing);
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Full name'),
+        'Anjali Shrestha',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Phone'),
+        '9800000000',
+      );
+      await _submitForm(tester);
+
       expect(repository.lastInsert, isNotNull);
-      expect(repository.lastInsert!['visitedOn'], isNull);
-      expect(repository.lastInsert!['fullName'], 'Anjali Shrestha');
+    });
+
+    testWidgets('the form explains the two kinds, as the console does', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, const VisitorFormScreen(), _FakeVisitorsRepository());
+
+      // One word does not say how an enquiry differs from a guest.
+      expect(find.text('Enquiry — asked about joining'), findsOneWidget);
+      expect(find.text('Guest — trained for the day'), findsOneWidget);
     });
 
     testWidgets('says out loud that blank means today',

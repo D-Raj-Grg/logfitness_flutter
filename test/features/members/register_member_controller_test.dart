@@ -33,6 +33,8 @@ class _FakeMembersRepository implements MembersRepository {
     String? notes,
     String? planId,
     int discountPaisa = 0,
+    DiscountReason? discountReason,
+    String? discountNote,
     int amountPaidPaisa = 0,
     PaymentMethod method = PaymentMethod.cash,
     String? referenceNo,
