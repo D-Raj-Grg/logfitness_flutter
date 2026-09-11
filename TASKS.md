@@ -265,13 +265,19 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
       invoice status and plan type, each pinned across the *whole* enum by
       `test/features/members/member_labels_test.dart`. The lookup panel's
       `member.status.wire` went with it.
-- [ ] **2026-09-09** Nothing reads `members.notifications_opt_out` on this side
-      yet. The console puts it on the member edit form and every enqueue job
-      checks it; the mobile register screen does not offer it, so a member
-      registered on a phone always starts opted in. Add it with the member edit
-      screen in sub-project F. — Half closed: the **edit** screen carries it
-      (`member_edit_screen.dart`). The **register** screen still does not, so
-      the "always starts opted in" complaint stands exactly as written.
+- [ ] **2026-09-09** A member registered on either surface always starts opted
+      **in** to automated messages, and nothing at the point of registration can
+      change that. Closed on the edit side (`member_edit_screen.dart` carries
+      the switch, and `updateMember` requires the argument rather than
+      defaulting it). Still open at registration, and **checked 2026-09-11: the
+      web console is identical** -- `components/members/member-form.tsx` renders
+      the consent checkbox inside a `{member ? ...}` branch, so it appears only
+      when editing, and `register_member` has no `p_notifications_opt_out`
+      argument to carry it anyway. So this is a product gap on both surfaces,
+      not a mobile parity gap, and fixing it only here would make the two
+      disagree. The real fix is upstream: add the argument to the RPC (logged in
+      `../logfitness_saas/TASKS.md`), then offer it on both forms. Until then,
+      consent is collected after the fact, on the first edit.
 
 - [ ] **2026-09-10** Two role gates in the mobile lifecycle panel are stricter
       than the console's and want a deliberate decision rather than drift.
