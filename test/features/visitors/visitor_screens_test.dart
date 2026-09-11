@@ -81,6 +81,8 @@ class _FakeVisitorsRepository implements VisitorsRepository {
     return 'v-new';
   }
 
+  Map<String, Object?>? lastUpdate;
+
   @override
   Future<void> updateVisitor(
     String visitorId, {
@@ -91,7 +93,12 @@ class _FakeVisitorsRepository implements VisitorsRepository {
     Object? note = visitorFieldUnchanged,
     Object? interestedPlanId = visitorFieldUnchanged,
     Object? status = visitorFieldUnchanged,
-  }) async {}
+  }) async {
+    lastUpdate = <String, Object?>{
+      'fullName': fullName,
+      'interestedPlanId': interestedPlanId,
+    };
+  }
 
   @override
   Future<void> deleteVisitor(String visitorId) async {}
@@ -100,11 +107,12 @@ class _FakeVisitorsRepository implements VisitorsRepository {
   Future<void> convertVisitor(String visitorId, String memberId) async {}
 }
 
-AppClaims _claims() => const AppClaims(
+AppClaims _claims({List<String> branchIds = const <String>['branch-1']}) =>
+    AppClaims(
       orgId: 'org-1',
       staffId: 'staff-1',
       staffRole: StaffRole.frontDesk,
-      branchIds: <String>['branch-1'],
+      branchIds: branchIds,
     );
 
 class _FakePlansRepository implements PlansRepository {
@@ -141,8 +149,9 @@ MembershipPlan _plan(String id, String name) => MembershipPlan(
 List<dynamic> _overrides(
   _FakeVisitorsRepository repository, {
   _FakePlansRepository? plans,
+  List<String> branchIds = const <String>['branch-1'],
 }) {
-  final claims = _claims();
+  final claims = _claims(branchIds: branchIds);
   return <dynamic>[
     visitorsRepositoryProvider.overrideWithValue(repository),
     plansRepositoryProvider.overrideWithValue(
@@ -171,12 +180,15 @@ Future<void> _pump(
   Widget child,
   _FakeVisitorsRepository repository, {
   _FakePlansRepository? plans,
+  List<String> branchIds = const <String>['branch-1'],
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       // Spread into an untyped literal so inference supplies `Override`,
       // which flutter_riverpod 3.1.0 does not export (TASKS.md, Discovered).
-      overrides: [..._overrides(repository, plans: plans)],
+      overrides: [
+        ..._overrides(repository, plans: plans, branchIds: branchIds),
+      ],
       child: MaterialApp(home: child),
     ),
   );
@@ -380,6 +392,50 @@ void main() {
       // One word does not say how an enquiry differs from a guest.
       expect(find.text('Enquiry — asked about joining'), findsOneWidget);
       expect(find.text('Guest — trained for the day'), findsOneWidget);
+    });
+
+    testWidgets('editing does not submit a plan the branch stopped selling', (
+      WidgetTester tester,
+    ) async {
+      final repository = _FakeVisitorsRepository();
+      // The visitor was logged against a plan this branch no longer sells.
+      final existing = _visitor('v-1').copyWith(interestedPlanId: 'p-gone');
+      final plans = _FakePlansRepository(
+        plans: <MembershipPlan>[_plan('p-1', 'Gym Only')],
+      );
+
+      await _pump(
+        tester,
+        VisitorFormScreen(existing: existing),
+        repository,
+        plans: plans,
+      );
+      await tester.pumpAndSettle();
+
+      await _submitForm(tester);
+
+      // The picker shows "Not said", because the plan is not offered. What is
+      // submitted has to agree with what is on screen — carrying the old id
+      // silently would make the form lie about what it saved.
+      expect(repository.lastUpdate, isNotNull);
+      expect(repository.lastUpdate!['interestedPlanId'], isNull);
+    });
+
+    testWidgets('editing does not offer a branch it cannot change', (
+      WidgetTester tester,
+    ) async {
+      final repository = _FakeVisitorsRepository();
+      await _pump(
+        tester,
+        VisitorFormScreen(existing: _visitor('v-1')),
+        repository,
+        // Two branches, so a picker would render if editing allowed one.
+        branchIds: const <String>['branch-1', 'branch-2'],
+      );
+
+      // `updateVisitor` carries no branch, so an editable branch field would
+      // accept a change and discard it.
+      expect(find.text('Branch'), findsNothing);
     });
 
     testWidgets('says out loud that blank means today',

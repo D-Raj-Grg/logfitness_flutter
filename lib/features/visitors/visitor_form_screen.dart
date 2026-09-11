@@ -136,7 +136,11 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
               onSelectionChanged: (Set<VisitorKind> selection) =>
                   setState(() => _kind = selection.first),
             ),
-            if (branchOptions.length > 1) ...<Widget>[
+            // Creation only. `updateVisitor` carries no branch — the console
+            // does not even have an edit form, and its `updateVisitor` is only
+            // ever called with a status — so an editable branch field here
+            // would accept a change and discard it.
+            if (!widget.isEditing && branchOptions.length > 1) ...<Widget>[
               const SizedBox(height: Brand.spaceMd),
               DropdownButtonFormField<String>(
                 initialValue: _branchId,
@@ -314,9 +318,15 @@ class _InterestedPlanField extends ConsumerWidget {
       // rather than claiming there is nothing to choose.
       error: (Object _, StackTrace _) => const SizedBox.shrink(),
       data: (List<MembershipPlan> rows) {
-        // A plan the branch does not sell -- carried over from an edit, or from
-        // a branch change -- is not offered and not kept.
+        // A plan the branch does not sell -- carried over from an edit, or a
+        // plan retired since the visit -- is not offered here.
         final bool known = rows.any((MembershipPlan p) => p.id == value);
+        if (!known && value != null) {
+          // And must not survive in the parent either. Showing "Not said"
+          // while still submitting the old id would make the form lie about
+          // what it saved. Deferred, because this runs during a build.
+          WidgetsBinding.instance.addPostFrameCallback((_) => onChanged(null));
+        }
         return DropdownButtonFormField<String?>(
           key: const ValueKey<String>('visitor-interested-plan'),
           initialValue: known ? value : null,
