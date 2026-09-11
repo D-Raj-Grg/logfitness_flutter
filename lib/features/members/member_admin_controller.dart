@@ -2,9 +2,11 @@
 //
 // Declared with manual `Notifier`/`Provider` rather than `@riverpod` to stay
 // out of the codegen graph, the same choice `branch_scope.dart` makes.
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/data/members/members_repository.dart';
+import 'package:logfitness_flutter/data/photos/member_photos_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/features/members/member_detail_controller.dart';
@@ -106,6 +108,75 @@ class MemberAdmin extends Notifier<bool> {
           .read(membersRepositoryProvider)
           .inviteMemberToApp(memberId: memberId, email: email);
       return 'Invitation sent to $invited';
+    });
+  }
+
+  /// Uploads a photo for this member and points the row at it.
+  ///
+  /// Upload first, then store the path. An upload that lands and a row update
+  /// that fails leaves an orphaned object — storage, and nothing worse. The
+  /// other order would point a member at a file that does not exist.
+  ///
+  /// Refuses a file the bucket itself would refuse, so the failure is a
+  /// sentence here rather than a storage exception two round trips later.
+  Future<MemberAdminOutcome> setPhoto({
+    required String memberId,
+    required String orgId,
+    required Uint8List bytes,
+    required String contentType,
+  }) {
+    if (!kAllowedPhotoTypes.contains(contentType)) {
+      return Future<MemberAdminOutcome>.value(
+        const MemberAdminFailed(
+          AppFailure(
+            FailureKind.invalid,
+            'That file is not a JPEG, PNG or WebP image.',
+          ),
+        ),
+      );
+    }
+    if (bytes.lengthInBytes > kMaxPhotoBytes) {
+      return Future<MemberAdminOutcome>.value(
+        const MemberAdminFailed(
+          AppFailure(
+            FailureKind.invalid,
+            'That photo is over 5 MB. Take it again at a lower quality.',
+          ),
+        ),
+      );
+    }
+
+    return _run(memberId, () async {
+      final path = await ref.read(memberPhotosRepositoryProvider).upload(
+            orgId: orgId,
+            memberId: memberId,
+            bytes: bytes,
+            contentType: contentType,
+          );
+      await ref.read(membersRepositoryProvider).setPhotoPath(memberId, path);
+      return 'Photo saved';
+    });
+  }
+
+  /// Clears the member's photo.
+  ///
+  /// Unsets the row first and deletes the object afterwards, best effort: a
+  /// member showing a face they asked to have removed is the failure that
+  /// matters, and a leftover object in a private bucket is not.
+  Future<MemberAdminOutcome> clearPhoto({
+    required String memberId,
+    String? path,
+  }) {
+    return _run(memberId, () async {
+      await ref.read(membersRepositoryProvider).setPhotoPath(memberId, null);
+      if (path != null && path.isNotEmpty) {
+        try {
+          await ref.read(memberPhotosRepositoryProvider).remove(path);
+        } on AppFailure {
+          // Already unset on the row, which is the part a person sees.
+        }
+      }
+      return 'Photo removed';
     });
   }
 

@@ -355,6 +355,27 @@ class MembersRepository {
   /// and who gets credited as the inviter. It reads the staff id off the
   /// claims (`20260905150500_invite_member_reads_the_staff_id_claim.sql`) and
   /// returns the member id it invited.
+  /// Points a member row at an uploaded photo, or clears it.
+  ///
+  /// A plain update rather than an RPC: it touches one column on one table and
+  /// carries no audit rule of its own, which is the line the rest of this file
+  /// draws between a write that needs a transaction and one that does not. The
+  /// console does the same (`updateMemberRow(id, { photo_path })`).
+  ///
+  /// The upload itself happens first, in `MemberPhotosRepository`. Storing the
+  /// path is deliberately the second step: an upload that succeeds and a row
+  /// that fails to update leaves an orphaned object, which costs storage and
+  /// nothing else, where the opposite order would point a member at a file
+  /// that does not exist.
+  Future<void> setPhotoPath(String memberId, String? path) {
+    return guardFailures(() async {
+      await _client
+          .from(_table)
+          .update(<String, dynamic>{'photo_path': path})
+          .eq('id', memberId);
+    });
+  }
+
   Future<String> inviteMemberToApp({
     required String memberId,
     required String email,

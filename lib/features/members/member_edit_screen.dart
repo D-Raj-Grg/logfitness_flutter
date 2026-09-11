@@ -13,6 +13,7 @@ import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/members/member_admin_controller.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
+import 'package:logfitness_flutter/features/members/widgets/member_photo_field.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 class MemberEditScreen extends ConsumerStatefulWidget {
@@ -76,6 +77,10 @@ class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
         child: ListView(
           padding: const EdgeInsets.all(Brand.spaceMd),
           children: <Widget>[
+            // Uploads on pick rather than on Save: the member already exists,
+            // so a failed upload costs the photo and nothing else.
+            MemberPhotoField(member: widget.member),
+            const Divider(height: Brand.spaceXl),
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
