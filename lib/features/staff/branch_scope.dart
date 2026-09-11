@@ -87,11 +87,43 @@ class BranchScope {
 /// The branch ids this session may choose between.
 ///
 /// Separated from [branchScopeProvider] so a test — or a later screen that
-/// only needs the list — can read the claim-derived options without also
-/// depending on the mutable selection.
+/// only needs the list — can read the options without also depending on the
+/// mutable selection.
+///
+/// The claim alone cannot answer this. An owner's `branch_ids[]` is *empty*,
+/// because empty is what the RLS policies read as "the whole org"
+/// (`coalesce(array_length(branch_ids, 1), 0) = 0`). Taking the claim
+/// verbatim therefore offered an owner nothing to pick from, which is how the
+/// register form ended up with no home branch, no branch picker, and — since
+/// the plan catalogue is queried per branch — an empty Plan dropdown when
+/// "Sell a plan now" was switched on.
+///
+/// So it mirrors the console's `resolveBranchScope` in `lib/scope.ts`: an
+/// org-wide session is offered every branch it can read, and everyone else is
+/// offered the branches on their staff row. Still UX only — the list comes
+/// from a query RLS has already bounded, and a selection is a filter, never a
+/// permission.
 final branchOptionsProvider = Provider<List<String>>((ref) {
   final AppClaims? claims = ref.watch(claimsProvider);
-  return claims?.branchIds ?? const <String>[];
+  final List<String> claimed = claims?.branchIds ?? const <String>[];
+  final bool isOrgWide = ref
+      .watch(staffCapabilitiesProvider)
+      .contains(StaffCapability.accessAllBranches);
+
+  // For everyone else the claim is the answer, and the branch read is not
+  // consulted at all -- deliberately, so a screen that only needs the ids
+  // never depends on a network round trip it has no use for.
+  if (!isOrgWide) {
+    return claimed;
+  }
+
+  // While that read is in flight or failed, fall back to the claim: empty for
+  // an owner, which is the honest answer -- nothing loaded yet, nothing to
+  // offer -- rather than a list invented here.
+  final List<Branch>? readable = ref.watch(branchesProvider).value;
+  return readable == null
+      ? claimed
+      : readable.map((Branch branch) => branch.id).toList(growable: false);
 });
 
 /// The branch the user has picked, or `null` for the aggregate view.

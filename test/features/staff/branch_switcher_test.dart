@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logfitness_flutter/app/theme.dart';
+import 'package:logfitness_flutter/data/branches/branch.dart';
+import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/features/auth/auth_controller.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
@@ -180,6 +182,93 @@ void main() {
         const <String>['branch-a'],
       );
     });
+  });
+
+  group('branchOptionsProvider', () {
+    Branch branch(String id, String name) => Branch(
+      id: id,
+      orgId: 'org-1',
+      name: name,
+      status: BranchStatus.active,
+      createdAt: DateTime.utc(2026, 1, 1),
+      updatedAt: DateTime.utc(2026, 1, 1),
+    );
+
+    ProviderContainer containerFor(
+      StaffRole role,
+      List<String> claimed, {
+      AsyncValue<List<Branch>>? branches,
+    }) {
+      final container = ProviderContainer(
+        // `Override` is not exported by flutter_riverpod 3.1.0 (see the note
+        // at the top), so the list stays an untyped literal.
+        overrides: [
+          ..._overridesFor(role, claimed),
+          if (branches != null)
+            branchesProvider.overrideWith(
+              (ref) => branches.value ?? <Branch>[],
+            ),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'an owner is offered every branch they can read, not the empty claim',
+      () {
+        // The bug this closes: an owner's `branch_ids` is empty by design, so
+        // reading the claim verbatim offered them nothing — and the register
+        // form then had no home branch, queried no plans, and showed an empty
+        // Plan picker with no error at all.
+        final container = containerFor(
+          StaffRole.owner,
+          const <String>[],
+          branches: AsyncValue<List<Branch>>.data(<Branch>[
+            branch('branch-a', 'Thamel'),
+            branch('branch-b', 'Patan'),
+          ]),
+        );
+
+        expect(container.read(branchOptionsProvider), <String>[
+          'branch-a',
+          'branch-b',
+        ]);
+      },
+    );
+
+    test(
+      'an owner whose branch read has not landed is offered nothing yet',
+      () {
+        // Rather than a list invented on the client. The read is the only
+        // source, and RLS has already bounded it.
+        final container = containerFor(StaffRole.owner, const <String>[]);
+
+        expect(container.read(branchOptionsProvider), isEmpty);
+      },
+    );
+
+    test(
+      'everyone else is their claim, and never consults the branch read',
+      () {
+        // A manager's claim *is* their assignment, so widening it from the
+        // branches table would offer them a branch they are not on — and taking
+        // a network dependency for a list already in the token is how the
+        // visitor form broke under test.
+        final container = containerFor(
+          StaffRole.manager,
+          const <String>['branch-a'],
+          branches: AsyncValue<List<Branch>>.data(<Branch>[
+            branch('branch-a', 'Thamel'),
+            branch('branch-b', 'Patan'),
+          ]),
+        );
+
+        expect(container.read(branchOptionsProvider), const <String>[
+          'branch-a',
+        ]);
+      },
+    );
   });
 
   group('branchLabel', () {
