@@ -41,6 +41,7 @@ See `TASKS.md`, "Staff parity programme".
 | Photos | `image_picker` | Camera or gallery, for the member photo. Added 2026-09-11. Downscaled and re-encoded on pick, because the `member-photos` bucket caps an object at 5&nbsp;MB and a phone camera clears that on its own. Not `camera`: this needs one still image with the system UI, not a viewfinder. |
 | Push | `firebase_messaging` | Consumes the Edge Function fanout. FCM vs. OneSignal is still open — see §10. |
 | Session | `flutter_secure_storage` | Refresh token at rest. |
+| Preferences | `shared_preferences` | Non-secret settings that survive a restart — the theme choice today. Deliberately not `flutter_secure_storage`: a display preference is not a credential, and putting it in the keychain would blur where secrets live. |
 | Formatting | `intl` | Money and dates. Locale and timezone come from `orgs`, not from the device. |
 | Lints | `flutter_lints` + `custom_lint` + `riverpod_lint` | `flutter analyze` clean is a merge gate. |
 

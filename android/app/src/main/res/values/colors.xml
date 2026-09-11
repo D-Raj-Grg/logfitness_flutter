@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The app's own surface. A launch screen that is not this colour shows
-         a white card for a beat before the first frame. -->
-    <color name="launch_background">#1A110D</color>
+    <!-- ColorScheme.fromSeed(Brand.seed).surface, computed not guessed. Light
+         is the app's default theme, so this is the colour of the first frame;
+         anything else shows a card of the wrong colour for a beat. -->
+    <color name="launch_background">#FFF8F6</color>
 </resources>

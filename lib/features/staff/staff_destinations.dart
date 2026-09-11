@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/members/member_list_screen.dart';
+import 'package:logfitness_flutter/features/settings/settings_screen.dart';
 import 'package:logfitness_flutter/features/payments/arrears_screen.dart';
 import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
@@ -123,6 +124,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Settings',
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
+    builder: _settingsScreen,
   ),
 ];
 
@@ -131,6 +133,10 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
 /// was leaving out. A top-level function rather than a closure so
 /// [staffDestinations] can stay `const`.
 Widget _membersScreen() => const MemberListScreen();
+
+/// This person's own settings. A top-level function rather than a closure so
+/// [staffDestinations] can stay `const`.
+Widget _settingsScreen() => const SettingsScreen();
 
 /// The counter's check-in console. A top-level function rather than a closure
 /// so [staffDestinations] can stay `const`.
