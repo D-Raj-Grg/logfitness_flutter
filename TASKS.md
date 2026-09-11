@@ -232,6 +232,45 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
       and the fourth tab renders real visits. The stub's doc comment outlived
       the stub by a day and was corrected 2026-09-11.
 
+- [x] **2026-09-11** An owner could not sell anything from the app. `branchOptionsProvider`
+      (`lib/features/staff/branch_scope.dart`) returned the `branch_ids[]` claim verbatim, and
+      an owner's is *empty* because empty means "the whole org" to the RLS policies. With no
+      options, the register form never resolved a home branch, so it queried no plans and the
+      Plan dropdown was empty with no error — and submitting refused with "this session has no
+      branch". Fixed by mirroring the console's `resolveBranchScope` (`lib/scope.ts`): an
+      org-wide session is offered every branch it can read, from `branchesProvider`; everyone
+      else keeps the claim, and never touches that read.
+- [x] **2026-09-11** Every discounted sale from the app was rejected by the database.
+      `register_member` and `renew_membership` have required a discount reason since
+      `20260910130100_discount_reason_rpcs.sql` (`check_violation` without one), and neither
+      Flutter repository sent `p_discount_reason`/`p_discount_note`. Both now do, and both
+      screens ask for the reason — and the free-text note when it is `other` — exactly when a
+      discount is present, the way `member-sale-fields.tsx` does.
+- [x] **2026-09-11** The sale forms had no paid/part/unpaid choice, so the quickest path
+      through them (type the price, tap Register) recorded a payment that may never have
+      happened — the defect the console fixed with `PaymentStatusChoice`. Ported as
+      `lib/features/common/payment_status_choice.dart`, with the console's amount behaviour:
+      full refills and locks the amount, unpaid clears it and raises the invoice in full, part
+      leaves it to the cashier. The transaction reference is now required only when the rail
+      is not cash *and* money actually moved.
+- [x] **2026-09-11** `DropdownButtonFormField` replaced by `PickerField`
+      (`lib/features/common/picker_field.dart`) on the register and renew forms. The Material
+      dropdown's overlay covered most of the form with an unlabelled, edge-to-edge list with
+      no mark on the current value; the sheet says what it is asking, marks the selection, and
+      has room for the plan's term and price beside its name.
+- [x] **2026-09-11** The joining-fee waiver the console prints on a sale had no counterpart
+      here, because it needs the org's list fee and this app had no query for it. Added
+      `lib/data/orgs/` (mirroring `lib/db/orgs.ts`) and `signupFeeSplit` in
+      `lib/domain/format/plan_pricing.dart`; both sale summaries show the charged fee and the
+      waived memo. The read degrades to zero, so a sale never waits on it.
+- [x] **2026-09-11** `Form.validate()` only reaches *mounted* fields, and both sale forms are
+      `ListView`s, which do not build what is off screen — so scrolling down to the submit
+      button can unmount the field being validated. A discount with no reason passed
+      validation that way and was refused by Postgres instead, reaching the desk as a failed
+      registration rather than a missing answer. Both screens now check the sale's invariants
+      in `_submit` (`_saleGap`), independently of what happens to be on screen. Anything else
+      that relies on a validator in a long scrolling form has the same hole.
+
 ## Discovered — audit fixes (2026-09-05)
 
 - [x] **2026-09-05** Adversarial audit of Phases 0–2 found six real defects; all fixed and covered by tests. In this repo: `/set-password` was exempt from the redirect guard unconditionally (a linked member was stranded there forever, and nothing ever navigated *to* it, so an invited member could be linked without ever setting a password); an error out of `principalProvider` — an unrecognised `staff_role` throws by design — rendered a blank splash with no way out; `PendingRefresh` routed into a shell whose stale token would have made every RLS-scoped read come back empty, with no refresh actually triggered; and `AppClaims` read a malformed claim set as "not linked yet", hiding a backend regression behind a friendly screen.

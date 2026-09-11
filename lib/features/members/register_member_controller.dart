@@ -77,6 +77,8 @@ class RegisterMember extends _$RegisterMember {
     PaymentMethod method = PaymentMethod.cash,
     String? referenceNo,
     DateTime? startDate,
+    DiscountReason? discountReason,
+    String? discountNote,
     String? visitorId,
   }) async {
     if (state) {
@@ -108,6 +110,8 @@ class RegisterMember extends _$RegisterMember {
                 method: method,
                 referenceNo: referenceNo,
                 startDate: startDate,
+                discountReason: discountReason,
+                discountNote: discountNote,
               );
 
       if (visitorId == null) {

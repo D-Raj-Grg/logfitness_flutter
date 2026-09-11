@@ -94,6 +94,13 @@ class MembershipsRepository {
     PaymentMethod method = PaymentMethod.cash,
     String? referenceNo,
     String? notes,
+    /// Required by the RPC whenever [discountPaisa] is above zero, and refused
+    /// when it is zero -- see `20260910130100_discount_reason_rpcs.sql`.
+    /// Sending a discount without one raises `check_violation`.
+    DiscountReason? discountReason,
+    /// Required when [discountReason] is `other`, meaningless otherwise.
+    /// Capped at 120 characters by the column.
+    String? discountNote,
   }) {
     return guardFailures(() async {
       final Map<String, dynamic> result =
@@ -112,6 +119,8 @@ class MembershipsRepository {
           'p_method': method.toDb(),
           'p_reference_no': referenceNo,
           'p_notes': notes,
+          'p_discount_reason': discountReason?.toDb(),
+          'p_discount_note': discountNote,
         }),
       );
       return RenewMembershipResult.fromJson(result);

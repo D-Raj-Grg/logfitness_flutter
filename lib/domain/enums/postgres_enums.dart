@@ -143,6 +143,39 @@ enum PaymentMethod {
   String toDb() => wire;
 }
 
+/// Mirrors `public.discount_reason`. See
+/// `logfitness_saas/supabase/migrations/20260910130000_discount_reason.sql`.
+///
+/// The sale RPCs refuse a discount without one of these
+/// (`20260910130100_discount_reason_rpcs.sql`), so this is not decoration: a
+/// discounted sale that does not carry a reason is rejected by the database.
+enum DiscountReason {
+  @JsonValue('festival')
+  festival('festival'),
+  @JsonValue('student')
+  student('student'),
+  @JsonValue('staff_referral')
+  staffReferral('staff_referral'),
+  @JsonValue('friend_referral')
+  friendReferral('friend_referral'),
+  @JsonValue('corporate')
+  corporate('corporate'),
+  @JsonValue('other')
+  other('other');
+
+  const DiscountReason(this.wire);
+
+  final String wire;
+
+  static DiscountReason fromDb(String value) =>
+      DiscountReason.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('DiscountReason', value),
+      );
+
+  String toDb() => wire;
+}
+
 /// Mirrors `public.payment_kind`.
 enum PaymentKind {
   @JsonValue('payment')

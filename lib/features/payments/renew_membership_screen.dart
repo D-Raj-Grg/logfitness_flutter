@@ -16,13 +16,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/memberships/membership.dart';
+import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/domain/format/plan_pricing.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/common/payment_status_choice.dart';
+import 'package:logfitness_flutter/features/common/picker_field.dart';
+import 'package:logfitness_flutter/features/members/member_labels.dart'
+    show discountReasonLabel;
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart';
 import 'package:logfitness_flutter/features/payments/payment_queries.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_controller.dart';
@@ -160,9 +166,13 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
   final TextEditingController _reference = TextEditingController();
   final TextEditingController _notes = TextEditingController();
 
+  final TextEditingController _discountNote = TextEditingController();
+
   String? _branchId;
   MembershipPlan? _plan;
   PaymentMethod _method = PaymentMethod.cash;
+  PaymentStatus _payment = PaymentStatus.full;
+  DiscountReason? _discountReason;
   DateTime? _startDate;
 
   @override
@@ -172,6 +182,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
       _amountPaid,
       _reference,
       _notes,
+      _discountNote,
     ]) {
       c.dispose();
     }
@@ -186,8 +197,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
 
     final List<String> options = scope.options;
     _branchId ??=
-        scope.selectedBranchId ??
-        (options.length == 1 ? options.single : null);
+        scope.selectedBranchId ?? (options.length == 1 ? options.single : null);
 
     final AsyncValue<List<Membership>> memberships = ref.watch(
       memberMembershipsProvider(widget.memberId),
@@ -219,7 +229,8 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
         value: memberships,
         onRetry: () =>
             ref.invalidate(memberMembershipsProvider(widget.memberId)),
-        data: (List<Membership> rows) => _buildForm(rows, options, names, saving),
+        data: (List<Membership> rows) =>
+            _buildForm(rows, options, names, saving),
       ),
     );
   }
@@ -244,7 +255,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
             today: _deviceToday(),
             chosenStartDate: _startDate,
             discountPaisa: paisaOrZero(_discount.text),
-            amountPaidPaisa: paisaOrZero(_amountPaid.text),
+            amountPaidPaisa: _paidPaisa,
           );
 
     return Form(
@@ -256,15 +267,17 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
           const SizedBox(height: Brand.spaceMd),
 
           if (options.length > 1) ...<Widget>[
-            DropdownButtonFormField<String>(
+            PickerField<String>(
               key: const ValueKey<String>('renew-branch'),
-              initialValue: branchId,
-              decoration: const InputDecoration(labelText: 'Branch'),
-              items: <DropdownMenuItem<String>>[
+              label: 'Branch',
+              sheetTitle: 'Which branch is this sold at?',
+              hint: 'Pick a branch',
+              value: branchId,
+              options: <PickerOption<String>>[
                 for (final String id in options)
-                  DropdownMenuItem<String>(
+                  PickerOption<String>(
                     value: id,
-                    child: Text(names[id] ?? 'Branch ${id.substring(0, 8)}'),
+                    label: names[id] ?? 'Branch ${id.substring(0, 8)}',
                   ),
               ],
               onChanged: (String? value) => setState(() {
@@ -298,21 +311,30 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
                     message: 'No plans are on sale at this branch.',
                     icon: Icons.sell_outlined,
                   )
-                : DropdownButtonFormField<MembershipPlan>(
-                    key: const ValueKey<String>('renew-plan'),
-                    initialValue: _plan,
-                    decoration: const InputDecoration(labelText: 'Plan'),
-                    items: <DropdownMenuItem<MembershipPlan>>[
+                : PickerField<MembershipPlan>(
+                    // Keyed by branch: a FormField keeps its own value after
+                    // the first build, so a branch change — which clears
+                    // `_plan` — has to rebuild the field rather than leave the
+                    // old plan's name sitting in it.
+                    key: ValueKey<String>('renew-plan-$branchId'),
+                    label: 'Plan',
+                    sheetTitle: 'Pick a plan',
+                    hint: 'Pick a plan',
+                    value: _plan,
+                    options: <PickerOption<MembershipPlan>>[
                       for (final MembershipPlan item in rows)
-                        DropdownMenuItem<MembershipPlan>(
+                        PickerOption<MembershipPlan>(
                           value: item,
-                          child: Text(
-                            '${item.name} · ${formatMoney(item.pricePaisa)}',
-                          ),
+                          label: item.name,
+                          subtitle: <String>[
+                            planTermLabel(item),
+                            formatMoney(item.pricePaisa),
+                            if (item.signupFeePaisa > 0)
+                              '+ ${formatMoney(item.signupFeePaisa)} joining fee',
+                          ].join(' · '),
                         ),
                     ],
-                    onChanged: (MembershipPlan? value) =>
-                        setState(() => _plan = value),
+                    onChanged: _choosePlan,
                     validator: (MembershipPlan? v) =>
                         v == null ? 'Pick a plan.' : null,
                   ),
@@ -327,51 +349,120 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
               labelText: 'Discount',
               prefixText: 'NPR ',
             ),
-            onChanged: (_) => setState(() {}),
+            onChanged: _changeDiscount,
             validator: rupeeValidator,
           ),
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            key: const ValueKey<String>('renew-amount-paid'),
-            controller: _amountPaid,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Amount paid now',
-              prefixText: 'NPR ',
-              helperText: 'Leave blank to invoice it and settle later',
-            ),
-            onChanged: (_) => setState(() {}),
-            validator: rupeeValidator,
-          ),
-          const SizedBox(height: Brand.spaceMd),
-          DropdownButtonFormField<PaymentMethod>(
-            key: const ValueKey<String>('renew-method'),
-            initialValue: _method,
-            decoration: const InputDecoration(labelText: 'Payment method'),
-            items: <DropdownMenuItem<PaymentMethod>>[
-              for (final PaymentMethod m in PaymentMethod.values)
-                DropdownMenuItem<PaymentMethod>(
-                  value: m,
-                  child: Text(paymentMethodLabel(m)),
-                ),
-            ],
-            onChanged: (PaymentMethod? v) =>
-                setState(() => _method = v ?? PaymentMethod.cash),
-          ),
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            key: const ValueKey<String>('renew-reference'),
-            controller: _reference,
-            decoration: InputDecoration(
-              labelText: methodNeedsReference(_method)
-                  ? 'Reference no.'
-                  : 'Reference no. (optional)',
-              helperText: methodNeedsReference(_method)
-                  ? 'The transaction reference for the ${paymentMethodLabel(_method)} payment'
+          // Only once money is actually coming off. The RPC refuses a discount
+          // without a reason and a reason without a discount with equal force
+          // (`20260910130100_discount_reason_rpcs.sql`), so the field appears
+          // and disappears with the amount.
+          if (paisaOrZero(_discount.text) > 0) ...<Widget>[
+            const SizedBox(height: Brand.spaceMd),
+            PickerField<DiscountReason>(
+              key: const ValueKey<String>('renew-discount-reason'),
+              label: 'Reason for the discount',
+              sheetTitle: 'Why the discount?',
+              hint: 'Pick a reason',
+              value: _discountReason,
+              options: <PickerOption<DiscountReason>>[
+                for (final DiscountReason reason in DiscountReason.values)
+                  PickerOption<DiscountReason>(
+                    value: reason,
+                    label: discountReasonLabel(reason),
+                  ),
+              ],
+              onChanged: (DiscountReason? value) =>
+                  setState(() => _discountReason = value),
+              validator: (DiscountReason? v) => v == null
+                  ? 'A discount the gym cannot explain later is one nobody '
+                        'can question now.'
                   : null,
             ),
-            validator: _referenceValidator,
-          ),
+          ],
+          if (paisaOrZero(_discount.text) > 0 &&
+              _discountReason == DiscountReason.other) ...<Widget>[
+            const SizedBox(height: Brand.spaceMd),
+            TextFormField(
+              key: const ValueKey<String>('renew-discount-note'),
+              controller: _discountNote,
+              maxLength: 120,
+              decoration: const InputDecoration(
+                labelText: 'Describe the reason',
+                helperText: 'Prints on the invoice',
+              ),
+              validator: (String? v) => (v?.trim().isEmpty ?? true)
+                  ? 'Describe the discount reason.'
+                  : null,
+            ),
+          ],
+          const SizedBox(height: Brand.spaceMd),
+          PaymentStatusChoice(value: _payment, onChanged: _choosePayment),
+          if (_payment == PaymentStatus.unpaid)
+            // Nothing is sent, so nothing is recorded: the RPC raises the
+            // invoice with the whole amount outstanding, and it shows on the
+            // profile and in the arrears report straight away.
+            Text(
+              'The invoice is raised in full and the whole amount shows as '
+              'due. Record the payment from their profile when it comes in.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else ...<Widget>[
+            TextFormField(
+              key: const ValueKey<String>('renew-amount-paid'),
+              controller: _amountPaid,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              // Paid in full means the price after the discount, and the field
+              // follows the choice rather than the other way round — so a
+              // cashier cannot leave a stale part-payment behind by switching
+              // back to full.
+              readOnly: _payment == PaymentStatus.full,
+              decoration: InputDecoration(
+                labelText: 'Paid now',
+                prefixText: 'NPR ',
+                helperText: _payment == PaymentStatus.full
+                    ? 'The full price after any discount'
+                    : 'What actually came in',
+              ),
+              onChanged: (_) => setState(() {}),
+              validator: rupeeValidator,
+            ),
+            const SizedBox(height: Brand.spaceMd),
+            PickerField<PaymentMethod>(
+              key: const ValueKey<String>('renew-method'),
+              label: 'Payment method',
+              sheetTitle: 'How did it come in?',
+              value: _method,
+              options: <PickerOption<PaymentMethod>>[
+                for (final PaymentMethod m in PaymentMethod.values)
+                  PickerOption<PaymentMethod>(
+                    value: m,
+                    label: paymentMethodLabel(m),
+                    icon: _methodIcon(m),
+                  ),
+              ],
+              onChanged: (PaymentMethod? v) =>
+                  setState(() => _method = v ?? PaymentMethod.cash),
+            ),
+            // Required only once money has actually moved on a rail that
+            // issues a transaction id — that id is what reconciles this drawer
+            // against the wallet's statement.
+            if (methodNeedsReference(_method) &&
+                paisaOrZero(_amountPaid.text) > 0) ...<Widget>[
+              const SizedBox(height: Brand.spaceMd),
+              TextFormField(
+                key: const ValueKey<String>('renew-reference'),
+                controller: _reference,
+                decoration: InputDecoration(
+                  labelText: '${paymentMethodLabel(_method)} reference no.',
+                ),
+                validator: _referenceValidator,
+              ),
+            ],
+          ],
           const SizedBox(height: Brand.spaceMd),
           TextFormField(
             controller: _notes,
@@ -386,7 +477,24 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
 
           if (projection != null) ...<Widget>[
             const SizedBox(height: Brand.spaceLg),
-            _RenewalSummary(projection: projection),
+            _RenewalSummary(
+              projection: projection,
+              // Zero while the read is in flight or if it failed: the waiver
+              // is a memo, and a sale must not wait on it or break without it.
+              feeSplit: signupFeeSplit(
+                planSignupFeePaisa: plan!.signupFeePaisa,
+                orgStandardFeePaisa:
+                    ref.watch(orgStandardSignupFeeProvider).value ?? 0,
+                // The membership history, not the projected fee. Inferring it
+                // from `projection.signupFeePaisa > 0` was wrong for a plan
+                // priced without a joining fee: the projection charges zero
+                // either way, so a renewal of such a plan read as "not their
+                // first" — and then showed a waiver line for a fee the member
+                // had in fact already paid years ago. The RPC's own test is
+                // "does this member have any membership at all".
+                isFirstMembership: existing.isEmpty,
+              ),
+            ),
           ],
 
           const SizedBox(height: Brand.spaceLg),
@@ -412,13 +520,91 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
     if (!methodNeedsReference(_method)) {
       return null;
     }
-    if (paisaOrZero(_amountPaid.text) == 0) {
+    if (_paidPaisa == 0) {
       // No money moving means no rail and no reference to give.
       return null;
     }
     return (value?.trim().isEmpty ?? true)
         ? 'Enter the transaction reference.'
         : null;
+  }
+
+  /// What is actually being recorded as received. Unpaid sends nothing at
+  /// all; the projection clamps the rest to the total the way the RPC does.
+  int get _paidPaisa =>
+      _payment == PaymentStatus.unpaid ? 0 : paisaOrZero(_amountPaid.text);
+
+  /// An icon per rail, so the sheet is scannable at a counter rather than six
+  /// lines of similar-length words.
+  static IconData _methodIcon(PaymentMethod method) => switch (method) {
+    PaymentMethod.cash => Icons.payments_outlined,
+    PaymentMethod.card => Icons.credit_card,
+    PaymentMethod.bank => Icons.account_balance_outlined,
+    PaymentMethod.esewa ||
+    PaymentMethod.khalti ||
+    PaymentMethod.fonepay => Icons.smartphone_outlined,
+  };
+
+  /// Picking a plan prefills the amount with what it sells for, because paid
+  /// in full at the desk is the common case and retyping a price the form
+  /// already knows is how a cashier mistypes it.
+  void _choosePlan(MembershipPlan? plan) {
+    setState(() {
+      _plan = plan;
+      if (_payment == PaymentStatus.full) _fillFullAmount();
+    });
+  }
+
+  void _changeDiscount(String _) {
+    setState(() {
+      if (paisaOrZero(_discount.text) == 0) {
+        // The RPC refuses a reason with no discount to explain, so clearing
+        // the amount has to clear the reason with it.
+        _discountReason = null;
+        _discountNote.clear();
+      }
+      if (_payment == PaymentStatus.full) _fillFullAmount();
+    });
+  }
+
+  /// The amount follows the choice: full refills it, unpaid empties it, and
+  /// part leaves whatever is there for the cashier to correct.
+  void _choosePayment(PaymentStatus next) {
+    setState(() {
+      _payment = next;
+      switch (next) {
+        case PaymentStatus.full:
+          _fillFullAmount();
+        case PaymentStatus.unpaid:
+          _amountPaid.clear();
+          _reference.clear();
+        case PaymentStatus.part:
+          break;
+      }
+    });
+  }
+
+  /// The total this sale comes to, from the same projection the summary shows
+  /// — including the joining fee, which a first membership pays and a renewal
+  /// does not.
+  void _fillFullAmount() {
+    final MembershipPlan? plan = _plan;
+    if (plan == null) {
+      _amountPaid.text = '';
+      return;
+    }
+    final List<Membership> existing =
+        ref.read(memberMembershipsProvider(widget.memberId)).value ??
+        const <Membership>[];
+    final RenewalProjection projection = projectRenewal(
+      plan: plan,
+      existing: existing,
+      today: _deviceToday(),
+      chosenStartDate: _startDate,
+      discountPaisa: paisaOrZero(_discount.text),
+      amountPaidPaisa: 0,
+    );
+    _amountPaid.text = fromPaisa(projection.totalPaisa);
   }
 
   Future<void> _submit(List<Membership> existing) async {
@@ -439,6 +625,18 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
       return;
     }
 
+    // Checked here as well as by the field validators: `Form.validate()` only
+    // reaches mounted fields, and this form is a ListView, which does not
+    // build what is off screen — so scrolling down to the button can unmount
+    // the field being validated. The RPC refuses a discount with no reason
+    // (`check_violation`), and that refusal reaching the desk as a failed
+    // renewal instead of a missing answer is the outcome to avoid.
+    final AppFailure? gap = _saleGap();
+    if (gap != null) {
+      showFailureSnackBar(context, gap);
+      return;
+    }
+
     // Sent exactly as shown. The projection already clamped the discount and
     // the payment the way the RPC would, so the figures in the summary are
     // the figures that go over the wire.
@@ -448,7 +646,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
       today: _deviceToday(),
       chosenStartDate: _startDate,
       discountPaisa: paisaOrZero(_discount.text),
-      amountPaidPaisa: paisaOrZero(_amountPaid.text),
+      amountPaidPaisa: _paidPaisa,
     );
 
     final RenewOutcome outcome = await ref
@@ -461,8 +659,14 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
           discountPaisa: projection.discountPaisa,
           amountPaidPaisa: projection.amountPaidPaisa,
           method: _method,
-          referenceNo: _blankToNull(_reference.text),
+          referenceNo: _payment == PaymentStatus.unpaid
+              ? null
+              : _blankToNull(_reference.text),
           notes: _blankToNull(_notes.text),
+          discountReason: projection.discountPaisa > 0 ? _discountReason : null,
+          discountNote: _discountReason == DiscountReason.other
+              ? _blankToNull(_discountNote.text)
+              : null,
         );
 
     if (!mounted) {
@@ -496,6 +700,36 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
         // (CLAUDE.md), so an offline renewal really did not happen.
         showFailureSnackBar(context, failure);
     }
+  }
+
+  /// What is missing from the sale, in the words the cashier needs. Null when
+  /// it is complete.
+  AppFailure? _saleGap() {
+    final int discount = paisaOrZero(_discount.text);
+    if (discount > 0 && _discountReason == null) {
+      return const AppFailure(
+        FailureKind.invalid,
+        'Choose a reason for the discount.',
+      );
+    }
+    if (discount > 0 &&
+        _discountReason == DiscountReason.other &&
+        _discountNote.text.trim().isEmpty) {
+      return const AppFailure(
+        FailureKind.invalid,
+        'Describe the discount reason.',
+      );
+    }
+    if (methodNeedsReference(_method) &&
+        _paidPaisa > 0 &&
+        _reference.text.trim().isEmpty) {
+      return AppFailure(
+        FailureKind.invalid,
+        'A ${paymentMethodLabel(_method)} payment needs its transaction '
+        'reference.',
+      );
+    }
+    return null;
   }
 
   static String? _blankToNull(String value) {
@@ -553,9 +787,15 @@ class _CurrentPeriod extends StatelessWidget {
 
 /// The sale, shown before it is recorded.
 class _RenewalSummary extends StatelessWidget {
-  const _RenewalSummary({required this.projection});
+  const _RenewalSummary({required this.projection, required this.feeSplit});
 
   final RenewalProjection projection;
+
+  /// What the joining fee comes to and what it lets off. The charged half is
+  /// already inside [RenewalProjection.signupFeePaisa]; the waived half is a
+  /// memo outside the total, printed so the desk can say out loud what the
+  /// invoice will say.
+  final ({int charged, int waived}) feeSplit;
 
   @override
   Widget build(BuildContext context) {
@@ -585,9 +825,17 @@ class _RenewalSummary extends StatelessWidget {
               ),
             ),
             const Divider(height: Brand.spaceLg),
-            _row(theme, 'Plan price', projection.subtotalPaisa - projection.signupFeePaisa),
+            _row(
+              theme,
+              'Plan price',
+              projection.subtotalPaisa - projection.signupFeePaisa,
+            ),
             if (projection.signupFeePaisa > 0)
               _row(theme, 'Joining fee', projection.signupFeePaisa),
+            if (feeSplit.waived > 0) ...<Widget>[
+              _row(theme, 'Joining fee', feeSplit.waived),
+              _row(theme, 'Joining fee waived', -feeSplit.waived),
+            ],
             if (projection.discountPaisa > 0)
               _row(theme, 'Discount', -projection.discountPaisa),
             _row(theme, 'Total', projection.totalPaisa),
@@ -605,7 +853,12 @@ class _RenewalSummary extends StatelessWidget {
     );
   }
 
-  Widget _row(ThemeData theme, String label, int paisa, {bool emphasis = false}) {
+  Widget _row(
+    ThemeData theme,
+    String label,
+    int paisa, {
+    bool emphasis = false,
+  }) {
     final TextStyle? style = emphasis
         ? theme.textTheme.titleMedium
         : theme.textTheme.bodyMedium;
@@ -694,7 +947,10 @@ class _InlineFailure extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(failure.message, style: TextStyle(color: scheme.onErrorContainer)),
+          Text(
+            failure.message,
+            style: TextStyle(color: scheme.onErrorContainer),
+          ),
           // A refusal repeats identically, so retrying it only implies the
           // desk did something wrong (`failure_snackbar.dart`).
           if (!failure.isRefusal && onRetry != null)

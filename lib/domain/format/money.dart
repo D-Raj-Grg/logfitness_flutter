@@ -46,3 +46,14 @@ int toPaisa(Object rupees) {
 
   return (value * 100).round();
 }
+
+/// Paisa back into the rupee string an amount field is edited as. Mirrors
+/// `rupees()` in `logfitness_saas/lib/plan-pricing.ts` -- plain digits, no
+/// currency and no grouping, because this feeds a text input that [toPaisa]
+/// reads back and not a label a person reads.
+String fromPaisa(int paisa) {
+  final double rupees = paisa / 100;
+  return rupees == rupees.roundToDouble()
+      ? rupees.round().toString()
+      : rupees.toString();
+}

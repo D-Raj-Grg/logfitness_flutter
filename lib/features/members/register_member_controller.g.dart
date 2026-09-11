@@ -41,7 +41,7 @@ final class RegisterMemberProvider
   }
 }
 
-String _$registerMemberHash() => r'ad84ecdc1cbb5a404eb665920c47b49db794ae4c';
+String _$registerMemberHash() => r'4c30563d9f1dcae120c85867ccb829dc7c85d4ac';
 
 abstract class _$RegisterMember extends $Notifier<bool> {
   bool build();

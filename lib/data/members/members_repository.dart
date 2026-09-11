@@ -266,6 +266,15 @@ class MembersRepository {
     /// Sale only. Null lets the RPC resolve it, which for a member with no
     /// prior membership is the org's today -- not the device's.
     DateTime? startDate,
+    /// Required by the RPC whenever [discountPaisa] is above zero, and
+    /// refused when it is zero -- see
+    /// `20260910130100_discount_reason_rpcs.sql`. Sending a discount without
+    /// one raises `check_violation`, so this is not optional in practice; it
+    /// is nullable only because most sales carry no discount.
+    DiscountReason? discountReason,
+    /// Required when [discountReason] is `other`, meaningless otherwise. The
+    /// column caps it at 120 characters.
+    String? discountNote,
   }) {
     return guardFailures(() async {
       final Map<String, dynamic> result = await _client.rpc<Map<String, dynamic>>(
@@ -293,6 +302,8 @@ class MembersRepository {
           'p_start_date': startDate == null
               ? null
               : plainDateToWire(startDate),
+          'p_discount_reason': discountReason?.toDb(),
+          'p_discount_note': discountNote,
         }),
       );
       return RegisterMemberResult.fromJson(result);

@@ -66,4 +66,23 @@ void main() {
       expect(() => toPaisa(double.infinity), throwsFormatException);
     });
   });
+
+  group('fromPaisa', () {
+    test('whole rupees carry no decimal point, for a field that is typed in', () {
+      expect(fromPaisa(700000), '7000');
+      expect(fromPaisa(0), '0');
+    });
+
+    test('paisa survive the round trip through the amount field', () {
+      expect(fromPaisa(123456), '1234.56');
+      expect(toPaisa(fromPaisa(123456)), 123456);
+      expect(toPaisa(fromPaisa(50)), 50);
+    });
+
+    test('no grouping: the string is parsed back, not read', () {
+      // `formatMoney` groups for a reader; this feeds `toPaisa`, and a comma
+      // there would be one more thing for it to strip.
+      expect(fromPaisa(10000000), '100000');
+    });
+  });
 }

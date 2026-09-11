@@ -33,6 +33,8 @@ class _FakeMembershipsRepository implements MembershipsRepository {
     PaymentMethod method = PaymentMethod.cash,
     String? referenceNo,
     String? notes,
+    DiscountReason? discountReason,
+    String? discountNote,
   }) async {
     renewCallCount++;
     lastArgs = <String, Object?>{
@@ -44,6 +46,8 @@ class _FakeMembershipsRepository implements MembershipsRepository {
       'amountPaidPaisa': amountPaidPaisa,
       'method': method,
       'referenceNo': referenceNo,
+      'discountReason': discountReason,
+      'discountNote': discountNote,
     };
     // Let a concurrent second call observe the in-flight guard.
     await Future<void>.delayed(const Duration(milliseconds: 10));

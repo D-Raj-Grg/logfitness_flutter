@@ -61,6 +61,8 @@ class RenewMembership extends Notifier<bool> {
     PaymentMethod method = PaymentMethod.cash,
     String? referenceNo,
     String? notes,
+    DiscountReason? discountReason,
+    String? discountNote,
   }) async {
     if (state) {
       // `renew_membership` is not idempotent and there is no replay key
@@ -87,6 +89,8 @@ class RenewMembership extends Notifier<bool> {
             method: method,
             referenceNo: referenceNo,
             notes: notes,
+            discountReason: discountReason,
+            discountNote: discountNote,
           );
       return RenewSucceeded(result);
     } catch (error, stackTrace) {

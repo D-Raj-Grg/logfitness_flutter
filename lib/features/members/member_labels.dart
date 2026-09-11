@@ -52,6 +52,17 @@ String paymentMethodLabel(PaymentMethod method) => switch (method) {
   PaymentMethod.card => 'Card',
 };
 
+/// Mirrors `DISCOUNT_REASON_LABELS`. Printed on the invoice beside the amount
+/// saved, so the words have to be the console's.
+String discountReasonLabel(DiscountReason reason) => switch (reason) {
+  DiscountReason.festival => 'Festival offer',
+  DiscountReason.student => 'Student',
+  DiscountReason.staffReferral => 'Staff referral',
+  DiscountReason.friendReferral => 'Friend referral',
+  DiscountReason.corporate => 'Corporate',
+  DiscountReason.other => 'Other',
+};
+
 /// Mirrors `PAYMENT_KIND_LABELS`. A refund is money handed back; a reversal is
 /// money that never arrived and should not have been recorded. Both are
 /// negative rows, so only the word tells the drawer which happened.
