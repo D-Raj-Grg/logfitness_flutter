@@ -21,7 +21,9 @@ import 'package:logfitness_flutter/data/members/member_overview.dart';
 import 'package:logfitness_flutter/data/members/members_repository.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
+import 'package:logfitness_flutter/data/photos/member_photos_repository.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/features/members/widgets/member_avatar.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/members/member_detail_screen.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
@@ -156,7 +158,21 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                         child: const Text('Register a member'),
                       )
                     : null,
-                data: (MemberListState state) => ListView.separated(
+                data: (MemberListState state) {
+                  // One signing round trip for the page, not one per row.
+                  final photoUrls = ref
+                          .watch(
+                            memberPhotoUrlsProvider(
+                              MemberPhotoPaths(
+                                state.rows.map(
+                                  (MemberOverview m) => m.photoPath,
+                                ),
+                              ),
+                            ),
+                          )
+                          .value ??
+                      const <String, String>{};
+                  return ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
@@ -177,6 +193,7 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                     final MemberOverview row = state.rows[index];
                     return MemberTile(
                       member: row,
+                      photoUrl: photoUrls[row.photoPath],
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
                           builder: (_) => MemberDetailScreen(memberId: row.id),
@@ -184,7 +201,8 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                       ),
                     );
                   },
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -390,9 +408,19 @@ class _CountLine extends StatelessWidget {
 /// One member on the list. The console's row, folded onto a phone: code and
 /// name, then the plan line, then the status and any dues.
 class MemberTile extends StatelessWidget {
-  const MemberTile({required this.member, this.onTap, super.key});
+  const MemberTile({
+    required this.member,
+    this.photoUrl,
+    this.onTap,
+    super.key,
+  });
 
   final MemberOverview member;
+
+  /// Signed by the list in one round trip for the whole page — see
+  /// `memberPhotoUrlsProvider`. Null is a member with no photo, or a photo
+  /// that could not be signed; both render as initials.
+  final String? photoUrl;
   final VoidCallback? onTap;
 
   @override
@@ -402,6 +430,12 @@ class MemberTile extends StatelessWidget {
 
     return ListTile(
       onTap: onTap,
+      // The face is the fastest identification at a counter, which is the
+      // whole reason the list carries one.
+      leading: MemberAvatar(
+        fullName: member.fullName,
+        signedUrl: photoUrl,
+      ),
       title: Text(member.fullName),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

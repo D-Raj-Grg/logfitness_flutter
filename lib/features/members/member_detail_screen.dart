@@ -26,6 +26,7 @@ import 'package:logfitness_flutter/data/attendance/attendance_repository.dart';
 import 'package:logfitness_flutter/features/members/member_admin_panel.dart';
 import 'package:logfitness_flutter/features/memberships/membership_action_panel.dart';
 import 'package:logfitness_flutter/features/members/member_detail_controller.dart';
+import 'package:logfitness_flutter/features/members/widgets/member_avatar.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
@@ -91,13 +92,13 @@ class MemberDetailScreen extends ConsumerWidget {
 /// Name, code, phone, status, home branch and dues -- and the two facts that
 /// change what the desk should do next: an outstanding app invitation, and an
 /// archived record.
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.profile});
 
   final MemberProfile profile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final MemberOverview overview = profile.overview;
@@ -115,6 +116,12 @@ class _Header extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
+              MemberAvatar(
+                fullName: overview.fullName,
+                photoPath: member.photoPath,
+                radius: 28,
+              ),
+              const SizedBox(width: Brand.spaceMd),
               Expanded(
                 child: Text(
                   overview.fullName,

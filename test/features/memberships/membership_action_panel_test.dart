@@ -152,8 +152,9 @@ void main() {
   });
 
   group('PLANNING.md §4, rendered', () {
-    testWidgets('a front desk is offered neither refund nor cancel',
-        (WidgetTester tester) async {
+    testWidgets('a front desk is offered no corrective action', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         _panelUnder(
           StaffRole.frontDesk,
@@ -161,21 +162,31 @@ void main() {
         ),
       );
 
-      // §4's front desk row is check-in, payment, walk-in signup, renewals
-      // and today's collection. None of the corrective actions is on it.
+      // Everything that moves money or voids something paid for stays
+      // manager-and-up.
       expect(find.byKey(refundActionKey), findsNothing);
       expect(find.byKey(reverseActionKey), findsNothing);
       expect(find.byKey(cancelActionKey), findsNothing);
       expect(find.byKey(freezeActionKey), findsNothing);
       expect(find.byKey(adjustDatesActionKey), findsNothing);
-      expect(find.byKey(markLeftActionKey), findsNothing);
+    });
 
-      // And is told why, rather than shown a blank panel that reads as a
-      // loading state.
-      expect(
-        find.textContaining('handled by a manager'),
-        findsOneWidget,
+    testWidgets('a front desk can record that a member has left', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        _panelUnder(
+          StaffRole.frontDesk,
+          payments: <PaymentWithCollector>[_payment()],
+        ),
       );
+
+      // Decided 2026-09-11: the database already permits this
+      // (`jwt_can_serve_members` is {owner, manager, front_desk}), the console
+      // already allows it, and an unrecorded departure leaves someone counted
+      // as an active member — inflating the churn numbers the chain reports
+      // exist to get right.
+      expect(find.byKey(markLeftActionKey), findsOneWidget);
     });
 
     testWidgets('a trainer is offered nothing here either',

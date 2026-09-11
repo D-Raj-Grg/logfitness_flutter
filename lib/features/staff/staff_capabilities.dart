@@ -56,6 +56,27 @@ enum StaffCapability {
   /// to `owner`, `manager` and `front_desk`.
   lookUpMember,
 
+  /// `set_member_left` / `reactivate_member`.
+  ///
+  /// Front desk and up, decided 2026-09-11, aligning this app with both the
+  /// database and the console after the three disagreed.
+  ///
+  /// The database settles it: `jwt_can_serve_members()` is
+  /// `{owner, manager, front_desk}` and `set_member_left` is `security
+  /// invoker`, so a front desk is already permitted to run it. A gate here
+  /// that refused them protected nothing — RLS is the boundary — and only hid
+  /// the action from the one person who ever learns the fact. The console
+  /// agrees: `requireRole('owner', 'manager', 'front_desk')`.
+  ///
+  /// And an unrecorded departure is not neutral. It leaves someone counted as
+  /// an active member, which inflates exactly the numbers the chain reports
+  /// exist to get right — churn especially. Making the desk fetch a manager to
+  /// write down "they moved to Pokhara" is how it stops being written down.
+  ///
+  /// Reversible (`reactivate_member`) and non-financial, which is what
+  /// separates it from [cancelMembership].
+  recordDeparture,
+
   // --- trainer (PLANNING.md §4, `trainer` row) ----------------------------
   /// Own classes and sessions, and attendance for them. Trainer-only by §4;
   /// managers and owners administer the timetable on the web console.
@@ -68,7 +89,8 @@ enum StaffCapability {
   /// `freeze_membership` / `unfreeze_membership`.
   freezeMembership,
 
-  /// `cancel_membership` / `set_member_left`.
+  /// `cancel_membership` only. Cancelling voids an entitlement someone paid
+  /// for, which is why it sits with refunds rather than with [recordDeparture].
   cancelMembership,
 
   /// `refund_payment` / `reverse_payment`.
@@ -94,6 +116,7 @@ const Set<StaffCapability> _frontDesk = <StaffCapability>{
   StaffCapability.renewMembership,
   StaffCapability.viewTodaysCollection,
   StaffCapability.lookUpMember,
+  StaffCapability.recordDeparture,
 };
 
 /// "Everything front desk can do, plus member management, freezes,

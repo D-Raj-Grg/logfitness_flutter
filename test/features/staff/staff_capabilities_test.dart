@@ -17,7 +17,23 @@ void main() {
         StaffCapability.renewMembership,
         StaffCapability.viewTodaysCollection,
         StaffCapability.lookUpMember,
+        // Added 2026-09-11. The database already permits it
+        // (`jwt_can_serve_members` is {owner, manager, front_desk} and
+        // `set_member_left` is security invoker) and the console already
+        // allows it, so refusing it here hid the action from the only person
+        // who learns that someone has left.
+        StaffCapability.recordDeparture,
       });
+    });
+
+    test('a departure is not a cancellation', () {
+      // Cancelling voids an entitlement someone paid for; recording a
+      // departure writes down a fact and is reversible. Keeping them one
+      // capability is what put mark-as-left behind a manager.
+      final frontDesk = capabilitiesFor(StaffRole.frontDesk);
+      expect(frontDesk, contains(StaffCapability.recordDeparture));
+      expect(frontDesk, isNot(contains(StaffCapability.cancelMembership)));
+      expect(frontDesk, isNot(contains(StaffCapability.refundPayment)));
     });
 
     test('trainer: own classes only, and nothing off the front desk row', () {

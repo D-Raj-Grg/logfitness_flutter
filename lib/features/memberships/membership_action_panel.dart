@@ -110,15 +110,19 @@ class MembershipActionPanel extends ConsumerWidget {
         ref.watch(staffCapabilitiesProvider);
     final bool busy = ref.watch(membershipActionsProvider);
 
-    // UX only -- see the banner at the top of this file. §4 gives all three
-    // of these to `manager` and above, so a front desk holds none of them and
-    // this panel renders empty for them.
+    // UX only -- see the banner at the top of this file. Freeze, cancel and
+    // refund are manager-and-up, so a front desk sees only the departure
+    // actions here.
     final bool canFreeze =
         capabilities.contains(StaffCapability.freezeMembership);
     final bool canCancel =
         capabilities.contains(StaffCapability.cancelMembership);
     final bool canRefund =
         capabilities.contains(StaffCapability.refundPayment);
+    // Front desk and up: the database already permits it, and an unrecorded
+    // departure leaves someone counted as active. See `recordDeparture`.
+    final bool canRecordDeparture =
+        capabilities.contains(StaffCapability.recordDeparture);
     // Adjusting a sold membership's window is free days, and free days are
     // money. §4 puts it under member management rather than under freezes,
     // and the console agrees -- `member-action-panel.tsx` gates "Adjust
@@ -185,7 +189,7 @@ class MembershipActionPanel extends ConsumerWidget {
     ];
 
     final List<Widget> memberActions = <Widget>[
-      if (canCancel && !hasLeft)
+      if (canRecordDeparture && !hasLeft)
         _ActionTile(
           actionKey: markLeftActionKey,
           icon: Icons.logout,
@@ -196,7 +200,7 @@ class MembershipActionPanel extends ConsumerWidget {
           enabled: !busy,
           onTap: () => _markLeft(context, ref),
         ),
-      if (canCancel && hasLeft)
+      if (canRecordDeparture && hasLeft)
         _ActionTile(
           actionKey: reactivateActionKey,
           icon: Icons.person_add_alt,

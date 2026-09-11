@@ -245,4 +245,44 @@ void main() {
       );
     }
   });
+
+  testWidgets('two mounted destinations with default-tagged FABs do not '
+      'collide', (WidgetTester tester) async {
+    // The shell keeps every destination mounted, so without HeroMode two
+    // Scaffolds carrying a default-tagged FloatingActionButton land in one
+    // route subtree and Flutter asserts "multiple heroes share the same tag".
+    // That throws in the running app, not only here.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: IndexedStack(
+            index: 0,
+            children: <Widget>[
+              for (final (int i, String label)
+                  in <String>['one', 'two'].indexed)
+                HeroMode(
+                  enabled: i == 0,
+                  child: Scaffold(
+                    floatingActionButton: FloatingActionButton(
+                      onPressed: () {},
+                      child: Text(label),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // No assert thrown is the whole assertion; the count confirms both are
+    // genuinely mounted rather than one having been culled (IndexedStack keeps
+    // the unselected child offstage, so the finder has to look there).
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byType(FloatingActionButton, skipOffstage: false),
+      findsNWidgets(2),
+    );
+  });
 }

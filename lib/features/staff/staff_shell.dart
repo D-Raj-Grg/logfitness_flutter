@@ -109,9 +109,31 @@ class _StaffShellState extends ConsumerState<StaffShell> {
         child: IndexedStack(
           index: index,
           children: <Widget>[
-            for (final StaffDestination destination in visible)
-              destination.builder?.call() ??
-                  StaffPlaceholderScreen(destination: destination),
+            for (final (int i, StaffDestination destination)
+                in visible.indexed)
+              // Only the destination on screen may own a Hero.
+              //
+              // IndexedStack keeps every visited destination mounted, which is
+              // what makes a half-typed search survive a trip to Collection --
+              // but it also puts every destination's Scaffold in one route
+              // subtree at once. Two of them with a FloatingActionButton then
+              // carry the same default hero tag, and Flutter asserts
+              // "multiple heroes share the same tag". It throws in the running
+              // app, not only under test.
+              //
+              // Three screens hit this independently and each fixed it with
+              // its own `heroTag`, which works and does not scale: the fourth
+              // screen to grow a FAB would hit it again, and the failure is a
+              // hard assert rather than a visual glitch. Disabling heroes in
+              // the destinations that are not on screen fixes it once, for
+              // every screen, including ones not written yet. The explicit
+              // tags stay as they are -- they cost nothing and they document
+              // the intent at the call site.
+              HeroMode(
+                enabled: i == index,
+                child: destination.builder?.call() ??
+                    StaffPlaceholderScreen(destination: destination),
+              ),
           ],
         ),
       ),

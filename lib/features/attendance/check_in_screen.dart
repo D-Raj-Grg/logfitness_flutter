@@ -17,6 +17,7 @@ import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/attendance/check_in_controller.dart';
 import 'package:logfitness_flutter/features/attendance/scan_check_in_screen.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/features/members/widgets/member_avatar.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
@@ -229,6 +230,11 @@ class _MemberRow extends StatelessWidget {
     final owes = member.duePaisa > 0;
 
     return ListTile(
+      // The desk is matching a person to a record with a queue behind them.
+      leading: MemberAvatar(
+        fullName: member.fullName,
+        photoPath: member.photoPath,
+      ),
       title: Text(member.fullName),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
