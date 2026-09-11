@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's own surface. A launch screen that is not this colour shows
+         a white card for a beat before the first frame. -->
+    <color name="launch_background">#1A110D</color>
+</resources>
