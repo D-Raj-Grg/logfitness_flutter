@@ -169,18 +169,27 @@ void main() {
     });
   });
 
-  testWidgets('the overflow sheet actually navigates', (tester) async {
+  testWidgets('a front desk has no overflow at all', (tester) async {
     await _pumpShell(tester, StaffRole.frontDesk);
 
-    // Collection is behind More for a front desk (five destinations, four
-    // slots), so this proves the long tail is reachable rather than merely
-    // listed.
+    // Five destinations into five slots. The bar widened from four on
+    // 2026-09-11 precisely so the highest-volume role stops paying a tap for
+    // its own surface.
+    expect(find.byKey(staffMoreButtonKey), findsNothing);
+    expect(find.byKey(staffDestinationKey('collection')), findsOneWidget);
+  });
+
+  testWidgets('the overflow sheet actually navigates', (tester) async {
+    await _pumpShell(tester, StaffRole.owner);
+
+    // An owner still overflows -- six destinations, five slots -- so this
+    // proves the long tail is reachable rather than merely listed.
     await tester.tap(find.byKey(staffMoreButtonKey));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(staffDestinationKey('collection')));
+    await tester.tap(find.byKey(staffDestinationKey('settings')));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(AppBar, 'Collection'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Settings'), findsOneWidget);
   });
 
   testWidgets('the bar never offers more destinations than it has slots', (

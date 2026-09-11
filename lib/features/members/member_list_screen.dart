@@ -175,6 +175,10 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                   return ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
+                  // Clears the FAB. Without it the extended button parks on
+                  // top of the last row -- and the last row is a person with
+                  // a phone number on it.
+                  padding: const EdgeInsets.only(bottom: 88),
                   itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {

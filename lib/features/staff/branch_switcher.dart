@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 const Key branchSwitcherKey = Key('branch-switcher');
@@ -27,6 +28,19 @@ class BranchSwitcher extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scope = ref.watch(branchScopeProvider);
     if (!scope.canSwitch) {
+      return const SizedBox.shrink();
+    }
+
+    // Most gyms in this market are a single outlet, and for them this control
+    // is a permanent no-op sitting in the most valuable strip of the screen.
+    // `canSwitch` is claims-derived, and an owner's claim says "the whole org"
+    // whether that org has one branch or fifty — so the claim cannot answer
+    // this and the branch list has to. One branch, or none loaded yet, means
+    // no switcher: there is nothing to switch between, and an empty dropdown
+    // teaches a person at a counter that the header holds nothing useful.
+    final branches = ref.watch(branchesProvider);
+    final realBranchCount = branches.value?.length;
+    if (realBranchCount != null && realBranchCount < 2) {
       return const SizedBox.shrink();
     }
 

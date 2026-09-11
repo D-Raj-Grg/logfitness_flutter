@@ -149,9 +149,15 @@ Widget _collectionScreen() => const CollectionSheetScreen();
 Widget _reportsScreen() => const ArrearsScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
-/// "More". Four is the Material 3 comfortable maximum for a
-/// [NavigationBar] on a phone; the fifth slot is spent on More itself.
-const int maxPrimaryDestinations = 4;
+/// "More".
+///
+/// Five, which is Material 3's maximum for a [NavigationBar]. It was four,
+/// and four was costing more than it saved: with the fifth slot spent on More
+/// itself, an owner reached only three real destinations from the bar and
+/// Collection — the day's money, which a desk opens constantly — sat behind an
+/// extra tap. At five, a front desk gets its whole surface with no overflow at
+/// all, and an owner gets Collection on the bar.
+const int maxPrimaryDestinations = 5;
 
 /// The destinations [capabilities] is offered, in declaration order.
 List<StaffDestination> destinationsFor(Set<StaffCapability> capabilities) =>
