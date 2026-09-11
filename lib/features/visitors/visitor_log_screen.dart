@@ -14,6 +14,7 @@ import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/visitors/visitor.dart';
 import 'package:logfitness_flutter/data/visitors/visitors_repository.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/features/common/docked_action.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
@@ -140,10 +141,6 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
                 data: (VisitorListState state) => ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  // Clears the FAB. Without it the extended button parks on
-                  // top of the last row -- and the last row is a person with
-                  // a phone number on it.
-                  padding: const EdgeInsets.only(bottom: 88),
                   itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {
@@ -176,13 +173,10 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        // See the note in check_in_screen.dart: destinations share a route
-        // subtree, so every FAB in the shell needs its own hero tag.
-        heroTag: 'visitor-log-fab',
+      bottomNavigationBar: DockedAction(
+        label: 'Log walk-in',
+        icon: Icons.person_add_alt,
         onPressed: () => _openForm(context),
-        icon: const Icon(Icons.person_add_alt),
-        label: const Text('Log walk-in'),
       ),
     );
   }

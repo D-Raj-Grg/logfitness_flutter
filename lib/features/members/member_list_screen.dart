@@ -23,6 +23,7 @@ import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/data/photos/member_photos_repository.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
+import 'package:logfitness_flutter/features/common/docked_action.dart';
 import 'package:logfitness_flutter/features/members/widgets/member_avatar.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/members/member_detail_screen.dart';
@@ -175,10 +176,6 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                   return ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  // Clears the FAB. Without it the extended button parks on
-                  // top of the last row -- and the last row is a person with
-                  // a phone number on it.
-                  padding: const EdgeInsets.only(bottom: 88),
                   itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) {
@@ -212,16 +209,13 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
           ),
         ],
       ),
-      floatingActionButton: canRegister
-          ? FloatingActionButton.extended(
-              // The staff shell keeps every destination mounted, so this FAB
-              // shares a subtree with the visitor log's. Two heroes cannot
-              // share the default `FloatingActionButton` tag -- without this
-              // the shell throws the moment both are alive.
-              heroTag: 'members-register-fab',
+      // Docked, not floating: a member's status, dues and expiry all live down
+      // the right-hand edge, which is precisely where an extended FAB parks.
+      bottomNavigationBar: canRegister
+          ? DockedAction(
+              label: 'Register',
+              icon: Icons.person_add_alt,
               onPressed: () => _openRegister(context),
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Register'),
             )
           : null,
     );
@@ -440,20 +434,49 @@ class MemberTile extends StatelessWidget {
         fullName: member.fullName,
         signedUrl: photoUrl,
       ),
-      title: Text(member.fullName),
+      title: Text(member.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('${member.memberCode} · ${member.phone}'),
           Text(
-            _planLine(member),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+            '${member.memberCode} · ${member.phone}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // Split so the plan name is the only thing that can be cut.
+          //
+          // These names are long -- "Gym + Cardio – 3 Months" -- and left to
+          // wrap they pushed every row to four lines, which is fewer members
+          // on screen for someone searching with a person waiting. Ellipsising
+          // the whole line instead would eat the date, and the date is the
+          // half that answers "do they need to renew". So the name flexes and
+          // truncates; the tail never does.
+          Row(
+            children: <Widget>[
+              Flexible(
+                child: Text(
+                  _planName(member),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Text(
+                _planTail(member),
+                maxLines: 1,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
       isThreeLine: true,
+      // Three lines exactly, never four.
+      visualDensity: VisualDensity.compact,
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -491,21 +514,25 @@ class MemberTile extends StatelessWidget {
     );
   }
 
-  static String _planLine(MemberOverview member) {
-    final String? plan = member.currentPlanName;
-    if (plan == null) {
-      return 'No plan';
+  /// The part that may be truncated: the plan's own name.
+  static String _planName(MemberOverview member) =>
+      member.currentPlanName ?? 'No plan';
+
+  /// The part that must survive: when it ends, or what is left of it.
+  static String _planTail(MemberOverview member) {
+    if (member.currentPlanName == null) {
+      return '';
     }
     final DateTime? ends = member.membershipEndDate;
     if (ends != null) {
       // A `date` column: formatted with no timezone shift, because a calendar
       // day moved by an offset is simply the wrong day (see plain_date.dart).
-      return '$plan · ends ${formatPlainDate(ends)}';
+      return ' · ends ${formatPlainDate(ends)}';
     }
     final int? sessions = member.sessionsRemaining;
     if (sessions != null) {
-      return '$plan · $sessions sessions left';
+      return ' · $sessions sessions left';
     }
-    return '$plan · no end date';
+    return ' · no end date';
   }
 }
