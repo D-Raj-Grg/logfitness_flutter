@@ -307,12 +307,28 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
       `MembershipsRepository.listInvoicesForMember` are byte-identical. The
       duplication is deliberate upstream and the comments say so, but two
       providers reading two copies can diverge later.
-- [ ] **2026-09-10** Member photos are still not rendered or captured anywhere.
+- [x] **2026-09-10** Member photos are still not rendered or captured anywhere.
       The console mints signed URLs (`memberPhotoUrls`) and there is no Dart
       equivalent of its `lib/db/photos`. Sub-project F shipped edit, archive,
       restore and invite **without** the photo half; capture at registration was
       deferred by an explicit decision, but display was not -- a member list
       with no faces is a worse check-in surface than the console's.
+      — Closed 2026-09-11, display first. `lib/data/photos/` mirrors the
+      console's module; the member list signs one batch of URLs per page rather
+      than one request per row; the detail header and the check-in rows carry a
+      face. Every failure along the way -- no photo, an expired signature, a
+      dead network, a missing object -- lands on initials, because a face is
+      worth having and never worth a broken screen.
+      Capture followed, on the **edit** screen only and uploading the moment a
+      photo is picked. The member already exists there, so a failed upload costs
+      the photo and nothing else -- the same reasoning that kept capture out of
+      registration. Needed `image_picker`, recorded in PLANNING §2 before
+      pubspec as that file requires, with the reason it is downscaled on pick
+      (the bucket caps an object at 5 MB and a phone camera clears that
+      unaided). The iOS camera usage string was widened: it claimed the camera
+      was for QR scanning only, which stopped being true here, and a purpose
+      string that does not match what the app does is what App Review rejects.
+      **Registration still takes no photo, deliberately.**
 
 - [x] **2026-09-11** `arrears_screen.dart` was complete, tested and reachable
       from nothing: the Reports destination in `staff_destinations.dart` still
