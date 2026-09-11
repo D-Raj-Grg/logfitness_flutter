@@ -169,14 +169,44 @@ void main() {
     });
   });
 
-  testWidgets('a front desk has no overflow at all', (tester) async {
+  testWidgets('a front desk spends no bar slot on check-in', (tester) async {
     await _pumpShell(tester, StaffRole.frontDesk);
 
-    // Five destinations into five slots. The bar widened from four on
-    // 2026-09-11 precisely so the highest-volume role stops paying a tap for
-    // its own surface.
-    expect(find.byKey(staffMoreButtonKey), findsNothing);
+    // Check-in is `alwaysOverflow`, so the desk's four remaining screens all
+    // fit on the bar and check-in is the only thing behind More.
+    expect(find.byKey(staffDestinationKey('check-in')), findsNothing);
     expect(find.byKey(staffDestinationKey('collection')), findsOneWidget);
+    expect(find.byKey(staffMoreButtonKey), findsOneWidget);
+  });
+
+  testWidgets('every role lands on a screen, never on the check-in keypad', (
+    tester,
+  ) async {
+    for (final role in StaffRole.values) {
+      await _pumpShell(tester, role);
+
+      // Members for everyone who has it; a trainer has no member access at
+      // all, so their first destination is Classes. What matters for both is
+      // that the shell never opens on check-in -- that is what put an owner
+      // in front of a keypad they never asked for.
+      final expected = role == StaffRole.trainer ? 'Classes' : 'Members';
+      expect(
+        find.widgetWithText(AppBar, expected),
+        findsOneWidget,
+        reason: '${role.wire} landed somewhere else',
+      );
+    }
+  });
+
+  testWidgets('check-in is still reachable, from More', (tester) async {
+    await _pumpShell(tester, StaffRole.owner);
+
+    await tester.tap(find.byKey(staffMoreButtonKey));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(staffDestinationKey('check-in')));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(AppBar, 'Check-in'), findsOneWidget);
   });
 
   testWidgets('the overflow sheet actually navigates', (tester) async {

@@ -148,10 +148,17 @@ class _StaffShellState extends ConsumerState<StaffShell> {
               // When the selection lives in the overflow, no bar entry is
               // highlighted — but NavigationBar has no "nothing selected", so it
               // sits on More instead, which is where the user went to get here.
-              selectedIndex: index < primary.length ? index : primary.length,
+              //
+              // Bar position is not visible position: a destination can be
+              // forced behind More (`alwaysOverflow`) from the middle of the
+              // list, so both directions go through the destination itself
+              // rather than through arithmetic on the two indices.
+              selectedIndex: primary.contains(selected)
+                  ? primary.indexOf(selected)
+                  : primary.length,
               onDestinationSelected: (int tapped) {
                 if (tapped < primary.length) {
-                  setState(() => _index = tapped);
+                  setState(() => _index = visible.indexOf(primary[tapped]));
                 } else {
                   _showMoreSheet(overflow, visible);
                 }

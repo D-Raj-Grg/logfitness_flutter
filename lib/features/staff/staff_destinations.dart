@@ -25,6 +25,7 @@ class StaffDestination {
     required this.selectedIcon,
     this.requires,
     this.builder,
+    this.alwaysOverflow = false,
   });
 
   /// Stable identifier, used as the widget key and in tests. Never shown.
@@ -46,6 +47,16 @@ class StaffDestination {
   /// destination stays a single entry here whether or not its screen exists.
   final Widget Function()? builder;
 
+  /// Keeps this destination out of the bottom bar even when there is room
+  /// for it, so it is only ever reached through More.
+  ///
+  /// Check-in is the one entry that wants this. The counter's phone is not
+  /// the door: check-in happens on the scanner/kiosk, and putting it in a
+  /// bar slot cost a slot and made it the shell's landing screen — which is
+  /// how an owner signing in got a check-in console and a keyboard instead
+  /// of their members.
+  final bool alwaysOverflow;
+
   /// Whether [capabilities] is offered this destination.
   bool isVisibleTo(Set<StaffCapability> capabilities) =>
       requires == null || capabilities.contains(requires);
@@ -60,14 +71,9 @@ class StaffDestination {
 /// programme"), which is why the tail of this list is expected to grow and
 /// why the split is computed rather than hand-maintained.
 const List<StaffDestination> staffDestinations = <StaffDestination>[
-  StaffDestination(
-    id: 'check-in',
-    label: 'Check-in',
-    icon: Icons.qr_code_scanner_outlined,
-    selectedIcon: Icons.qr_code_scanner,
-    requires: StaffCapability.checkIn,
-    builder: _checkInScreen,
-  ),
+  // Members is first because it is what the shell opens on: the record is
+  // the thing every other counter task starts from — renew, collect, freeze,
+  // record a departure — and it is the one screen no staff role is without.
   StaffDestination(
     id: 'members',
     label: 'Members',
@@ -113,6 +119,16 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     selectedIcon: Icons.bar_chart,
     requires: StaffCapability.viewBranchReports,
     builder: _reportsScreen,
+  ),
+  // Behind More by [alwaysOverflow], not by ordering — see that field.
+  StaffDestination(
+    id: 'check-in',
+    label: 'Check-in',
+    icon: Icons.qr_code_scanner_outlined,
+    selectedIcon: Icons.qr_code_scanner,
+    requires: StaffCapability.checkIn,
+    builder: _checkInScreen,
+    alwaysOverflow: true,
   ),
   // Settings is the signed-in person's own account and preferences — sign
   // out, app version, theme — not the org administration the console keeps
@@ -173,16 +189,28 @@ List<StaffDestination> destinationsFor(Set<StaffCapability> capabilities) =>
 
 /// The destinations that get a slot in the bottom bar.
 ///
-/// When everything fits, More is not rendered and all of them are primary.
-/// When it does not, one slot is surrendered to More so the overflow is
+/// [StaffDestination.alwaysOverflow] entries never take a slot. When what is
+/// left fits and nothing was forced out, More is not rendered and all of them
+/// are primary; otherwise one slot is surrendered to More so the overflow is
 /// reachable.
-List<StaffDestination> primaryDestinations(List<StaffDestination> visible) =>
-    visible.length <= maxPrimaryDestinations
-    ? visible
-    : visible.sublist(0, maxPrimaryDestinations - 1);
+List<StaffDestination> primaryDestinations(List<StaffDestination> visible) {
+  final List<StaffDestination> barred = visible
+      .where((destination) => !destination.alwaysOverflow)
+      .toList(growable: false);
+  final bool needsMore =
+      barred.length != visible.length || barred.length > maxPrimaryDestinations;
+  if (!needsMore) return barred;
+  final int slots = maxPrimaryDestinations - 1;
+  return barred.length <= slots ? barred : barred.sublist(0, slots);
+}
 
-/// The destinations that live behind More. Empty when everything fits.
-List<StaffDestination> overflowDestinations(List<StaffDestination> visible) =>
-    visible.length <= maxPrimaryDestinations
-    ? const <StaffDestination>[]
-    : visible.sublist(maxPrimaryDestinations - 1);
+/// The destinations that live behind More, in declaration order. Empty when
+/// everything fits in the bar.
+List<StaffDestination> overflowDestinations(List<StaffDestination> visible) {
+  final Set<String> primary = primaryDestinations(
+    visible,
+  ).map((destination) => destination.id).toSet();
+  return visible
+      .where((destination) => !primary.contains(destination.id))
+      .toList(growable: false);
+}

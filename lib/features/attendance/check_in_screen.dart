@@ -77,8 +77,16 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
             padding: const EdgeInsets.all(Brand.spaceMd),
             child: TextField(
               controller: _search,
-              autofocus: true,
+              // Deliberately not autofocused. The shell keeps every
+              // destination mounted in an IndexedStack, so an autofocus here
+              // fires on mount rather than on arrival: it raised the keypad
+              // over whichever screen the shell had actually opened on, and
+              // nothing put it away again. The desk taps the field.
               keyboardType: TextInputType.phone,
+              // TextField only unfocuses on an outside tap on desktop by
+              // default, so on a phone the keypad stayed up over the results
+              // it was covering. Taps outside the field now dismiss it.
+              onTapOutside: (_) => FocusScope.of(context).unfocus(),
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
@@ -115,6 +123,10 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                   ? 'Type a phone number to find a member.'
                   : 'Nobody matches that.',
               data: (List<MemberOverview> rows) => ListView.separated(
+                // Scrolling the results is the other way the desk says it is
+                // done typing.
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 itemCount: rows.length,
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (BuildContext context, int index) {
