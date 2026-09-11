@@ -48,6 +48,10 @@ dependencies:
   intl: ^0.20.3
   image_picker: ^1.2.3
   shared_preferences: ^2.5.5
+  # Opens the hosted legal and support pages from Settings. Already in the
+  # tree as a transitive dependency of supabase_flutter; declared here because
+  # this app imports it directly.
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
