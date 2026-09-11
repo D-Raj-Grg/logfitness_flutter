@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Required by Apple since May 2024. Without this file the upload is
+	     accepted and then rejected during processing, which is a slower way to
+	     find out. The four reason codes below are the ones Flutter's own engine
+	     and this app's plugins hit: shared_preferences reaches UserDefaults,
+	     path_provider and flutter_secure_storage stat files, and the engine
+	     reads boot time and free disk space. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- CA92.1: read and write only this app's own defaults. -->
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- C617.1: timestamps of files inside the app container. -->
+				<string>C617.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- 35F9.1: measuring elapsed time within the app. -->
+				<string>35F9.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryDiskSpace</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- E174.1: checking there is room before writing. -->
+				<string>E174.1</string>
+			</array>
+		</dict>
+	</array>
+
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+
+	<!-- DELIBERATELY EMPTY, AND THIS NEEDS A HUMAN DECISION BEFORE SUBMISSION.
+	     An empty array asserts "this app collects no data", and that is very
+	     likely wrong: staff enter member names, phone numbers, email addresses,
+	     dates of birth and payment records. Whether Apple counts that as
+	     collection depends on whether it is linked to the *app's user* (the
+	     staff member) or is third-party business data the gym holds — a
+	     question for whoever owns the privacy policy, not for a build script.
+	     App Store Connect asks the same question in its privacy questionnaire
+	     and that answer must match this file. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+</dict>
+</plist>

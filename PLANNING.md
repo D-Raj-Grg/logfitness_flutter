@@ -246,7 +246,7 @@ sync · chain administration on mobile (timetable editing, staff CRUD, plan cata
 - Phase 2: one login for both principals, the invite deep link and set-password screen, the
   link step, the not-linked screen, and a role router driven by `principalProvider`.
 - Two things are built but unverifiable from this machine, both needing the Supabase
-  dashboard: the deep-link redirect URL (`com.lordofgyms.logfitness_flutter://login-callback`)
+  dashboard: the deep-link redirect URL (`com.gymtross.app://login-callback`)
   must be added to Auth → URL Configuration, and `FCM_SERVICE_ACCOUNT_JSON` must be set before
   push can send anything.
 - `path_provider_foundation` is pinned to 2.4.1 and Android `compileSdk` to 36 — see TASKS.md

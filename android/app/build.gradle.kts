@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.lordofgyms.logfitness_flutter"
+    namespace = "com.gymtross.app"
     // Flutter 3.38 defaults to SDK 37, which currently only ships as the
     // preview platform `android-37.0` -- AGP resolves the target by the exact
     // hash string `android-37` and fails. Pinned to the newest stable platform
@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.lordofgyms.logfitness_flutter"
+        applicationId = "com.gymtross.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

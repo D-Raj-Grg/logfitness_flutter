@@ -31,10 +31,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.lordofgyms.logfitness_flutter.auth</string>
+			<string>com.gymtross.app.auth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.lordofgyms.logfitness_flutter</string>
+				<string>com.gymtross.app</string>
 			</array>
 		</dict>
 	</array>

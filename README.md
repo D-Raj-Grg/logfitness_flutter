@@ -47,7 +47,7 @@ Supabase Auth emails (member invite, password recovery) must redirect back into 
 the member can set a password on first open. The redirect URL is:
 
 ```
-com.lordofgyms.logfitness_flutter://login-callback
+com.gymtross.app://login-callback
 ```
 
 It is a custom URL scheme (not a universal/app link), matching the Android `applicationId`

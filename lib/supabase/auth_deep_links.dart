@@ -22,7 +22,7 @@
 /// unverified until someone with dashboard access adds it. See the
 /// "Deep links" section of `README.md`.
 const kAuthRedirectUrl =
-    'com.lordofgyms.logfitness_flutter://login-callback';
+    'com.gymtross.app://login-callback';
 
 /// Passes [kAuthRedirectUrl] as the `emailRedirectTo` / `redirectTo`
 /// argument of a Supabase Auth call that sends an email the user opens on
