@@ -237,16 +237,33 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
 - [x] **2026-09-05** Adversarial audit of Phases 0–2 found six real defects; all fixed and covered by tests. In this repo: `/set-password` was exempt from the redirect guard unconditionally (a linked member was stranded there forever, and nothing ever navigated *to* it, so an invited member could be linked without ever setting a password); an error out of `principalProvider` — an unrecognised `staff_role` throws by design — rendered a blank splash with no way out; `PendingRefresh` routed into a shell whose stale token would have made every RLS-scoped read come back empty, with no refresh actually triggered; and `AppClaims` read a malformed claim set as "not linked yet", hiding a backend regression behind a friendly screen.
 - [x] **2026-09-05** Backend fixes (in `logfitness_saas`): the member-photos storage policy still tested `is_org_member()` alone, so any member could download every other member's photo; `link_member_account()` did not check `email_confirmed_at`, so signing up with a member's address was enough to claim their record; `push-fanout` only branch-scoped the `branch_id` target, letting a single-branch front desk push arbitrary content to the whole chain; and `book_class_session` skipped `has_branch_access()` and accepted members whose derived status was `left` or whose session pack was spent.
 
-- [ ] **2026-09-09** Sub-project B has **not** been run on a device or a
-      simulator. `flutter analyze`, `dart run custom_lint` and 288 tests are
-      green, and the widget tests drive the log, the form and the registration
-      controller against fakes -- but nobody has signed in as staff, logged a
-      real walk-in, and watched `set_visitor_defaults` fill the date. The
-      blocker is the same one recorded on 2026-09-05: the auth deep link
-      redirect is not on the Supabase dashboard's allow-list, so an invited
-      account cannot open the app, and no environment variable on this machine
-      carries a password for a seeded staff account. Do this before calling B
-      finished.
+- [ ] **2026-09-09** Sub-project B had never been run on a device.
+      **Partly closed 2026-09-11: it runs.** `flutter run` on an iPhone 17 Pro
+      simulator (iOS 26.2), `--dart-define-from-file=env/local.json`, Xcode
+      build 43.8s, no errors; Supabase init completed and a session restored
+      from secure storage, so it came up signed in as the seeded owner without
+      a password being needed after all.
+      **Seen working against live data:** the staff shell and its bottom nav;
+      the check-in screen with its search and Scan FAB; the visitor log — 6 real
+      walk-ins, "Needs a call" selected by default, filter chips, the count
+      line, and `visited_on` rendering as the right calendar day; the member
+      list — 24 members, the status-count strip (19 active / 5 expired / 10 with
+      dues), NPR with Indian grouping, "Starts later" for `upcoming` (the
+      console's word, so the label parity holds), and avatars falling back to
+      initials. Two destinations with FABs coexisted with no hero assert, which
+      is the shell fix holding.
+      **Still unverified, and it is a lot:** every write path (nothing was
+      logged, registered, paid or checked in), member detail and its five tabs,
+      a real photo rendering through a signed URL (only one member in the org
+      has one), and every role other than owner — the manager, front desk and
+      trainer seed rows are `invited` with no auth user, so their shells cannot
+      be reached at all. The front-desk gate changed on 2026-09-11 is therefore
+      still untested on a device.
+      **Why it stopped there:** driving the simulator needed hand-rolled
+      coordinate mapping (`cliclick` plus an AppleScript window-geometry read).
+      Bottom-nav taps worked; row taps and text entry did not land reliably.
+      Going further wants a real driver — `integration_test` + `flutter drive`
+      — which is its own task and is not in the stack table yet.
 - [ ] **2026-09-09** `build_runner` in this repo takes **450-900s from a cold
       cache** and 4s warm. Two things made it worse and are worth knowing
       before someone concludes the toolchain is broken: agent worktrees created
