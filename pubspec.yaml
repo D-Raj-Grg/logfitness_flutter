@@ -1,5 +1,5 @@
 name: logfitness_flutter
-description: "Lord of Gyms mobile — member and staff shells over the same Supabase project as the web console."
+description: "Gym Tross — gym management for staff and members, over the same Supabase project as the web console."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
