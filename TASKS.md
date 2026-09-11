@@ -364,6 +364,21 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
       parity sub-projects each had their own plan and ticked *that*. A
       sub-project that crosses a phase should tick the phase too.
 
+- [ ] **2026-09-11** The extended FAB occludes the status-and-money column of
+      whatever row it floats over. Bottom padding was added to both lists on
+      2026-09-11 and that fixes only the **last** row at full scroll; mid-list,
+      "Register" still covers a member's status badge, dues and end date, and
+      "Log walk-in" covers a visitor's status. Confirmed on a simulator, not
+      inferred. The right-hand column is what a desk reads, so this is a
+      legibility problem rather than a cosmetic one.
+      Three ways out, none free: shrink to a circular FAB (less occlusion, but
+      loses the label, which the design context argues against for a
+      not-tech-sophisticated audience); move the action into the app bar (zero
+      occlusion, worse one-handed reach at a counter); or dock a full-width
+      button above the navigation bar (occludes nothing because the list pads
+      for it, stays thumb-reachable, costs ~64px of list height permanently).
+      The docked bar is the one to try first. Needs a decision, not a default.
+
 ## Open questions
 
 - [ ] Nepali-language UI at launch, or English-only? (bites harder on the member shell)
