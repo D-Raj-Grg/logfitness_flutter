@@ -108,6 +108,23 @@ enum StaffCapability {
   /// the person the nightly sweep already missed.
   sendMemberMessage,
 
+  /// Broadcast one message to every member and walk-in at once.
+  ///
+  /// Front desk and up, and transcribed from the database rather than from §4:
+  /// `jwt_can_announce()` admits `{owner, manager, front_desk}` and all four
+  /// announcement RPCs -- `announcement_audience_count`, `send_announcement`,
+  /// `send_announcement_test`, `cancel_announcement` -- guard on it.
+  /// **A trainer is refused `42501` and is absent here.**
+  ///
+  /// Widened from `{owner, manager}` on 2026-09-18 (migration
+  /// `20260918100000_announcement_front_desk.sql`; the console's
+  /// `nav-items.ts` and `announcements/actions.ts` were relaxed to match). The
+  /// desk is who is standing there when the gym has to say it is shut, and the
+  /// reach did not widen with the role: `announcement_branch_scope` bounds a
+  /// non-owner to their own `branch_ids`, and a desk with no branch of its own
+  /// is refused outright rather than handed the chain.
+  sendAnnouncement,
+
   /// The delivery log -- was this member told, and what did the gateway say.
   ///
   /// Owner and manager, matching the console's
@@ -148,6 +165,7 @@ const Set<StaffCapability> _frontDesk = <StaffCapability>{
   StaffCapability.lookUpMember,
   StaffCapability.recordDeparture,
   StaffCapability.sendMemberMessage,
+  StaffCapability.sendAnnouncement,
 };
 
 /// "Everything front desk can do, plus member management, freezes,

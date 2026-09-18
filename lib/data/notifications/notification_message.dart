@@ -36,6 +36,11 @@ abstract class NotificationMessage with _$NotificationMessage {
     String? memberId,
     String? staffId,
     String? visitorId,
+
+    /// The broadcast this row belongs to, or null for everything else --
+    /// including an announcement *test*, which is a real outbox row that
+    /// belongs to no announcement because nothing has been announced yet.
+    String? announcementId,
     required NotificationChannel channel,
     required NotificationEvent event,
 

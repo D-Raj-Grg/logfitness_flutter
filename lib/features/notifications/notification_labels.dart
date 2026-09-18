@@ -40,6 +40,7 @@ String notificationEventLabel(NotificationEvent event) => switch (event) {
   NotificationEvent.customMessage => 'Sent by hand',
   NotificationEvent.visitorWelcome => 'Visitor welcome',
   NotificationEvent.visitorFollowUp => 'Visitor follow-up',
+  NotificationEvent.announcement => 'Announcement',
 };
 
 /// The short form, for a row where the recipient and the time follow it.
@@ -52,6 +53,7 @@ String notificationEventShort(NotificationEvent event) => switch (event) {
   NotificationEvent.customMessage => 'By hand',
   NotificationEvent.visitorWelcome => 'Visitor welcome',
   NotificationEvent.visitorFollowUp => 'Visitor follow-up',
+  NotificationEvent.announcement => 'Announcement',
 };
 
 String notificationChannelLabel(NotificationChannel channel) =>
@@ -97,6 +99,12 @@ const List<NotificationEvent> kManualVisitorEvents = <NotificationEvent>[
 ];
 
 /// The reasons an owner may reword.
+///
+/// No `announcement` in any of the three lists above or below, deliberately. A
+/// broadcast is not sent one recipient at a time -- `send_member_notification`
+/// and `send_visitor_notification` both refuse the event -- and its wording is
+/// typed into the composer for that one send rather than saved as a template
+/// somebody edits once and forgets.
 const List<NotificationEvent> kEditableTemplateEvents = <NotificationEvent>[
   NotificationEvent.renewalReminder,
   NotificationEvent.duesReminder,

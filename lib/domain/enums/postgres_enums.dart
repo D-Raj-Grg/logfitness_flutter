@@ -377,11 +377,20 @@ enum NotificationChannel {
 
 /// Mirrors `public.notification_event`.
 ///
-/// Eight values, grown in three migrations: the five the schema shipped with,
-/// `custom_message` (the desk sending a member something by hand), and the two
-/// visitor events. `staff_invite` and `test_message` are here because the
-/// column can return them -- `send_member_notification` refuses both, because
-/// neither is addressed to a member.
+/// Nine values, grown in four migrations: the five the schema shipped with,
+/// `custom_message` (the desk sending a member something by hand), the two
+/// visitor events, and `announcement`. `staff_invite` and `test_message` are
+/// here because the column can return them -- `send_member_notification`
+/// refuses both, because neither is addressed to a member.
+///
+/// `announcement` is the same shape of thing and is here for a sharper reason:
+/// it landed upstream in `20260917100000_announcement_event.sql` while this
+/// mirror still had eight values, and `NotificationMessage.event` is not
+/// nullable. One broadcast sent from the console and every row of the delivery
+/// log stopped parsing -- the screen read "This app is out of date with the
+/// server", which was true and useless. No manual surface offers it:
+/// `send_member_notification` refuses it and a broadcast is fanned out by
+/// `send_announcement`, never enqueued one at a time.
 enum NotificationEvent {
   @JsonValue('renewal_reminder')
   renewalReminder('renewal_reminder'),
@@ -398,7 +407,9 @@ enum NotificationEvent {
   @JsonValue('visitor_welcome')
   visitorWelcome('visitor_welcome'),
   @JsonValue('visitor_follow_up')
-  visitorFollowUp('visitor_follow_up');
+  visitorFollowUp('visitor_follow_up'),
+  @JsonValue('announcement')
+  announcement('announcement');
 
   const NotificationEvent(this.wire);
 
@@ -478,6 +489,60 @@ enum NotificationStatus {
       NotificationStatus.values.firstWhere(
         (e) => e.wire == value,
         orElse: () => throw UnknownEnumValue('NotificationStatus', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.announcement_audience`.
+///
+/// Who a broadcast is addressed to. `both` is both groups of people, not both
+/// rows: a walk-in whose number is also a member's is texted once, as the
+/// member, because that is the wording meant for somebody who already pays.
+enum AnnouncementAudience {
+  @JsonValue('members')
+  members('members'),
+  @JsonValue('visitors')
+  visitors('visitors'),
+  @JsonValue('both')
+  both('both');
+
+  const AnnouncementAudience(this.wire);
+
+  final String wire;
+
+  static AnnouncementAudience fromDb(String value) =>
+      AnnouncementAudience.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('AnnouncementAudience', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.announcement_status`.
+///
+/// What was *asked for*, and it never moves again except to `cancelled`. It is
+/// not what the announcements list renders: that reads `announcement_overview`
+/// `state`, which is derived from the outbox and knows the difference between a
+/// send that is still going and one that has finished. The two part company the
+/// moment a scheduled hour passes -- see [AnnouncementState].
+enum AnnouncementStatus {
+  @JsonValue('scheduled')
+  scheduled('scheduled'),
+  @JsonValue('sending')
+  sending('sending'),
+  @JsonValue('cancelled')
+  cancelled('cancelled');
+
+  const AnnouncementStatus(this.wire);
+
+  final String wire;
+
+  static AnnouncementStatus fromDb(String value) =>
+      AnnouncementStatus.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('AnnouncementStatus', value),
       );
 
   String toDb() => wire;

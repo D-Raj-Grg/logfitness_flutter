@@ -131,11 +131,19 @@ member_gender      male | female | other
 notification_channel   sms | viber | email
 notification_event     renewal_reminder | dues_reminder | birthday_greeting |
                        staff_invite | test_message | custom_message |
-                       visitor_welcome | visitor_follow_up
+                       visitor_welcome | visitor_follow_up | announcement
 notification_provider  sparrow_sms | aakash_sms | smspasal_sms |
                        viber_business | resend_email | custom_http | log_only
 notification_status    queued | sending | sent | failed | cancelled | skipped
+announcement_audience  members | visitors | both
+announcement_status    scheduled | sending | cancelled
 ```
+
+`announcement_overview.state` (`cancelled | scheduled | sending | sent`) looks
+like one of these and is not: it is a `case` expression in the view, derived
+from the outbox. It is mirrored as `AnnouncementState` in
+`lib/data/announcements/announcement_overview.dart` rather than in
+`postgres_enums.dart`, with the same throwing `fromDb`.
 
 `notification_provider` is mirrored in Dart as `NotificationProviderKind`: the
 Postgres enum and the `notification_providers` table share a name and Dart
@@ -161,13 +169,23 @@ send_visitor_notification            notification_template_preview
 org_notification_locale              notification_has_credential
 set_notification_credential          clear_notification_credential
 request_notification_gateway_balance read_notification_gateway_balance
+
+announcement_audience_count          send_announcement
+send_announcement_test               cancel_announcement
 ```
 
 The notification block landed on 2026-09-12 with `TASKS.md`'s "Notifications
-parity". Two of them are deliberately *not* callable from any client and are
-listed here only so nobody goes looking: `notification_credential` (the Vault
-token itself) and `resolve_notification_template` (SECURITY DEFINER, for the
-cron sweeps, which hold no claims).
+parity"; the four announcement RPCs on 2026-09-18 with "Announcements". Three of
+them are deliberately *not* callable from any client and are listed here only so
+nobody goes looking: `notification_credential` (the Vault token itself),
+`resolve_notification_template` (SECURITY DEFINER, for the cron sweeps, which
+hold no claims) and `announcement_audience` (it takes an org id as an argument,
+so a grant would hand any caller another gym's phone numbers).
+
+All four announcement RPCs guard on `jwt_can_announce()` — owner, manager and a
+front desk that has a branch of its own. That predicate is what
+`StaffCapability.sendAnnouncement` transcribes; the Dart set is a copy of the
+database's rule and never the source of it.
 
 Seventeen of these, plus the fourteen notification RPCs above and the four
 notification tables behind them, now have a **second consumer**. Changing an argument list or

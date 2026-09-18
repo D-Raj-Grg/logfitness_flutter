@@ -18,7 +18,10 @@ mixin _$NotificationMessage {
  String get id; String get orgId;/// Null means the message was raised for the whole org rather than for a
 /// branch -- and an org-wide message belongs to everyone who can see the
 /// org, not to nobody. Every branch filter has to say so explicitly.
- String? get branchId; String? get memberId; String? get staffId; String? get visitorId; NotificationChannel get channel; NotificationEvent get event;/// Resolved at send time from the org's active gateway, so a row that has
+ String? get branchId; String? get memberId; String? get staffId; String? get visitorId;/// The broadcast this row belongs to, or null for everything else --
+/// including an announcement *test*, which is a real outbox row that
+/// belongs to no announcement because nothing has been announced yet.
+ String? get announcementId; NotificationChannel get channel; NotificationEvent get event;/// Resolved at send time from the org's active gateway, so a row that has
 /// not gone out yet carries none.
  NotificationProviderKind? get provider; String get toAddress; String? get subject; String get body; NotificationStatus get status; int get attempts; DateTime get scheduledFor; DateTime get nextAttemptAt; int? get providerStatus; String? get providerMessageId; String? get lastError; DateTime? get sentAt; String get dedupeKey;/// The staff member who pressed Send. Null for anything a nightly sweep
 /// raised, which is how the log tells the two apart.
@@ -35,16 +38,16 @@ $NotificationMessageCopyWith<NotificationMessage> get copyWith => _$Notification
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is NotificationMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.visitorId, visitorId) || other.visitorId == visitorId)&&(identical(other.channel, channel) || other.channel == channel)&&(identical(other.event, event) || other.event == event)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.toAddress, toAddress) || other.toAddress == toAddress)&&(identical(other.subject, subject) || other.subject == subject)&&(identical(other.body, body) || other.body == body)&&(identical(other.status, status) || other.status == status)&&(identical(other.attempts, attempts) || other.attempts == attempts)&&(identical(other.scheduledFor, scheduledFor) || other.scheduledFor == scheduledFor)&&(identical(other.nextAttemptAt, nextAttemptAt) || other.nextAttemptAt == nextAttemptAt)&&(identical(other.providerStatus, providerStatus) || other.providerStatus == providerStatus)&&(identical(other.providerMessageId, providerMessageId) || other.providerMessageId == providerMessageId)&&(identical(other.lastError, lastError) || other.lastError == lastError)&&(identical(other.sentAt, sentAt) || other.sentAt == sentAt)&&(identical(other.dedupeKey, dedupeKey) || other.dedupeKey == dedupeKey)&&(identical(other.createdBy, createdBy) || other.createdBy == createdBy)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is NotificationMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.visitorId, visitorId) || other.visitorId == visitorId)&&(identical(other.announcementId, announcementId) || other.announcementId == announcementId)&&(identical(other.channel, channel) || other.channel == channel)&&(identical(other.event, event) || other.event == event)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.toAddress, toAddress) || other.toAddress == toAddress)&&(identical(other.subject, subject) || other.subject == subject)&&(identical(other.body, body) || other.body == body)&&(identical(other.status, status) || other.status == status)&&(identical(other.attempts, attempts) || other.attempts == attempts)&&(identical(other.scheduledFor, scheduledFor) || other.scheduledFor == scheduledFor)&&(identical(other.nextAttemptAt, nextAttemptAt) || other.nextAttemptAt == nextAttemptAt)&&(identical(other.providerStatus, providerStatus) || other.providerStatus == providerStatus)&&(identical(other.providerMessageId, providerMessageId) || other.providerMessageId == providerMessageId)&&(identical(other.lastError, lastError) || other.lastError == lastError)&&(identical(other.sentAt, sentAt) || other.sentAt == sentAt)&&(identical(other.dedupeKey, dedupeKey) || other.dedupeKey == dedupeKey)&&(identical(other.createdBy, createdBy) || other.createdBy == createdBy)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,staffId,visitorId,channel,event,provider,toAddress,subject,body,status,attempts,scheduledFor,nextAttemptAt,providerStatus,providerMessageId,lastError,sentAt,dedupeKey,createdBy,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,staffId,visitorId,announcementId,channel,event,provider,toAddress,subject,body,status,attempts,scheduledFor,nextAttemptAt,providerStatus,providerMessageId,lastError,sentAt,dedupeKey,createdBy,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'NotificationMessage(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, staffId: $staffId, visitorId: $visitorId, channel: $channel, event: $event, provider: $provider, toAddress: $toAddress, subject: $subject, body: $body, status: $status, attempts: $attempts, scheduledFor: $scheduledFor, nextAttemptAt: $nextAttemptAt, providerStatus: $providerStatus, providerMessageId: $providerMessageId, lastError: $lastError, sentAt: $sentAt, dedupeKey: $dedupeKey, createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'NotificationMessage(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, staffId: $staffId, visitorId: $visitorId, announcementId: $announcementId, channel: $channel, event: $event, provider: $provider, toAddress: $toAddress, subject: $subject, body: $body, status: $status, attempts: $attempts, scheduledFor: $scheduledFor, nextAttemptAt: $nextAttemptAt, providerStatus: $providerStatus, providerMessageId: $providerMessageId, lastError: $lastError, sentAt: $sentAt, dedupeKey: $dedupeKey, createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -55,7 +58,7 @@ abstract mixin class $NotificationMessageCopyWith<$Res>  {
   factory $NotificationMessageCopyWith(NotificationMessage value, $Res Function(NotificationMessage) _then) = _$NotificationMessageCopyWithImpl;
 @useResult
 $Res call({
- String id, String orgId, String? branchId, String? memberId, String? staffId, String? visitorId, NotificationChannel channel, NotificationEvent event, NotificationProviderKind? provider, String toAddress, String? subject, String body, NotificationStatus status, int attempts, DateTime scheduledFor, DateTime nextAttemptAt, int? providerStatus, String? providerMessageId, String? lastError, DateTime? sentAt, String dedupeKey, String? createdBy, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String? branchId, String? memberId, String? staffId, String? visitorId, String? announcementId, NotificationChannel channel, NotificationEvent event, NotificationProviderKind? provider, String toAddress, String? subject, String body, NotificationStatus status, int attempts, DateTime scheduledFor, DateTime nextAttemptAt, int? providerStatus, String? providerMessageId, String? lastError, DateTime? sentAt, String dedupeKey, String? createdBy, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -72,7 +75,7 @@ class _$NotificationMessageCopyWithImpl<$Res>
 
 /// Create a copy of NotificationMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? orgId = null,Object? branchId = freezed,Object? memberId = freezed,Object? staffId = freezed,Object? visitorId = freezed,Object? channel = null,Object? event = null,Object? provider = freezed,Object? toAddress = null,Object? subject = freezed,Object? body = null,Object? status = null,Object? attempts = null,Object? scheduledFor = null,Object? nextAttemptAt = null,Object? providerStatus = freezed,Object? providerMessageId = freezed,Object? lastError = freezed,Object? sentAt = freezed,Object? dedupeKey = null,Object? createdBy = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? orgId = null,Object? branchId = freezed,Object? memberId = freezed,Object? staffId = freezed,Object? visitorId = freezed,Object? announcementId = freezed,Object? channel = null,Object? event = null,Object? provider = freezed,Object? toAddress = null,Object? subject = freezed,Object? body = null,Object? status = null,Object? attempts = null,Object? scheduledFor = null,Object? nextAttemptAt = null,Object? providerStatus = freezed,Object? providerMessageId = freezed,Object? lastError = freezed,Object? sentAt = freezed,Object? dedupeKey = null,Object? createdBy = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -80,6 +83,7 @@ as String,branchId: freezed == branchId ? _self.branchId : branchId // ignore: c
 as String?,memberId: freezed == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
 as String?,staffId: freezed == staffId ? _self.staffId : staffId // ignore: cast_nullable_to_non_nullable
 as String?,visitorId: freezed == visitorId ? _self.visitorId : visitorId // ignore: cast_nullable_to_non_nullable
+as String?,announcementId: freezed == announcementId ? _self.announcementId : announcementId // ignore: cast_nullable_to_non_nullable
 as String?,channel: null == channel ? _self.channel : channel // ignore: cast_nullable_to_non_nullable
 as NotificationChannel,event: null == event ? _self.event : event // ignore: cast_nullable_to_non_nullable
 as NotificationEvent,provider: freezed == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable
@@ -183,10 +187,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  String? announcementId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _NotificationMessage() when $default != null:
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.announcementId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -204,10 +208,10 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  String? announcementId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _NotificationMessage():
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.announcementId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -224,10 +228,10 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String orgId,  String? branchId,  String? memberId,  String? staffId,  String? visitorId,  String? announcementId,  NotificationChannel channel,  NotificationEvent event,  NotificationProviderKind? provider,  String toAddress,  String? subject,  String body,  NotificationStatus status,  int attempts,  DateTime scheduledFor,  DateTime nextAttemptAt,  int? providerStatus,  String? providerMessageId,  String? lastError,  DateTime? sentAt,  String dedupeKey,  String? createdBy,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _NotificationMessage() when $default != null:
-return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId,_that.visitorId,_that.announcementId,_that.channel,_that.event,_that.provider,_that.toAddress,_that.subject,_that.body,_that.status,_that.attempts,_that.scheduledFor,_that.nextAttemptAt,_that.providerStatus,_that.providerMessageId,_that.lastError,_that.sentAt,_that.dedupeKey,_that.createdBy,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -239,7 +243,7 @@ return $default(_that.id,_that.orgId,_that.branchId,_that.memberId,_that.staffId
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class _NotificationMessage extends NotificationMessage {
-  const _NotificationMessage({required this.id, required this.orgId, this.branchId, this.memberId, this.staffId, this.visitorId, required this.channel, required this.event, this.provider, required this.toAddress, this.subject, required this.body, required this.status, required this.attempts, required this.scheduledFor, required this.nextAttemptAt, this.providerStatus, this.providerMessageId, this.lastError, this.sentAt, required this.dedupeKey, this.createdBy, required this.createdAt, required this.updatedAt}): super._();
+  const _NotificationMessage({required this.id, required this.orgId, this.branchId, this.memberId, this.staffId, this.visitorId, this.announcementId, required this.channel, required this.event, this.provider, required this.toAddress, this.subject, required this.body, required this.status, required this.attempts, required this.scheduledFor, required this.nextAttemptAt, this.providerStatus, this.providerMessageId, this.lastError, this.sentAt, required this.dedupeKey, this.createdBy, required this.createdAt, required this.updatedAt}): super._();
   factory _NotificationMessage.fromJson(Map<String, dynamic> json) => _$NotificationMessageFromJson(json);
 
 @override final  String id;
@@ -251,6 +255,10 @@ class _NotificationMessage extends NotificationMessage {
 @override final  String? memberId;
 @override final  String? staffId;
 @override final  String? visitorId;
+/// The broadcast this row belongs to, or null for everything else --
+/// including an announcement *test*, which is a real outbox row that
+/// belongs to no announcement because nothing has been announced yet.
+@override final  String? announcementId;
 @override final  NotificationChannel channel;
 @override final  NotificationEvent event;
 /// Resolved at send time from the org's active gateway, so a row that has
@@ -287,16 +295,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _NotificationMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.visitorId, visitorId) || other.visitorId == visitorId)&&(identical(other.channel, channel) || other.channel == channel)&&(identical(other.event, event) || other.event == event)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.toAddress, toAddress) || other.toAddress == toAddress)&&(identical(other.subject, subject) || other.subject == subject)&&(identical(other.body, body) || other.body == body)&&(identical(other.status, status) || other.status == status)&&(identical(other.attempts, attempts) || other.attempts == attempts)&&(identical(other.scheduledFor, scheduledFor) || other.scheduledFor == scheduledFor)&&(identical(other.nextAttemptAt, nextAttemptAt) || other.nextAttemptAt == nextAttemptAt)&&(identical(other.providerStatus, providerStatus) || other.providerStatus == providerStatus)&&(identical(other.providerMessageId, providerMessageId) || other.providerMessageId == providerMessageId)&&(identical(other.lastError, lastError) || other.lastError == lastError)&&(identical(other.sentAt, sentAt) || other.sentAt == sentAt)&&(identical(other.dedupeKey, dedupeKey) || other.dedupeKey == dedupeKey)&&(identical(other.createdBy, createdBy) || other.createdBy == createdBy)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _NotificationMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.visitorId, visitorId) || other.visitorId == visitorId)&&(identical(other.announcementId, announcementId) || other.announcementId == announcementId)&&(identical(other.channel, channel) || other.channel == channel)&&(identical(other.event, event) || other.event == event)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.toAddress, toAddress) || other.toAddress == toAddress)&&(identical(other.subject, subject) || other.subject == subject)&&(identical(other.body, body) || other.body == body)&&(identical(other.status, status) || other.status == status)&&(identical(other.attempts, attempts) || other.attempts == attempts)&&(identical(other.scheduledFor, scheduledFor) || other.scheduledFor == scheduledFor)&&(identical(other.nextAttemptAt, nextAttemptAt) || other.nextAttemptAt == nextAttemptAt)&&(identical(other.providerStatus, providerStatus) || other.providerStatus == providerStatus)&&(identical(other.providerMessageId, providerMessageId) || other.providerMessageId == providerMessageId)&&(identical(other.lastError, lastError) || other.lastError == lastError)&&(identical(other.sentAt, sentAt) || other.sentAt == sentAt)&&(identical(other.dedupeKey, dedupeKey) || other.dedupeKey == dedupeKey)&&(identical(other.createdBy, createdBy) || other.createdBy == createdBy)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,staffId,visitorId,channel,event,provider,toAddress,subject,body,status,attempts,scheduledFor,nextAttemptAt,providerStatus,providerMessageId,lastError,sentAt,dedupeKey,createdBy,createdAt,updatedAt]);
+int get hashCode => Object.hashAll([runtimeType,id,orgId,branchId,memberId,staffId,visitorId,announcementId,channel,event,provider,toAddress,subject,body,status,attempts,scheduledFor,nextAttemptAt,providerStatus,providerMessageId,lastError,sentAt,dedupeKey,createdBy,createdAt,updatedAt]);
 
 @override
 String toString() {
-  return 'NotificationMessage(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, staffId: $staffId, visitorId: $visitorId, channel: $channel, event: $event, provider: $provider, toAddress: $toAddress, subject: $subject, body: $body, status: $status, attempts: $attempts, scheduledFor: $scheduledFor, nextAttemptAt: $nextAttemptAt, providerStatus: $providerStatus, providerMessageId: $providerMessageId, lastError: $lastError, sentAt: $sentAt, dedupeKey: $dedupeKey, createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'NotificationMessage(id: $id, orgId: $orgId, branchId: $branchId, memberId: $memberId, staffId: $staffId, visitorId: $visitorId, announcementId: $announcementId, channel: $channel, event: $event, provider: $provider, toAddress: $toAddress, subject: $subject, body: $body, status: $status, attempts: $attempts, scheduledFor: $scheduledFor, nextAttemptAt: $nextAttemptAt, providerStatus: $providerStatus, providerMessageId: $providerMessageId, lastError: $lastError, sentAt: $sentAt, dedupeKey: $dedupeKey, createdBy: $createdBy, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -307,7 +315,7 @@ abstract mixin class _$NotificationMessageCopyWith<$Res> implements $Notificatio
   factory _$NotificationMessageCopyWith(_NotificationMessage value, $Res Function(_NotificationMessage) _then) = __$NotificationMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String orgId, String? branchId, String? memberId, String? staffId, String? visitorId, NotificationChannel channel, NotificationEvent event, NotificationProviderKind? provider, String toAddress, String? subject, String body, NotificationStatus status, int attempts, DateTime scheduledFor, DateTime nextAttemptAt, int? providerStatus, String? providerMessageId, String? lastError, DateTime? sentAt, String dedupeKey, String? createdBy, DateTime createdAt, DateTime updatedAt
+ String id, String orgId, String? branchId, String? memberId, String? staffId, String? visitorId, String? announcementId, NotificationChannel channel, NotificationEvent event, NotificationProviderKind? provider, String toAddress, String? subject, String body, NotificationStatus status, int attempts, DateTime scheduledFor, DateTime nextAttemptAt, int? providerStatus, String? providerMessageId, String? lastError, DateTime? sentAt, String dedupeKey, String? createdBy, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -324,7 +332,7 @@ class __$NotificationMessageCopyWithImpl<$Res>
 
 /// Create a copy of NotificationMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? orgId = null,Object? branchId = freezed,Object? memberId = freezed,Object? staffId = freezed,Object? visitorId = freezed,Object? channel = null,Object? event = null,Object? provider = freezed,Object? toAddress = null,Object? subject = freezed,Object? body = null,Object? status = null,Object? attempts = null,Object? scheduledFor = null,Object? nextAttemptAt = null,Object? providerStatus = freezed,Object? providerMessageId = freezed,Object? lastError = freezed,Object? sentAt = freezed,Object? dedupeKey = null,Object? createdBy = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? orgId = null,Object? branchId = freezed,Object? memberId = freezed,Object? staffId = freezed,Object? visitorId = freezed,Object? announcementId = freezed,Object? channel = null,Object? event = null,Object? provider = freezed,Object? toAddress = null,Object? subject = freezed,Object? body = null,Object? status = null,Object? attempts = null,Object? scheduledFor = null,Object? nextAttemptAt = null,Object? providerStatus = freezed,Object? providerMessageId = freezed,Object? lastError = freezed,Object? sentAt = freezed,Object? dedupeKey = null,Object? createdBy = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_NotificationMessage(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -332,6 +340,7 @@ as String,branchId: freezed == branchId ? _self.branchId : branchId // ignore: c
 as String?,memberId: freezed == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
 as String?,staffId: freezed == staffId ? _self.staffId : staffId // ignore: cast_nullable_to_non_nullable
 as String?,visitorId: freezed == visitorId ? _self.visitorId : visitorId // ignore: cast_nullable_to_non_nullable
+as String?,announcementId: freezed == announcementId ? _self.announcementId : announcementId // ignore: cast_nullable_to_non_nullable
 as String?,channel: null == channel ? _self.channel : channel // ignore: cast_nullable_to_non_nullable
 as NotificationChannel,event: null == event ? _self.event : event // ignore: cast_nullable_to_non_nullable
 as NotificationEvent,provider: freezed == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable

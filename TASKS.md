@@ -154,6 +154,54 @@ Decisions taken while scoping it, so they are not re-litigated:
       no member faces at all, on a check-in surface where a face is the point
       (see Discovered, 2026-09-10).
 
+## Announcements (decided 2026-09-18)
+
+The console's broadcast composer comes to this app: one message to every member
+and every open walk-in, filtered by branch, by member status and by how recently
+a visitor came in. Scoped as full parity with `/announcements` — compose, live
+audience count, credit estimate, test send, the list with its delivery
+breakdown, cancel, and scheduling.
+
+Two decisions taken while scoping it:
+
+- **A tab inside Messages, not a sixth destination.** The delivery log and the
+  announcements list answer adjacent questions about the same table, and the bar
+  holds five. The destination gates on `requiresAny`, so the front desk reaches
+  it through `sendAnnouncement` while owner and manager reach it through either.
+- **The front desk may announce.** This overturns the rule the upstream feature
+  shipped with two days earlier, and the pgTAP comment that argued for it. The
+  person standing at the door on the morning the gym is shut is the one who
+  knows; the reach did not widen with the role, because
+  `announcement_branch_scope` bounds a desk to its own branches and
+  `jwt_can_announce()` refuses a desk that has none. Migration
+  `20260918100000_announcement_front_desk.sql`, with the console's three role
+  gates relaxed to match.
+
+- [x] **M. Announcements.** Two enums (`announcement_audience`,
+      `announcement_status`) plus `AnnouncementState` on the view model;
+      `AnnouncementOverview`, `AnnouncementAudienceCount`, the query value
+      objects and `AnnouncementsRepository` with one method per console export;
+      the list, audience-count and send controllers; a second live-refresh
+      poller; the composer screen, the list tab, the tile, the badge and the
+      stop dialog; `MessagesScreen` with the keep-alive wrapper; and
+      `StaffCapability.sendAnnouncement`.
+- [x] **N. The `announcement` enum value.** Not part of the feature and more
+      urgent than it: upstream added it to `notification_event` on 2026-09-17
+      and the Dart mirror was not updated, so the first broadcast sent from the
+      console would have stopped every row of the delivery log from parsing —
+      in a build that was already in App Store review. Build 7 was pulled from
+      review because of it.
+
+### Discovered
+
+- `find.byType(FilledButton)` does not match `FilledButton.icon`, which builds a
+  private subclass; `find.byWidgetPredicate` does. Cost an afternoon of a test
+  that looked like a missing button.
+- A `@riverpod` notifier read with `container.read(p.notifier)` and no listener
+  is disposed at the next `await`, and the following read silently builds a
+  fresh one. A test that mutates a notifier then awaits has to `container.listen`
+  first, or it is asserting against a brand-new default.
+
 ## Notifications parity (decided 2026-09-12)
 
 The console's whole notification surface comes to this app. That is a scope

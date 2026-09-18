@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/members/member_list_screen.dart';
-import 'package:logfitness_flutter/features/notifications/notification_log_screen.dart';
+import 'package:logfitness_flutter/features/notifications/messages_screen.dart';
 import 'package:logfitness_flutter/features/settings/settings_screen.dart';
 import 'package:logfitness_flutter/features/payments/arrears_screen.dart';
 import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dart';
@@ -25,6 +25,7 @@ class StaffDestination {
     required this.icon,
     required this.selectedIcon,
     this.requires,
+    this.requiresAny,
     this.builder,
     this.alwaysOverflow = false,
   });
@@ -41,6 +42,16 @@ class StaffDestination {
   /// The capability a role must hold to be offered this destination. `null`
   /// means every staff role sees it.
   final StaffCapability? requires;
+
+  /// Any one of these is enough, for a destination that hosts more than one
+  /// thing behind one label.
+  ///
+  /// Messages is the reason it exists: the delivery log is owner-and-manager
+  /// and announcements reach the front desk, so gating the destination on
+  /// either one alone hides a tab from somebody who holds it. The screen then
+  /// renders only the tabs the caller actually holds -- see
+  /// `messages_screen.dart`.
+  final Set<StaffCapability>? requiresAny;
 
   /// The screen behind this destination. `null` until the sub-project that
   /// owns it lands (TASKS.md, "Staff parity programme"), at which point the
@@ -59,8 +70,15 @@ class StaffDestination {
   final bool alwaysOverflow;
 
   /// Whether [capabilities] is offered this destination.
-  bool isVisibleTo(Set<StaffCapability> capabilities) =>
-      requires == null || capabilities.contains(requires);
+  bool isVisibleTo(Set<StaffCapability> capabilities) {
+    // [requiresAny], when given, is the whole rule. Falling through to the
+    // `requires == null` branch after it fails would read as "no requirement"
+    // and offer the destination to every role -- which is how a trainer was
+    // briefly offered Messages.
+    final Set<StaffCapability>? any = requiresAny;
+    if (any != null) return any.any(capabilities.contains);
+    return requires == null || capabilities.contains(requires);
+  }
 }
 
 /// Every staff destination, in the order they are offered.
@@ -137,8 +155,11 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Messages',
     icon: Icons.sms_outlined,
     selectedIcon: Icons.sms,
-    requires: StaffCapability.viewNotificationLog,
-    builder: _notificationsScreen,
+    requiresAny: <StaffCapability>{
+      StaffCapability.viewNotificationLog,
+      StaffCapability.sendAnnouncement,
+    },
+    builder: _messagesScreen,
   ),
   // Behind More by [alwaysOverflow], not by ordering — see that field.
   StaffDestination(
@@ -192,7 +213,7 @@ Widget _reportsScreen() => const ArrearsScreen();
 
 /// The delivery log, sub-project H's screen. A top-level function rather than
 /// a closure so [staffDestinations] can stay `const`.
-Widget _notificationsScreen() => const NotificationLogScreen();
+Widget _messagesScreen() => const MessagesScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
 /// "More".

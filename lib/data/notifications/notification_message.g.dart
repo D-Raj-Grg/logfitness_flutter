@@ -14,6 +14,7 @@ _NotificationMessage _$NotificationMessageFromJson(Map<String, dynamic> json) =>
       memberId: json['member_id'] as String?,
       staffId: json['staff_id'] as String?,
       visitorId: json['visitor_id'] as String?,
+      announcementId: json['announcement_id'] as String?,
       channel: $enumDecode(_$NotificationChannelEnumMap, json['channel']),
       event: $enumDecode(_$NotificationEventEnumMap, json['event']),
       provider: $enumDecodeNullable(
@@ -48,6 +49,7 @@ Map<String, dynamic> _$NotificationMessageToJson(
   'member_id': ?instance.memberId,
   'staff_id': ?instance.staffId,
   'visitor_id': ?instance.visitorId,
+  'announcement_id': ?instance.announcementId,
   'channel': _$NotificationChannelEnumMap[instance.channel]!,
   'event': _$NotificationEventEnumMap[instance.event]!,
   'provider': ?_$NotificationProviderKindEnumMap[instance.provider],
@@ -83,6 +85,7 @@ const _$NotificationEventEnumMap = {
   NotificationEvent.customMessage: 'custom_message',
   NotificationEvent.visitorWelcome: 'visitor_welcome',
   NotificationEvent.visitorFollowUp: 'visitor_follow_up',
+  NotificationEvent.announcement: 'announcement',
 };
 
 const _$NotificationProviderKindEnumMap = {

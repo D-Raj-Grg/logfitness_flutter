@@ -120,11 +120,16 @@ void main() {
   ) async {
     await _pumpShell(tester, StaffRole.frontDesk);
 
+    // Messages is here from 2026-09-18. The desk does not hold
+    // `viewNotificationLog`, so the destination is offered on
+    // `sendAnnouncement` alone (`requiresAny`) and the screen behind it shows
+    // the announcements tab only -- see `messages_screen.dart`.
     expect(await _offeredDestinations(tester), <String>{
       'check-in',
       'members',
       'visitors',
       'collection',
+      'notifications',
       'settings',
     });
   });

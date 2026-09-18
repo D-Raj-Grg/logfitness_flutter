@@ -50,6 +50,12 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
   /// `AppLifecycleListener` (Flutter 3.13+), not `WidgetsBindingObserver`:
   /// CLAUDE.md's "Flutter 3.38 / Dart 3.10 differ from training data" rule
   /// names that older idiom specifically.
+  ///
+  /// It stayed here when this screen became one of two tabs (2026-09-18), and
+  /// `messages_screen.dart` records the attempt to hoist it: a host that poked
+  /// both pollers would *build* the announcements one, and building it fetches
+  /// a list the reader may have no tab for. A listener that lives with the
+  /// thing it drives cannot make that mistake.
   late final AppLifecycleListener _lifecycle;
 
   @override

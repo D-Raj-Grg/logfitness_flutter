@@ -198,14 +198,24 @@ void main() {
         'custom_message',
         'visitor_welcome',
         'visitor_follow_up',
+        'announcement',
       ]) {
         expect(NotificationEvent.fromDb(value).toDb(), value);
       }
     });
 
-    test('carries exactly the eight values notification_event has', () {
+    test('carries exactly the nine values notification_event has', () {
       // Five from the original schema, `custom_message` from the manual-send
-      // migration, and the two visitor events from 20260912100100.
+      // migration, the two visitor events from 20260912100100, and
+      // `announcement` from 20260917100000.
+      //
+      // This test is the reason the ninth value is here at all. It was added
+      // upstream on 2026-09-17 and not mirrored, and because
+      // `NotificationMessage.event` is a required non-nullable enum, the first
+      // broadcast sent from the console stopped every row of the delivery log
+      // from parsing -- in a build that was already in App Store review. The
+      // count is not pedantry; it is the only thing that fails when the
+      // database grows a value nobody told this app about.
       expect(
         NotificationEvent.values.map((e) => e.wire).toList(),
         [
@@ -217,6 +227,7 @@ void main() {
           'custom_message',
           'visitor_welcome',
           'visitor_follow_up',
+          'announcement',
         ],
       );
     });

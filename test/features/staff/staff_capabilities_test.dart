@@ -28,6 +28,13 @@ void main() {
         // itself: the desk is who chases dues, and the member standing at the
         // counter owing money is the one the nightly sweep already missed.
         StaffCapability.sendMemberMessage,
+        // Added 2026-09-18 with announcements. Transcribed from
+        // `jwt_can_announce()`, which admits {owner, manager, front_desk}: the
+        // desk is who is standing there on the morning the gym has to say it
+        // is shut. The reach does not widen with the role --
+        // `announcement_branch_scope` bounds a desk to its own branches, and a
+        // desk with none is refused outright.
+        StaffCapability.sendAnnouncement,
       });
     });
 
@@ -118,18 +125,19 @@ void main() {
     });
   });
 
-  group('the notification capabilities (2026-09-12)', () {
-    // Three capabilities, three different gates upstream, and they are not
+  group('the notification capabilities (2026-09-12, 2026-09-18)', () {
+    // Four capabilities, four different gates upstream, and they are not
     // the same set. Each is transcribed from whatever actually refuses --
     // a guard function, a console route, or an RLS policy -- rather than from
     // a guess about who "should" see a screen.
     const notification = <StaffCapability>[
       StaffCapability.sendMemberMessage,
+      StaffCapability.sendAnnouncement,
       StaffCapability.viewNotificationLog,
       StaffCapability.configureNotifications,
     ];
 
-    test('a trainer holds none of the three', () {
+    test('a trainer holds none of the four', () {
       // `member_message_target` refuses a trainer outright, and a trainer has
       // no reason to read a delivery log or hold the gateway keys.
       final trainer = capabilitiesFor(StaffRole.trainer);
@@ -143,10 +151,13 @@ void main() {
       }
     });
 
-    test('front desk sends messages and nothing else', () {
+    test('front desk sends messages and announces, and nothing else', () {
       final frontDesk = capabilitiesFor(StaffRole.frontDesk);
 
       expect(frontDesk, contains(StaffCapability.sendMemberMessage));
+      // 2026-09-18: a broadcast, bounded to their own branches by
+      // `announcement_branch_scope` rather than by this set.
+      expect(frontDesk, contains(StaffCapability.sendAnnouncement));
       // The desk sells the renewal; it does not audit whether the chain's SMS
       // credits are running out, and it certainly does not hold the token.
       expect(frontDesk, isNot(contains(StaffCapability.viewNotificationLog)));
@@ -160,6 +171,7 @@ void main() {
       final manager = capabilitiesFor(StaffRole.manager);
 
       expect(manager, contains(StaffCapability.sendMemberMessage));
+      expect(manager, contains(StaffCapability.sendAnnouncement));
       // Matching the console's requireRole('owner', 'manager') on
       // /notifications.
       expect(manager, contains(StaffCapability.viewNotificationLog));
@@ -171,7 +183,7 @@ void main() {
       expect(manager, isNot(contains(StaffCapability.configureNotifications)));
     });
 
-    test('an owner holds all three', () {
+    test('an owner holds all four', () {
       expect(capabilitiesFor(StaffRole.owner), containsAll(notification));
     });
 

@@ -47,6 +47,7 @@ const _$NotificationEventEnumMap = {
   NotificationEvent.customMessage: 'custom_message',
   NotificationEvent.visitorWelcome: 'visitor_welcome',
   NotificationEvent.visitorFollowUp: 'visitor_follow_up',
+  NotificationEvent.announcement: 'announcement',
 };
 
 const _$NotificationChannelEnumMap = {
