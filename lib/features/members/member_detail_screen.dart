@@ -2,8 +2,8 @@
 //
 // The header answers the questions asked at a counter with the person
 // standing there (who is this, are they paid up, when does it end), and the
-// four tabs are the history behind those answers: what was sold, what was
-// billed, what was collected, and when they came in.
+// tabs are the history behind those answers: what was sold, what was billed,
+// what was collected, when they came in, and what the gym has told them.
 //
 // A widget that builds a PostgREST query is a review failure (PLANNING.md §6):
 // every read here goes through `member_detail_controller.dart`.
@@ -28,7 +28,10 @@ import 'package:logfitness_flutter/features/memberships/membership_action_panel.
 import 'package:logfitness_flutter/features/members/member_detail_controller.dart';
 import 'package:logfitness_flutter/features/members/widgets/member_avatar.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
+import 'package:logfitness_flutter/features/notifications/member_message_sheet.dart';
+import 'package:logfitness_flutter/features/notifications/member_messages_tab.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
+import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 
 class MemberDetailScreen extends ConsumerWidget {
   const MemberDetailScreen({required this.memberId, super.key});
@@ -41,11 +44,38 @@ class MemberDetailScreen extends ConsumerWidget {
       memberProfileProvider(memberId),
     );
 
+    // UX only. `member_message_target` gates on {owner, manager, front_desk}
+    // and refuses a trainer itself; hiding the action is a courtesy, and the
+    // refusal still reaches the screen if it is reached anyway (CLAUDE.md).
+    final bool canSendMessage = ref
+        .watch(staffCapabilitiesProvider)
+        .contains(StaffCapability.sendMemberMessage);
+    final String? fullName = profile.value?.overview.fullName;
+
     return DefaultTabController(
-      length: 5,
+      // Messages sits after Attendance and before Actions: it is history, like
+      // the four before it, and Actions stays last because it is the only tab
+      // that changes anything.
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(profile.value?.overview.fullName ?? 'Member'),
+          title: Text(fullName ?? 'Member'),
+          actions: <Widget>[
+            // In the app bar as well as on the tab, because the desk chasing
+            // dues is looking at the header -- the amount and the expiry -- and
+            // should not have to find a tab to act on what it just read.
+            if (canSendMessage && fullName != null)
+              IconButton(
+                key: const ValueKey<String>('member-detail-send-sms'),
+                icon: const Icon(Icons.sms_outlined),
+                tooltip: 'Send an SMS',
+                onPressed: () => showMemberMessageSheet(
+                  context,
+                  memberId: memberId,
+                  fullName: fullName,
+                ),
+              ),
+          ],
           bottom: const TabBar(
             isScrollable: true,
             tabs: <Widget>[
@@ -53,6 +83,7 @@ class MemberDetailScreen extends ConsumerWidget {
               Tab(text: 'Invoices'),
               Tab(text: 'Payments'),
               Tab(text: 'Attendance'),
+              Tab(text: 'Messages'),
               Tab(text: 'Actions'),
             ],
           ),
@@ -76,6 +107,10 @@ class MemberDetailScreen extends ConsumerWidget {
                       _InvoicesTab(memberId: memberId),
                       _PaymentsTab(memberId: memberId),
                       _AttendanceTab(memberId: memberId),
+                      MemberMessagesTab(
+                        memberId: memberId,
+                        memberName: loaded.overview.fullName,
+                      ),
                       _ActionsTab(profile: loaded),
                     ],
                   ),

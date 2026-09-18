@@ -163,6 +163,18 @@ AppFailure _fromPostgrest(PostgrestException error) {
               cause: error, code: code);
         }
       }
+      // An RPC that raises `unique_violation` by hand has already written a
+      // sentence for a person -- `enqueue_notification`'s "That message has
+      // already been queued" and `send_member_notification`'s "That message is
+      // already queued for this member" are both refusals the desk needs to
+      // read as written. Postgres' own constraint violation is the one that
+      // needs translating, and it is recognisable: it always names the
+      // constraint in that one fixed phrase.
+      if (!message.contains('violates unique constraint')) {
+        return AppFailure(FailureKind.duplicate, message,
+            cause: error, code: code);
+      }
+
       return AppFailure(
         FailureKind.duplicate,
         'That record already exists.',

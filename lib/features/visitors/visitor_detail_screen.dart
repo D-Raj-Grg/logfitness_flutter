@@ -17,6 +17,9 @@ import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/members/register_member_screen.dart';
+import 'package:logfitness_flutter/features/notifications/member_message_sheet.dart';
+import 'package:logfitness_flutter/features/notifications/send_message_controller.dart';
+import 'package:logfitness_flutter/features/notifications/visitor_message_sheet.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_actions_controller.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
@@ -100,6 +103,12 @@ class _Detail extends ConsumerWidget {
     // courtesy, never the control (CLAUDE.md).
     final canDelete = capabilities.contains(StaffCapability.accessAllBranches);
 
+    // Same gate as the member profile's Send SMS, and the same rule behind it:
+    // `visitor_message_target` refuses a trainer itself, so hiding the buttons
+    // is a courtesy and the refusal still has to reach the screen.
+    final canSendMessage =
+        capabilities.contains(StaffCapability.sendMemberMessage);
+
     return ListView(
       padding: const EdgeInsets.all(Brand.spaceMd),
       children: <Widget>[
@@ -173,6 +182,33 @@ class _Detail extends ConsumerWidget {
               label: const Text('Mark called'),
             ),
           const SizedBox(height: Brand.spaceSm),
+          if (canSendMessage) ...<Widget>[
+            // One tap, no sheet: the gym's own welcome, rendered in Postgres,
+            // so a welcome sent by hand reads exactly like the one the insert
+            // trigger sends. Not offered once they have joined -- the RPC
+            // refuses a converted visitor, and this whole branch is the
+            // not-yet-converted one.
+            OutlinedButton.icon(
+              key: const ValueKey<String>('visitor-send-welcome'),
+              onPressed: busy ? null : () => _sendWelcome(context, ref),
+              icon: const Icon(Icons.waving_hand_outlined),
+              label: const Text('Send welcome SMS'),
+            ),
+            const SizedBox(height: Brand.spaceSm),
+            OutlinedButton.icon(
+              key: const ValueKey<String>('visitor-send-message'),
+              onPressed: busy
+                  ? null
+                  : () => showVisitorMessageSheet(
+                      context,
+                      visitorId: visitor.id,
+                      fullName: visitor.fullName,
+                    ),
+              icon: const Icon(Icons.sms_outlined),
+              label: const Text('Send message…'),
+            ),
+            const SizedBox(height: Brand.spaceSm),
+          ],
           if (visitor.status != VisitorStatus.lost)
             OutlinedButton.icon(
               key: const ValueKey<String>('visitor-mark-lost'),
@@ -221,6 +257,29 @@ class _Detail extends ConsumerWidget {
         ],
       ],
     );
+  }
+
+  /// The one-tap welcome. A null body means the template is rendered
+  /// server-side; see `send_message_controller.dart`.
+  Future<void> _sendWelcome(BuildContext context, WidgetRef ref) async {
+    final result =
+        await ref.read(sendMessageProvider.notifier).toVisitor(
+              visitorId: visitor.id,
+              event: NotificationEvent.visitorWelcome,
+            );
+    if (!context.mounted) {
+      return;
+    }
+    switch (result) {
+      case SendMessageSucceeded():
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text(kQueuedMessage)));
+      case SendMessageFailed(:final failure):
+        // Verbatim, as everywhere: "That visitor is a member now" and "That
+        // message is already queued" are answers, not crashes.
+        showFailureSnackBar(context, failure);
+    }
   }
 
   Future<void> _register(BuildContext context, WidgetRef ref) async {

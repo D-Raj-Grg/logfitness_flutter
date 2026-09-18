@@ -15,8 +15,13 @@ import 'package:logfitness_flutter/data/visitors/visitor.dart';
 import 'package:logfitness_flutter/data/visitors/visitors_repository.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/docked_action.dart';
+import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/notifications/member_message_sheet.dart';
+import 'package:logfitness_flutter/features/notifications/send_message_controller.dart';
+import 'package:logfitness_flutter/features/notifications/visitor_message_sheet.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
+import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_detail_screen.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_list_controller.dart';
@@ -79,6 +84,13 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
     final scope = ref.watch(branchScopeProvider);
     final filter = ref.watch(visitorFilterProvider);
     final listing = ref.watch(visitorListProvider);
+    // UX only. `visitor_message_target` gates on {owner, manager, front_desk}
+    // itself -- every role may log a walk-in, but a trainer may not text one --
+    // and its refusal still reaches the screen if the action is reached
+    // anyway (CLAUDE.md).
+    final bool canSendMessage = ref
+        .watch(staffCapabilitiesProvider)
+        .contains(StaffCapability.sendMemberMessage);
 
     // The shell's branch selection is the log's branch filter. Pushed in a
     // post-frame callback because reading a provider is not a legal place to
@@ -165,6 +177,10 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
                               VisitorDetailScreen(visitorId: visitor.id),
                         ),
                       ),
+                      onRowAction: !canSendMessage
+                          ? null
+                          : (VisitorRowAction action) =>
+                              _onRowAction(context, visitor, action),
                     );
                   },
                 ),
@@ -179,6 +195,55 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
         onPressed: () => _openForm(context),
       ),
     );
+  }
+
+  /// The row menu, mirroring the console's: the gym's own welcome in one tap,
+  /// or the sheet when this one person needs something else said.
+  Future<void> _onRowAction(
+    BuildContext context,
+    Visitor visitor,
+    VisitorRowAction action,
+  ) async {
+    switch (action) {
+      case VisitorRowAction.sendWelcome:
+        await _sendWelcome(visitor);
+      case VisitorRowAction.sendMessage:
+        await showVisitorMessageSheet(
+          context,
+          visitorId: visitor.id,
+          fullName: visitor.fullName,
+        );
+    }
+  }
+
+  /// No sheet and no preview: a null body means the wording is rendered in
+  /// Postgres from the gym's own template, which is what keeps a welcome sent
+  /// by hand identical to the one the insert trigger would have sent.
+  // Takes no `BuildContext`: the one it needs is this State's own, which is
+  // what `mounted` actually guards. A context passed in as an argument is a
+  // different object and the guard says nothing about it -- which is what
+  // `use_build_context_synchronously` was pointing at.
+  Future<void> _sendWelcome(Visitor visitor) async {
+    final SendMessageResult result = await ref
+        .read(sendMessageProvider.notifier)
+        .toVisitor(
+          visitorId: visitor.id,
+          event: NotificationEvent.visitorWelcome,
+        );
+    if (!mounted) {
+      return;
+    }
+    switch (result) {
+      case SendMessageSucceeded():
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text(kQueuedMessage)));
+      case SendMessageFailed(:final failure):
+        // Verbatim. An unreachable number, no gateway on the channel, a
+        // converted visitor and the two-minute guard are all whole sentences
+        // the database raises, and none of them is a crash.
+        showFailureSnackBar(context, failure);
+    }
   }
 
   Future<void> _openForm(BuildContext context) async {

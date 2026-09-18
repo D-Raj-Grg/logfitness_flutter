@@ -23,6 +23,11 @@ void main() {
         // allows it, so refusing it here hid the action from the only person
         // who learns that someone has left.
         StaffCapability.recordDeparture,
+        // Added 2026-09-12 with the notification surfaces. Transcribed from
+        // `member_message_target`, which gates on {owner, manager, front_desk}
+        // itself: the desk is who chases dues, and the member standing at the
+        // counter owing money is the one the nightly sweep already missed.
+        StaffCapability.sendMemberMessage,
       });
     });
 
@@ -67,8 +72,17 @@ void main() {
       expect(owner, contains(StaffCapability.accessAllBranches));
       expect(
         owner.difference(capabilitiesFor(StaffRole.manager)),
-        <StaffCapability>{StaffCapability.accessAllBranches},
-        reason: 'an owner is a manager with reach, not a different job',
+        <StaffCapability>{
+          StaffCapability.accessAllBranches,
+          // The one exception to "reach, not a different job", and it is the
+          // database's exception rather than this file's: every policy on
+          // notification_providers, notification_rules and
+          // notification_templates is owner-only, so a manager offered the
+          // screen would be refused 42501 by the RPC behind every button on
+          // it.
+          StaffCapability.configureNotifications,
+        },
+        reason: 'an owner is a manager with reach, plus the gateway keys',
       );
     });
 
@@ -101,6 +115,83 @@ void main() {
           reason: '${role.wire} would land in an empty shell',
         );
       }
+    });
+  });
+
+  group('the notification capabilities (2026-09-12)', () {
+    // Three capabilities, three different gates upstream, and they are not
+    // the same set. Each is transcribed from whatever actually refuses --
+    // a guard function, a console route, or an RLS policy -- rather than from
+    // a guess about who "should" see a screen.
+    const notification = <StaffCapability>[
+      StaffCapability.sendMemberMessage,
+      StaffCapability.viewNotificationLog,
+      StaffCapability.configureNotifications,
+    ];
+
+    test('a trainer holds none of the three', () {
+      // `member_message_target` refuses a trainer outright, and a trainer has
+      // no reason to read a delivery log or hold the gateway keys.
+      final trainer = capabilitiesFor(StaffRole.trainer);
+
+      for (final capability in notification) {
+        expect(
+          trainer,
+          isNot(contains(capability)),
+          reason: 'trainer must not be offered ${capability.name}',
+        );
+      }
+    });
+
+    test('front desk sends messages and nothing else', () {
+      final frontDesk = capabilitiesFor(StaffRole.frontDesk);
+
+      expect(frontDesk, contains(StaffCapability.sendMemberMessage));
+      // The desk sells the renewal; it does not audit whether the chain's SMS
+      // credits are running out, and it certainly does not hold the token.
+      expect(frontDesk, isNot(contains(StaffCapability.viewNotificationLog)));
+      expect(
+        frontDesk,
+        isNot(contains(StaffCapability.configureNotifications)),
+      );
+    });
+
+    test('a manager reads the log but does not configure the gateway', () {
+      final manager = capabilitiesFor(StaffRole.manager);
+
+      expect(manager, contains(StaffCapability.sendMemberMessage));
+      // Matching the console's requireRole('owner', 'manager') on
+      // /notifications.
+      expect(manager, contains(StaffCapability.viewNotificationLog));
+      // Owner-only RLS on all three notification tables. Worth stating twice:
+      // a manager *reading* notification_providers gets an empty list rather
+      // than a refusal, so anything derived from "has this org got a gateway"
+      // has to be gated on configureNotifications, or a manager is told a gym
+      // with three gateways has none.
+      expect(manager, isNot(contains(StaffCapability.configureNotifications)));
+    });
+
+    test('an owner holds all three', () {
+      expect(capabilitiesFor(StaffRole.owner), containsAll(notification));
+    });
+
+    test('each capability is held by exactly the roles it names', () {
+      Set<StaffRole> holdersOf(StaffCapability capability) => StaffRole.values
+          .where((role) => capabilitiesFor(role).contains(capability))
+          .toSet();
+
+      expect(holdersOf(StaffCapability.sendMemberMessage), <StaffRole>{
+        StaffRole.owner,
+        StaffRole.manager,
+        StaffRole.frontDesk,
+      });
+      expect(holdersOf(StaffCapability.viewNotificationLog), <StaffRole>{
+        StaffRole.owner,
+        StaffRole.manager,
+      });
+      expect(holdersOf(StaffCapability.configureNotifications), <StaffRole>{
+        StaffRole.owner,
+      });
     });
   });
 }

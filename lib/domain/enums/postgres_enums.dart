@@ -352,3 +352,133 @@ enum AttendanceMethod {
 
   String toDb() => wire;
 }
+
+/// Mirrors `public.notification_channel`.
+enum NotificationChannel {
+  @JsonValue('sms')
+  sms('sms'),
+  @JsonValue('viber')
+  viber('viber'),
+  @JsonValue('email')
+  email('email');
+
+  const NotificationChannel(this.wire);
+
+  final String wire;
+
+  static NotificationChannel fromDb(String value) =>
+      NotificationChannel.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('NotificationChannel', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.notification_event`.
+///
+/// Eight values, grown in three migrations: the five the schema shipped with,
+/// `custom_message` (the desk sending a member something by hand), and the two
+/// visitor events. `staff_invite` and `test_message` are here because the
+/// column can return them -- `send_member_notification` refuses both, because
+/// neither is addressed to a member.
+enum NotificationEvent {
+  @JsonValue('renewal_reminder')
+  renewalReminder('renewal_reminder'),
+  @JsonValue('dues_reminder')
+  duesReminder('dues_reminder'),
+  @JsonValue('birthday_greeting')
+  birthdayGreeting('birthday_greeting'),
+  @JsonValue('staff_invite')
+  staffInvite('staff_invite'),
+  @JsonValue('test_message')
+  testMessage('test_message'),
+  @JsonValue('custom_message')
+  customMessage('custom_message'),
+  @JsonValue('visitor_welcome')
+  visitorWelcome('visitor_welcome'),
+  @JsonValue('visitor_follow_up')
+  visitorFollowUp('visitor_follow_up');
+
+  const NotificationEvent(this.wire);
+
+  final String wire;
+
+  static NotificationEvent fromDb(String value) =>
+      NotificationEvent.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('NotificationEvent', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.notification_provider` -- the *gateway*, not the row.
+///
+/// Named `...Kind` because `NotificationProvider` is the table's row model and
+/// Postgres lets an enum and a table share a name where Dart does not.
+///
+/// `logOnly` is carried because the column can return it, but it is
+/// deliberately absent from the gateway picker, exactly as it is absent from
+/// the console's `CHOICES`: it is a development sink, not something an owner
+/// should be able to select and then wonder why nothing arrives.
+enum NotificationProviderKind {
+  @JsonValue('sparrow_sms')
+  sparrowSms('sparrow_sms'),
+  @JsonValue('aakash_sms')
+  aakashSms('aakash_sms'),
+  @JsonValue('smspasal_sms')
+  smspasalSms('smspasal_sms'),
+  @JsonValue('viber_business')
+  viberBusiness('viber_business'),
+  @JsonValue('resend_email')
+  resendEmail('resend_email'),
+  @JsonValue('custom_http')
+  customHttp('custom_http'),
+  @JsonValue('log_only')
+  logOnly('log_only');
+
+  const NotificationProviderKind(this.wire);
+
+  final String wire;
+
+  static NotificationProviderKind fromDb(String value) =>
+      NotificationProviderKind.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('NotificationProviderKind', value),
+      );
+
+  String toDb() => wire;
+}
+
+/// Mirrors `public.notification_status`.
+///
+/// `skipped` is not a failure. It means the gym deliberately did not send: no
+/// gateway on that channel, no token, an opted-out member, or a number that
+/// cannot be delivered to. Every surface that colours a status has to say so.
+enum NotificationStatus {
+  @JsonValue('queued')
+  queued('queued'),
+  @JsonValue('sending')
+  sending('sending'),
+  @JsonValue('sent')
+  sent('sent'),
+  @JsonValue('failed')
+  failed('failed'),
+  @JsonValue('cancelled')
+  cancelled('cancelled'),
+  @JsonValue('skipped')
+  skipped('skipped');
+
+  const NotificationStatus(this.wire);
+
+  final String wire;
+
+  static NotificationStatus fromDb(String value) =>
+      NotificationStatus.values.firstWhere(
+        (e) => e.wire == value,
+        orElse: () => throw UnknownEnumValue('NotificationStatus', value),
+      );
+
+  String toDb() => wire;
+}

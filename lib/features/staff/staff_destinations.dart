@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/members/member_list_screen.dart';
+import 'package:logfitness_flutter/features/notifications/notification_log_screen.dart';
 import 'package:logfitness_flutter/features/settings/settings_screen.dart';
 import 'package:logfitness_flutter/features/payments/arrears_screen.dart';
 import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dart';
@@ -120,6 +121,25 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     requires: StaffCapability.viewBranchReports,
     builder: _reportsScreen,
   ),
+  // "Messages", not "Notifications", and the difference is not cosmetic: on a
+  // phone "Notifications" is what the operating system's own shade is called,
+  // so a destination by that name reads as app settings — permissions, badges,
+  // alerts — rather than as the SMS the gym sent a member last night. The
+  // console can call it Notifications because a browser has no such shade.
+  //
+  // Landing behind More is correct rather than a compromise. With five bar
+  // slots an owner reaches this through one extra tap, and this is a screen
+  // the desk *reads* — did last night's reminders go out — not one it works
+  // from. Members, Collection and Check-in are the working surfaces and they
+  // keep the slots.
+  StaffDestination(
+    id: 'notifications',
+    label: 'Messages',
+    icon: Icons.sms_outlined,
+    selectedIcon: Icons.sms,
+    requires: StaffCapability.viewNotificationLog,
+    builder: _notificationsScreen,
+  ),
   // Behind More by [alwaysOverflow], not by ordering — see that field.
   StaffDestination(
     id: 'check-in',
@@ -169,6 +189,10 @@ Widget _collectionScreen() => const CollectionSheetScreen();
 /// Who owes money, sub-project D's other screen. A top-level function rather
 /// than a closure so [staffDestinations] can stay `const`.
 Widget _reportsScreen() => const ArrearsScreen();
+
+/// The delivery log, sub-project H's screen. A top-level function rather than
+/// a closure so [staffDestinations] can stay `const`.
+Widget _notificationsScreen() => const NotificationLogScreen();
 
 /// How many destinations the bottom bar shows before the rest move behind
 /// "More".

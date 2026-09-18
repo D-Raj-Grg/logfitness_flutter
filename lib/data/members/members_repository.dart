@@ -125,12 +125,15 @@ class MembersRepository {
       final int to = from + query.pageSize - 1;
 
       final PostgrestResponse<PostgrestList> response = await request
-          .order('full_name')
+          // postgrest-dart's `order` defaults to **descending**, where
+          // supabase-js and PostgREST itself default to ascending -- so a bare
+          // `.order(col)` silently reverses the list relative to the console.
+          .order('full_name', ascending: true)
           // Names repeat -- duplicates, and common names in this market.
           // Without a unique final sort key the page boundary is undefined,
           // so a member can appear on two pages while another appears on
           // none.
-          .order('id')
+          .order('id', ascending: true)
           .range(from, to)
           .count(CountOption.exact);
 
@@ -163,7 +166,7 @@ class MembersRepository {
           .select('*')
           .isFilter('archived_at', null)
           .or(_searchFilter(cleaned))
-          .order('full_name')
+          .order('full_name', ascending: true)
           .limit(limit);
 
       return rows

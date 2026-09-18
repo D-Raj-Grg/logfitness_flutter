@@ -66,7 +66,8 @@ backend waiting for it (Phase 0 is complete).
 - [ ] Self-booking and cancellation via the Phase 0 booking RPC; optimistic UI with rollback on failure
 - [ ] My bookings list
 - [ ] Profile — name, phone, home branch; read-only in v1
-- [ ] Push registration — write device token on login, delete on sign-out; foreground and background receipt
+- [ ] Push registration — write device token on login, delete on sign-out; foreground and background receipt. **Deferred on purpose on 2026-09-12**, when the rest of the notification surface shipped (see "Notifications parity" below): push needs a Firebase project, `google-services.json`/`GoogleService-Info.plist`, an iOS push entitlement, a `POST_NOTIFICATIONS` permission and `FCM_SERVICE_ACCOUNT_JSON` set in the Supabase dashboard — none of which the SMS half needed, and the last of which nobody on this machine can set.
+- [ ] Member Messages history — a member may already read their own `notification_messages` (the policy shipped with `20260905150200_member_scope_rls.sql`, whose comment says "the Flutter app gets the history for free"). Not built with the staff notification work, because `member_shell.dart` is still a stub: the first member screen should be plan status, not a message log, and building this one first would set the member shell's navigation as a side effect of a staff feature.
 
 ## Staff parity programme (decided 2026-09-09)
 
@@ -153,6 +154,78 @@ Decisions taken while scoping it, so they are not re-litigated:
       no member faces at all, on a check-in surface where a face is the point
       (see Discovered, 2026-09-10).
 
+## Notifications parity (decided 2026-09-12)
+
+The console's whole notification surface comes to this app. That is a scope
+decision taken on 2026-09-12 and it overrides two earlier lines: `CLAUDE.md`'s
+"Scope discipline" and `PLANNING.md` §4 both said notification gateway
+configuration stayed on the web console. It does not.
+
+Cheap for the same reason the staff parity programme was cheap: **nothing
+server-side changes.** Phase 5 upstream put the entire pipeline in Postgres
+(pg_cron + pg_net, no Edge Function, no Next.js runtime) precisely so a second
+client could reuse it, and `logfitness_saas/lib/db/notifications.ts` is 519
+lines of thin wrappers over tables and RPCs that are already gate-tested. So
+this is a port, not a design.
+
+Decisions taken while scoping it, so they are not re-litigated:
+
+- **Push is out of scope this round.** Deliberate, not forgotten — see Phase 3.
+- **Polling, not realtime.** The console polls every 8s while anything is in
+  flight and gives up after 15 minutes. Nothing in this app uses Supabase
+  Realtime, and `notification_messages` is not in the realtime publication, so
+  a subscription here would be the app's first with no supporting pattern. Two
+  mobile-only additions: the poller pauses while the app is backgrounded (a
+  phone in a pocket must not burn a query every 8s for a quarter of an hour)
+  and refreshes once on resume, which is the web's `window.focus` listener.
+- **The member-facing half is deferred to Phase 3**, where it belongs.
+- **Repository mirrors `lib/db/notifications.ts` one-for-one**, same method
+  names in the same order, for the same reason sub-projects A–F did: parity is
+  only auditable if the correspondence is mechanical.
+
+```
+G. Foundation --+--> H. Delivery log
+  (blocking)    +--> I. Manual send
+                +--> J. Settings
+                +--> L. Docs (last)
+```
+
+- [x] **G. Foundation.** Four enums (`notification_channel`, `notification_event`,
+      `notification_provider` as `NotificationProviderKind`, `notification_status`);
+      `NotificationMessage`, `NotificationProvider`, `NotificationRule`,
+      `NotificationTemplate` and the preview/balance rows; `NotificationsRepository`
+      with one method per console export; `smsSegments` in `lib/domain/format/`;
+      the label maps; the status badge and the row tile; and three capabilities —
+      `sendMemberMessage` (front desk and up, transcribed from
+      `member_message_target`, which refuses a trainer), `viewNotificationLog`
+      (manager and owner) and `configureNotifications` (owner only).
+- [x] **H. Delivery log.** The Messages destination: summary chips, filters,
+      keyset scroll, resend and cancel, and the 8s live refresh. The poller
+      pauses while the app is backgrounded and refreshes once on resume, which
+      the console has no equivalent of and a phone needs.
+- [x] **I. Manual send.** Send SMS from the member profile, the member list row,
+      the visitor log and the visitor profile; and the profile's Messages tab.
+      Bottom sheets rather than dialogs -- a keyboard, a five-line body and a
+      reason picker do not fit a phone dialog.
+- [x] **J. Settings.** Owner-only: gateway per channel with its write-only Vault
+      token, the reminder rules, and the template editor with its segment counter.
+      Four channel states, not the console's three: *active row, no token* reads
+      as **No token yet**, because calling it Connected would be a lie and
+      calling it Not set up would discard the row.
+- [x] **L. Docs.** `PLANNING.md`, `CLAUDE.md`, this file and
+      `../logfitness_saas/TASKS.md`.
+
+Shipped 2026-09-12. Gates: `dart run build_runner build` with a clean
+`git diff` on the generated sources, `flutter analyze`, `dart run custom_lint`
+and `flutter test` -- 696 tests, all green. **Not walked on a device**, which is
+the same gap Phases 3 and 5 carry. What it has *not* been run against is a
+phone; the backend half is live and proven -- the project carries an active
+SMSPasal gateway with a Vault-held token, carrier-split sender IDs
+(`sender_ntc` / `sender_ncell`), and ten messages already delivered with
+`provider_status` 200. So these screens will open on real rows rather than an
+empty state, and `../logfitness_saas/docs/notifications.md` §4's "not proven"
+list is out of date for SMSPasal (see the Discovered note upstream).
+
 ## Phase 4 — Staff front desk
 
 Ticked 2026-09-11 against the code, not from memory: the staff parity
@@ -205,6 +278,68 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
 ## Discovered
 
 <!-- Format: - [ ] **YYYY-MM-DD** What was found and what to do about it -->
+
+- [ ] **2026-09-12** Two deliberate deviations from the console in the
+      notification settings, both recorded so a reviewer does not read them as
+      drift. (1) The dues rule's minimum amount is capped at 10,000,000
+      **paisa** (Rs 100,000) where the console caps its *rupee* input at
+      10,000,000 -- the console's ceiling is a hundred times larger than any
+      gym's dues and is almost certainly a units slip upstream. (2) The Send
+      test body is generic where the console interpolates the gym's name: the
+      claims on this app's token carry `org_id` and no org name, and fetching
+      one to write a test message is not worth a round trip. Both want a
+      decision rather than a fix.
+
+- [x] **2026-09-12** Review of the notification port found six real defects,
+      all fixed with a regression test each. Worth keeping because four of them
+      are shapes that will recur: (1) **postgrest-dart's `.order()` defaults to
+      *descending***, where supabase-js and PostgREST default to ascending --
+      the rules list rendered upside-down, and the same bare `.order()` was
+      already reversing the member list (Z-A), the plan catalog and the branch
+      list. Every `.order()` in `lib/data/` is now explicit. (2) **A write
+      notifier nobody watches is auto-disposed after one frame**, so an RPC
+      that outlives a frame resumed on a dead `Ref`: Send again, Cancel and the
+      one-tap visitor welcome all performed the write and then told the desk
+      nothing -- or told them "nothing was saved" about a write that happened.
+      Both notifiers are now `keepAlive`. (3) **`invalidateSelf` blanks the
+      list**, because `AsyncValueView` renders a spinner for an `AsyncLoading`
+      that carries a value; the eight-second poll was throwing a scrolled
+      reader back to the top. `refresh()` now re-reads every loaded page in one
+      widened request and writes the state directly. (4) **`loadMore` had no
+      generation guard**, so a page in flight when a filter changed was
+      appended to the new list. (5) The log's first query was fetched before
+      the branch scope reached the filter. (6) The search field's clear button
+      was rebuilt off the wrong thing.
+
+- [ ] **2026-09-12** Two deliberate divergences from the console, recorded so
+      they read as decisions rather than drift. (1) Switching a gateway away
+      from "Another gateway" **clears** the stored `endpoint_url`; the console
+      preserves it behind a hidden input. An address belonging to a gateway the
+      gym no longer uses is not worth carrying, but the two clients do leave
+      different rows behind. (2) The template editor writes `is_active: true`
+      and `updated_by` on every save, matching the console -- that one was a
+      divergence and is now fixed; noted here because the upsert's
+      "only the keys you send" behaviour is the trap underneath it.
+
+- [ ] **2026-09-12** The delivery log cannot name who pressed Send.
+      `notification_messages.created_by` is a staff id and there is no staff
+      repository in `lib/data/` -- `current_staff()` answers only for the
+      signed-in person, so there is nothing that turns another staff id into a
+      name. `NotificationTile` takes a `senderName` and is passed null, with a
+      `TODO(notifications)` at the call site. The console shows the name, so
+      this is a real parity gap rather than a deliberate simplification. It
+      wants a `lib/data/staff/` repository over a staff-name read that RLS
+      already allows (`is_org_member(org_id) and jwt_is_staff()`), which is the
+      same thing a future staff-administration screen would need.
+
+- [ ] **2026-09-12** `package:fake_async` is in `pubspec.lock` only as a
+      transitive dependency of `flutter_test`, so importing it trips
+      `depend_on_referenced_packages` and `flutter analyze` is a merge gate. The
+      live-refresh tests inject the clock instead
+      (`notificationPollIntervalProvider` / `notificationPollGiveUpProvider`,
+      overridden to milliseconds). That is arguably the better test anyway, but
+      if a later timer test wants real fake-async, the fix is one line in
+      `dev_dependencies`.
 
 - [x] **2026-09-05** `path_provider_foundation` >= 2.5.0 pulls `objective_c`, whose native build hooks make `dart compile aot-snapshot` fail — which is how both `build_runner` and `custom_lint` compile their entrypoints, so codegen and linting broke outright. Pinned to 2.4.1 in `dependency_overrides` with the reason in a comment. Revisit once the Flutter/Dart toolchain supports build hooks in `dart compile`.
 - [x] **2026-09-05** Android `compileSdk`/`targetSdk` pinned to 36 in `android/app/build.gradle.kts`. Flutter 3.38 defaults to 37, which only ships as the preview platform `android-37.0`; AGP looks up the exact hash string `android-37` and the build fails. Unpin once a stable 37 platform is installable.

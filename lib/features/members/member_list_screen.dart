@@ -30,6 +30,7 @@ import 'package:logfitness_flutter/features/members/member_detail_screen.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/members/member_list_controller.dart';
 import 'package:logfitness_flutter/features/members/register_member_screen.dart';
+import 'package:logfitness_flutter/features/notifications/member_message_sheet.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 
 /// The chips, in the console's order (`STATUS_OPTIONS` in
@@ -98,9 +99,19 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
     // UX only. Role gating hides a button; RLS is what refuses, and its
     // refusal is always rendered (CLAUDE.md, "Role gates the shell, RLS gates
     // the data").
-    final bool canRegister = ref
-        .watch(staffCapabilitiesProvider)
-        .contains(StaffCapability.walkInSignup);
+    final Set<StaffCapability> capabilities = ref.watch(
+      staffCapabilitiesProvider,
+    );
+    final bool canRegister = capabilities.contains(
+      StaffCapability.walkInSignup,
+    );
+    // The desk's real path: chase this month's dues straight off the list,
+    // without opening a record it does not need to read. Same gate as the
+    // profile's own action, and `member_message_target` refuses a trainer
+    // independently.
+    final bool canSendMessage = capabilities.contains(
+      StaffCapability.sendMemberMessage,
+    );
 
     // An append that failed has to be said out loud: a list that silently
     // stops growing is indistinguishable from one that has ended.
@@ -200,6 +211,13 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                           builder: (_) => MemberDetailScreen(memberId: row.id),
                         ),
                       ),
+                      onSendMessage: !canSendMessage
+                          ? null
+                          : () => showMemberMessageSheet(
+                              context,
+                              memberId: row.id,
+                              fullName: row.fullName,
+                            ),
                     );
                   },
                   );
@@ -410,6 +428,7 @@ class MemberTile extends StatelessWidget {
     required this.member,
     this.photoUrl,
     this.onTap,
+    this.onSendMessage,
     super.key,
   });
 
@@ -420,6 +439,11 @@ class MemberTile extends StatelessWidget {
   /// that could not be signed; both render as initials.
   final String? photoUrl;
   final VoidCallback? onTap;
+
+  /// Texting a member is a one-tap action from the list, for the same reason
+  /// dialling a walk-in is (`visitor_tile.dart`): the desk works the list, not
+  /// the record. Null hides it -- the capability is checked by the caller.
+  final VoidCallback? onSendMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -477,38 +501,55 @@ class MemberTile extends StatelessWidget {
       isThreeLine: true,
       // Three lines exactly, never four.
       visualDensity: VisualDensity.compact,
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          MemberStatusBadge(
-            status: member.status,
-            daysToExpiry: member.daysToExpiry,
-            membershipStatus: member.membershipStatus,
-            hasMembershipHistory: member.hasMembershipHistory,
-          ),
-          if (member.hasDues) ...<Widget>[
-            const SizedBox(height: Brand.spaceXs),
-            Text(
-              // Money is integer paisa everywhere but here, the render
-              // boundary (CLAUDE.md).
-              formatMoney(member.duePaisa),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: scheme.error,
-                fontWeight: FontWeight.w600,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              MemberStatusBadge(
+                status: member.status,
+                daysToExpiry: member.daysToExpiry,
+                membershipStatus: member.membershipStatus,
+                hasMembershipHistory: member.hasMembershipHistory,
               ),
+              if (member.hasDues) ...<Widget>[
+                const SizedBox(height: Brand.spaceXs),
+                Text(
+                  // Money is integer paisa everywhere but here, the render
+                  // boundary (CLAUDE.md).
+                  formatMoney(member.duePaisa),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+              // Only ever seen under the Archived chip, where it says why these
+              // rows are missing from every other view.
+              if (member.isArchived) ...<Widget>[
+                const SizedBox(height: Brand.spaceXs),
+                Text(
+                  'Archived',
+                  style: theme.textTheme.labelSmall?.copyWith(color: scheme.outline),
+                ),
+              ],
+            ],
+          ),
+          if (onSendMessage != null)
+            IconButton(
+              key: ValueKey<String>('member-send-sms-${member.id}'),
+              onPressed: onSendMessage,
+              icon: const Icon(Icons.sms_outlined),
+              tooltip: 'Send ${member.fullName} an SMS',
+              // Tightened so the row stays three lines: the status, the dues
+              // and the plan tail already own this edge.
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             ),
-          ],
-          // Only ever seen under the Archived chip, where it says why these
-          // rows are missing from every other view.
-          if (member.isArchived) ...<Widget>[
-            const SizedBox(height: Brand.spaceXs),
-            Text(
-              'Archived',
-              style: theme.textTheme.labelSmall?.copyWith(color: scheme.outline),
-            ),
-          ],
         ],
       ),
     );

@@ -99,7 +99,37 @@ enum StaffCapability {
   /// Branch reports: `daily_collection` over a range, `arrears_report`.
   viewBranchReports,
 
+  /// Send one member or one walk-in a message by hand.
+  ///
+  /// Front desk and up, and not a guess: `member_message_target` gates on
+  /// `{owner, manager, front_desk}` itself and **refuses a trainer**, so this
+  /// set is transcribed from the function rather than from §4. The desk is who
+  /// chases dues, and a member standing at the counter owing money is exactly
+  /// the person the nightly sweep already missed.
+  sendMemberMessage,
+
+  /// The delivery log -- was this member told, and what did the gateway say.
+  ///
+  /// Owner and manager, matching the console's
+  /// `requireRole('owner', 'manager')` on `/notifications`. The desk sells the
+  /// renewal; it does not audit whether the chain's SMS credits are running
+  /// out. RLS agrees independently: a non-manager's rows are bounded to their
+  /// own branches.
+  viewNotificationLog,
+
   // --- owner (PLANNING.md §4, `owner` row) --------------------------------
+  /// The gateway, the reminder schedule and the gym's own wording.
+  ///
+  /// Owner only, and every policy on `notification_providers`,
+  /// `notification_rules` and `notification_templates` says the same thing
+  /// without consulting this file. Two things follow from that and both matter:
+  /// a manager reaching the RPC anyway is refused `42501`, and a manager
+  /// *reading* `notification_providers` gets an empty list rather than a
+  /// refusal -- so anything derived from "has this org got a gateway" has to be
+  /// gated on this capability, or a manager is told a gym with three gateways
+  /// has none.
+  configureNotifications,
+
   /// Manager capability across *every* branch in the org, rather than only
   /// the branches on the staff row. Read by the branch switcher, never by a
   /// nav destination — an owner's surface is a manager's surface widened, not
@@ -117,6 +147,7 @@ const Set<StaffCapability> _frontDesk = <StaffCapability>{
   StaffCapability.viewTodaysCollection,
   StaffCapability.lookUpMember,
   StaffCapability.recordDeparture,
+  StaffCapability.sendMemberMessage,
 };
 
 /// "Everything front desk can do, plus member management, freezes,
@@ -128,6 +159,7 @@ const Set<StaffCapability> _manager = <StaffCapability>{
   StaffCapability.cancelMembership,
   StaffCapability.refundPayment,
   StaffCapability.viewBranchReports,
+  StaffCapability.viewNotificationLog,
 };
 
 /// PLANNING.md §4, transcribed. This is the whole role model; nothing else in
@@ -147,6 +179,7 @@ _capabilitiesByRole = <StaffRole, Set<StaffCapability>>{
   StaffRole.owner: <StaffCapability>{
     ..._manager,
     StaffCapability.accessAllBranches,
+    StaffCapability.configureNotifications,
   },
 };
 

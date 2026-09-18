@@ -22,8 +22,11 @@ collection — and, since the parity decision of 2026-09-09, the rest of the mem
 the visitor log, the member list and detail, the membership lifecycle, refunds and reversals,
 archiving, and member-app invitations. **What stays on the web console is branch and staff
 administration** — creating branches, inviting staff, setting roles and branch assignments —
-along with timetable editing, plan catalog management and notification gateway configuration.
-See `TASKS.md`, "Staff parity programme".
+along with timetable editing and plan catalog management. **Notification gateway
+configuration moved here on 2026-09-12** — see `TASKS.md`, "Notifications parity" — so the
+whole messaging surface now lives on both clients: the delivery log, the gateway, the
+reminder schedule, the gym's own wording, and sending one member or one walk-in a message
+by hand. See `TASKS.md`, "Staff parity programme".
 
 ---
 
@@ -39,7 +42,7 @@ See `TASKS.md`, "Staff parity programme".
 | Codegen | `build_runner` | Shared by riverpod, freezed, and go_router. |
 | QR | `mobile_scanner` | Staff scans; member screen renders the minted token. |
 | Photos | `image_picker` | Camera or gallery, for the member photo. Added 2026-09-11. Downscaled and re-encoded on pick, because the `member-photos` bucket caps an object at 5&nbsp;MB and a phone camera clears that on its own. Not `camera`: this needs one still image with the system UI, not a viewfinder. |
-| Push | `firebase_messaging` | Consumes the Edge Function fanout. FCM vs. OneSignal is still open — see §10. |
+| Push | `firebase_messaging` | Declared, and still with zero references behind it. FCM vs. OneSignal is still open — see §10 — and push was **explicitly deferred** when the rest of the notification surface landed on 2026-09-12. |
 | Session | `flutter_secure_storage` | Refresh token at rest. |
 | Preferences | `shared_preferences` | Non-secret settings that survive a restart — the theme choice today. Deliberately not `flutter_secure_storage`: a display preference is not a credential, and putting it in the keychain would blur where secrets live. |
 | Formatting | `intl` | Money and dates. Locale and timezone come from `orgs`, not from the device. |
@@ -96,7 +99,7 @@ queue, a sync engine, or a local database in v1.
 | `front_desk` | Staff shell | Check-in (scan and manual), collect payment, walk-in signup, renewals, today's collection. Scoped to assigned branches. |
 | `trainer` | Staff shell | Own classes and sessions, attendance for them. Scoped to assigned branches. |
 | `manager` | Staff shell | Everything front desk can do, plus member management, freezes, cancellations, refunds, and branch reports. Scoped to assigned branches. |
-| `owner` | Staff shell | Manager capability across every branch in the org. Branch and staff administration — creating branches, inviting staff, setting roles and branch assignments — and notification gateway configuration stay on the web console. Everything else reached parity on 2026-09-09; see `TASKS.md`, "Staff parity programme". |
+| `owner` | Staff shell | Manager capability across every branch in the org. Branch and staff administration — creating branches, inviting staff, setting roles and branch assignments — stay on the web console. Notification configuration — the gateway, the reminder rules and the templates — is owner-only here too, and the RLS policies on `notification_providers`, `notification_rules` and `notification_templates` say so independently of any gate in `staff_capabilities.dart`. Everything else reached parity on 2026-09-09; see `TASKS.md`, "Staff parity programme". |
 
 Staff roles match the `staff_role` Postgres enum exactly. `member` is a distinct principal type
 that reaches the database through its own RLS policies.
@@ -124,7 +127,20 @@ payment_kind       payment | refund | reversal
 invoice_status     unpaid | partial | paid | void
 staff_role         owner | manager | front_desk | trainer
 member_gender      male | female | other
+
+notification_channel   sms | viber | email
+notification_event     renewal_reminder | dues_reminder | birthday_greeting |
+                       staff_invite | test_message | custom_message |
+                       visitor_welcome | visitor_follow_up
+notification_provider  sparrow_sms | aakash_sms | smspasal_sms |
+                       viber_business | resend_email | custom_http | log_only
+notification_status    queued | sending | sent | failed | cancelled | skipped
 ```
+
+`notification_provider` is mirrored in Dart as `NotificationProviderKind`: the
+Postgres enum and the `notification_providers` table share a name and Dart
+cannot. `fromDb` throws on an unknown value **by design**, so adding a value to
+any of these four upstream needs a client release before anything can emit it.
 
 **RPC surface — call these, do not reimplement:**
 
@@ -137,9 +153,24 @@ restore_member        invite_member        convert_visitor
 check_in_member       check_out_member     in_gym_now
 mint_qr_token         verify_qr_token      current_staff
 daily_collection(...) arrears_report(p_branch_id default null)
+
+enqueue_notification                 retry_notification
+cancel_notification                  member_notification_preview
+send_member_notification             visitor_notification_preview
+send_visitor_notification            notification_template_preview
+org_notification_locale              notification_has_credential
+set_notification_credential          clear_notification_credential
+request_notification_gateway_balance read_notification_gateway_balance
 ```
 
-Seventeen of these now have a **second consumer**. Changing an argument list or
+The notification block landed on 2026-09-12 with `TASKS.md`'s "Notifications
+parity". Two of them are deliberately *not* callable from any client and are
+listed here only so nobody goes looking: `notification_credential` (the Vault
+token itself) and `resolve_notification_template` (SECURITY DEFINER, for the
+cron sweeps, which hold no claims).
+
+Seventeen of these, plus the fourteen notification RPCs above and the four
+notification tables behind them, now have a **second consumer**. Changing an argument list or
 a returned shape breaks a shipped app that updates on a store's schedule rather
 than on deploy; the corresponding note lives in
 `../logfitness_saas/TASKS.md`. Adding an argument with a default is safe;
@@ -259,9 +290,9 @@ class browsing and booking, push. Every backend piece it needs is now in place.
 
 ## 10. Open questions
 
-- Nepali-language UI at launch, or English-only? Sharper here than on the staff console — members are not trained users.
+- Nepali-language UI at launch, or English-only? Sharper here than on the staff console — members are not trained users. Partly answered by the notification work: **message** wording is already bilingual, because `notification_templates` is keyed by locale and the app renders whatever `org_notification_locale` resolves to. The app's own chrome is still English.
 - Is the home branch binding for billing, or can any branch collect a renewal? Determines whether the staff shell needs a branch picker at payment time.
 - How much staff parity actually belongs on mobile? Phases 5 and 6 are scoped on an assumption that can be revisited.
-- Push provider: FCM directly, or OneSignal? Affects the Edge Function fanout contract upstream.
+- Push provider: FCM directly, or OneSignal? Affects the Edge Function fanout contract upstream. Deferred again on 2026-09-12: the SMS/Viber/email half of notifications shipped without it, because that half needs no Firebase project, no native configuration and no `FCM_SERVICE_ACCOUNT_JSON` — all three of which push still waits on.
 - Do trainers get PT-session tooling in v1, or is the trainer shell read-only?
 - Phone OTP login for members — deferred; revisit once an SMS gateway is chosen. Invite/email is the v1 path.

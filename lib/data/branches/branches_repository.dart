@@ -33,7 +33,7 @@ class BranchesRepository {
   /// that hid it would leave those rows attributed to an id.
   Future<List<Branch>> listBranches() {
     return guardFailures(() async {
-      final rows = await _client.from(_table).select().order('name');
+      final rows = await _client.from(_table).select().order('name', ascending: true);
       return (rows as List<dynamic>)
           .map((row) => Branch.fromJson(row as Map<String, dynamic>))
           .toList();

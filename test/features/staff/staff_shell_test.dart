@@ -144,12 +144,16 @@ void main() {
   ) async {
     await _pumpShell(tester, StaffRole.manager);
 
+    // `notifications` joined this set on 2026-09-12: the delivery log is
+    // owner-and-manager, matching the console's requireRole on /notifications.
+    // A front desk's set below is deliberately unchanged by it.
     expect(await _offeredDestinations(tester), <String>{
       'check-in',
       'members',
       'visitors',
       'collection',
       'reports',
+      'notifications',
       'settings',
     });
   });
@@ -159,12 +163,16 @@ void main() {
   ) async {
     await _pumpShell(tester, StaffRole.owner);
 
+    // `notifications` joined this set on 2026-09-12: the delivery log is
+    // owner-and-manager, matching the console's requireRole on /notifications.
+    // A front desk's set below is deliberately unchanged by it.
     expect(await _offeredDestinations(tester), <String>{
       'check-in',
       'members',
       'visitors',
       'collection',
       'reports',
+      'notifications',
       'settings',
     });
   });

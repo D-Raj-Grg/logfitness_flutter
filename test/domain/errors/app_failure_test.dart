@@ -60,6 +60,24 @@ void main() {
       expect(failure.message, 'That record already exists.');
     });
 
+    test('23505 raised by hand keeps the sentence the RPC wrote', () {
+      // `enqueue_notification` and `send_member_notification` both raise
+      // `unique_violation` themselves, with a sentence already written for a
+      // person. Replacing it with "That record already exists." would tell the
+      // desk nothing about the two-minute guard they just hit.
+      for (final String message in <String>[
+        'That message has already been queued',
+        'That message is already queued for this member',
+      ]) {
+        final failure = mapError(
+          PostgrestException(message: message, code: '23505'),
+        );
+
+        expect(failure.kind, FailureKind.duplicate);
+        expect(failure.message, message);
+      }
+    });
+
     test('23514 passes the database\'s own sentence through', () {
       // convert_visitor raises this one, already written for a person.
       const message = 'That visitor has already been registered as a member';

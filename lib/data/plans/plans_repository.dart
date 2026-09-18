@@ -37,8 +37,8 @@ class PlansRepository {
           .from(_table)
           .select('*')
           .order('is_active', ascending: false)
-          .order('sort_order')
-          .order('name');
+          .order('sort_order', ascending: true)
+          .order('name', ascending: true);
       return rows
           .map((Map<String, dynamic> row) => MembershipPlan.fromJson(row))
           .toList();
@@ -61,8 +61,8 @@ class PlansRepository {
           .select('*')
           .eq('is_active', true)
           .or('branch_ids.eq.{},branch_ids.cs.{$branchId}')
-          .order('sort_order')
-          .order('name');
+          .order('sort_order', ascending: true)
+          .order('name', ascending: true);
       return rows
           .map((Map<String, dynamic> row) => MembershipPlan.fromJson(row))
           .toList();

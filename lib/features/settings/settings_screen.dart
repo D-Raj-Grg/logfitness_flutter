@@ -1,9 +1,21 @@
-// The signed-in person's own settings.
+// The signed-in person's own settings — plus, for an owner, the one piece of
+// org configuration that lives in this app.
 //
-// Deliberately not org administration — branches, staff, plans and notification
-// gateways stay on the web console (CLAUDE.md, "Scope discipline"). What
-// belongs here is what this person, on this phone, can change about their own
-// use of the app.
+// This file used to say that notification gateways stay on the web console.
+// **That stopped being true on 2026-09-12**, when the whole notification
+// surface — gateway, reminder schedule and the gym's own wording, along with
+// the delivery log and sending by hand — was scoped into this app. The desk
+// standing in front of a member who owes money can now text them and can see
+// whether last night's reminder went out, and the owner can set all of that up
+// from the phone.
+//
+// What is still console-only is **branch and staff administration**: creating
+// branches, inviting staff, setting roles and branch assignments. Everything
+// else a gym runs on reached parity here (CLAUDE.md, "Scope discipline";
+// `TASKS.md`, "Staff parity programme" and "Notifications parity").
+//
+// Everything else on this screen is what this person, on this phone, can change
+// about their own use of the app.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,6 +27,8 @@ import 'package:logfitness_flutter/app/legal_links.dart';
 import 'package:logfitness_flutter/app/theme_mode_controller.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/settings/notifications/notification_settings_screen.dart';
+import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 
 /// What each mode is called on screen. "System" rather than "Automatic",
 /// because it follows the phone's setting and saying so is shorter than
@@ -38,6 +52,14 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
     final theme = Theme.of(context);
+    // Owner only. RLS says the same thing without consulting this line, and
+    // says it differently: `notification_providers` has an owner-only SELECT
+    // policy, so a manager who reached that screen anyway would be shown an
+    // empty list rather than a refusal. Hiding the row is the only place the
+    // distinction can be made honestly.
+    final bool canConfigureNotifications = ref
+        .watch(staffCapabilitiesProvider)
+        .contains(StaffCapability.configureNotifications);
 
     return ListView(
       padding: const EdgeInsets.all(Brand.spaceMd),
@@ -69,6 +91,30 @@ class SettingsScreen extends ConsumerWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
+
+        if (canConfigureNotifications) ...<Widget>[
+          const SizedBox(height: Brand.spaceLg),
+          const Divider(),
+          const SizedBox(height: Brand.spaceSm),
+          Text('This gym', style: theme.textTheme.titleSmall),
+          ListTile(
+            key: const ValueKey<String>('settings-notifications'),
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.sms_outlined),
+            title: const Text('Notifications'),
+            subtitle: const Text(
+              'Gateway, reminders and what the messages say',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            // `Navigator.push`, not a `GoRoute`. In-shell navigation in this
+            // app is imperative; `go_router` owns the shell-level routes only.
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const NotificationSettingsScreen(),
+              ),
+            ),
+          ),
+        ],
 
         const SizedBox(height: Brand.spaceLg),
         const Divider(),
