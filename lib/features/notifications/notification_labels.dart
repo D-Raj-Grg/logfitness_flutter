@@ -41,6 +41,9 @@ String notificationEventLabel(NotificationEvent event) => switch (event) {
   NotificationEvent.visitorWelcome => 'Visitor welcome',
   NotificationEvent.visitorFollowUp => 'Visitor follow-up',
   NotificationEvent.announcement => 'Announcement',
+  NotificationEvent.memberWelcome => 'New member welcome',
+  NotificationEvent.paymentReceived => 'Payment receipt',
+  NotificationEvent.duesCleared => 'Balance cleared',
 };
 
 /// The short form, for a row where the recipient and the time follow it.
@@ -54,6 +57,9 @@ String notificationEventShort(NotificationEvent event) => switch (event) {
   NotificationEvent.visitorWelcome => 'Visitor welcome',
   NotificationEvent.visitorFollowUp => 'Visitor follow-up',
   NotificationEvent.announcement => 'Announcement',
+  NotificationEvent.memberWelcome => 'Welcome',
+  NotificationEvent.paymentReceived => 'Receipt',
+  NotificationEvent.duesCleared => 'Settled',
 };
 
 String notificationChannelLabel(NotificationChannel channel) =>
@@ -111,6 +117,9 @@ const List<NotificationEvent> kEditableTemplateEvents = <NotificationEvent>[
   NotificationEvent.birthdayGreeting,
   NotificationEvent.visitorWelcome,
   NotificationEvent.visitorFollowUp,
+  NotificationEvent.memberWelcome,
+  NotificationEvent.paymentReceived,
+  NotificationEvent.duesCleared,
 ];
 
 /// The picker's wording for a manual send to a member. `custom_message` reads

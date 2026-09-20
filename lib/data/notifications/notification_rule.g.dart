@@ -46,6 +46,9 @@ const _$NotificationEventEnumMap = {
   NotificationEvent.visitorWelcome: 'visitor_welcome',
   NotificationEvent.visitorFollowUp: 'visitor_follow_up',
   NotificationEvent.announcement: 'announcement',
+  NotificationEvent.memberWelcome: 'member_welcome',
+  NotificationEvent.paymentReceived: 'payment_received',
+  NotificationEvent.duesCleared: 'dues_cleared',
 };
 
 const _$NotificationChannelEnumMap = {

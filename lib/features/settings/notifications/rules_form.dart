@@ -42,6 +42,11 @@ String notificationRuleTitle(NotificationRule rule) => switch (rule.event) {
     rule.offsetDays == 1
         ? 'The day after a visit, if they have not joined'
         : '${rule.offsetDays} days after a visit, if they have not joined',
+  NotificationEvent.memberWelcome =>
+    'When somebody buys their first membership',
+  NotificationEvent.paymentReceived => 'Every time money is handed over',
+  NotificationEvent.duesCleared =>
+    'When a member has nothing left outstanding',
   _ => rule.event.wire.replaceAll('_', ' '),
 };
 
@@ -209,9 +214,9 @@ class _RuleRowState extends ConsumerState<_RuleRow> {
           ),
 
           if (rule.isImmediate)
-            // No hour to choose. The welcome rides an `after insert` trigger on
-            // `visitors`, so offering a time here would promise a schedule that
-            // does not exist.
+            // No hour to choose. These rules ride a trigger on the row that
+            // causes them -- the walk-in, the sale, the payment -- so offering
+            // a time here would promise a schedule that does not exist.
             Padding(
               padding: const EdgeInsets.only(left: Brand.spaceLg),
               child: Text(
@@ -232,38 +237,41 @@ class _RuleRowState extends ConsumerState<_RuleRow> {
               ),
             ),
 
-          if (rule.isDues) ...<Widget>[
+          if (rule.hasMinAmount || rule.hasRepeat) ...<Widget>[
             const SizedBox(height: Brand.spaceSm),
             Padding(
               padding: const EdgeInsets.only(left: Brand.spaceLg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  TextField(
-                    key: ValueKey<String>('rule-min-amount-${rule.id}'),
-                    controller: _minAmount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                  if (rule.hasMinAmount)
+                    TextField(
+                      key: ValueKey<String>('rule-min-amount-${rule.id}'),
+                      controller: _minAmount,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Only over (Rs)',
+                      ),
                     ),
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'Only over (Rs)',
+                  if (rule.hasMinAmount && rule.hasRepeat)
+                    const SizedBox(height: Brand.spaceSm),
+                  if (rule.hasRepeat)
+                    TextField(
+                      key: ValueKey<String>('rule-repeat-${rule.id}'),
+                      controller: _repeatAfterDays,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: <TextInputFormatter>[
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Ask again after (days)',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: Brand.spaceSm),
-                  TextField(
-                    key: ValueKey<String>('rule-repeat-${rule.id}'),
-                    controller: _repeatAfterDays,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: <TextInputFormatter>[
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'Ask again after (days)',
-                    ),
-                  ),
                 ],
               ),
             ),

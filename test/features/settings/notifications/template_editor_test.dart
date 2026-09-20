@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:logfitness_flutter/data/notifications/notification_template.dart';
 import 'package:logfitness_flutter/data/notifications/notifications_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
+import 'package:logfitness_flutter/features/notifications/notification_labels.dart';
 import 'package:logfitness_flutter/features/settings/notifications/template_editor.dart';
 import 'package:logfitness_flutter/supabase/app_claims.dart';
 import 'package:logfitness_flutter/supabase/supabase_providers.dart';
@@ -161,12 +162,43 @@ void main() {
       NotificationEvent.birthdayGreeting,
       NotificationEvent.visitorWelcome,
       NotificationEvent.visitorFollowUp,
+      NotificationEvent.memberWelcome,
+      NotificationEvent.paymentReceived,
+      NotificationEvent.duesCleared,
     ]) {
       expect(
         find.byKey(ValueKey<String>('template-body-${event.wire}')),
         findsOne,
         reason: '${event.wire} has no editor',
       );
+    }
+  });
+
+  test('every editable event names the placeholders it can fill', () {
+    // An event on the screen with no variable list offers the owner nothing
+    // to insert, which reads as "this wording takes no details" rather than
+    // as the omission it is.
+    for (final NotificationEvent event in kEditableTemplateEvents) {
+      expect(
+        kTemplateVariables[event],
+        isNotNull,
+        reason: '${event.wire} is editable but lists no placeholders',
+      );
+      expect(kTemplateVariables[event], isNotEmpty, reason: event.wire);
+    }
+  });
+
+  test('every offered placeholder has a sample the preview can substitute', () {
+    // The preview drops a placeholder it cannot fill. Offering one that is
+    // always dropped is how a body ships with a hole where a figure should be.
+    for (final List<String> variables in kTemplateVariables.values) {
+      for (final String name in variables) {
+        expect(
+          kTemplateSampleValues[name],
+          isNotNull,
+          reason: '$name is offered but has no sample value',
+        );
+      }
     }
   });
 }

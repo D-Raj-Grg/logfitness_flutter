@@ -123,6 +123,30 @@ void main() {
       );
     });
 
+    test('the three acknowledgements read as moments, not offsets', () {
+      // None of them waits, so none of the sentences may mention a number of
+      // days: `offsetDays` is 0 on all three and carried only because it is
+      // part of the rule's uniqueness key.
+      expect(
+        notificationRuleTitle(
+          _rule(event: NotificationEvent.memberWelcome, offsetDays: 0),
+        ),
+        'When somebody buys their first membership',
+      );
+      expect(
+        notificationRuleTitle(
+          _rule(event: NotificationEvent.paymentReceived, offsetDays: 0),
+        ),
+        'Every time money is handed over',
+      );
+      expect(
+        notificationRuleTitle(
+          _rule(event: NotificationEvent.duesCleared, offsetDays: 0),
+        ),
+        'When a member has nothing left outstanding',
+      );
+    });
+
     test('dues read from zero days upward', () {
       expect(
         notificationRuleTitle(
@@ -204,5 +228,66 @@ void main() {
 
     expect(repository.lastUpdate?['minAmountPaisa'], 300000);
     expect(repository.lastUpdate?['minAmountPaisa'], isA<int>());
+  });
+
+  testWidgets('the receipt takes a floor but no cadence', (
+    WidgetTester tester,
+  ) async {
+    // It fires every time money arrives, so "ask again after" is not a
+    // question it has an answer to -- but an owner may still not want to spend
+    // a message on small change.
+    final _FakeRepository repository = _FakeRepository(<NotificationRule>[
+      _rule(
+        id: 'rule-receipt',
+        event: NotificationEvent.paymentReceived,
+        offsetDays: 0,
+        minAmountPaisa: 50000,
+      ),
+    ]);
+    await _pump(tester, repository);
+
+    expect(find.text('Every time money is handed over'), findsOne);
+    expect(find.text('Goes out within a minute'), findsOne);
+    expect(
+      find.byKey(const ValueKey<String>('rule-time-rule-receipt')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('rule-min-amount-rule-receipt')),
+      findsOne,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('rule-repeat-rule-receipt')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('the welcome and the clearance take neither', (
+    WidgetTester tester,
+  ) async {
+    for (final (String id, NotificationEvent event) in <(
+      String,
+      NotificationEvent,
+    )>[
+      ('rule-welcome', NotificationEvent.memberWelcome),
+      ('rule-cleared', NotificationEvent.duesCleared),
+    ]) {
+      final _FakeRepository repository = _FakeRepository(<NotificationRule>[
+        _rule(id: id, event: event, offsetDays: 0),
+      ]);
+      await _pump(tester, repository);
+
+      expect(find.text('Goes out within a minute'), findsOne, reason: id);
+      expect(
+        find.byKey(ValueKey<String>('rule-min-amount-$id')),
+        findsNothing,
+        reason: id,
+      );
+      expect(
+        find.byKey(ValueKey<String>('rule-repeat-$id')),
+        findsNothing,
+        reason: id,
+      );
+    }
   });
 }

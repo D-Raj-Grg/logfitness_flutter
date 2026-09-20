@@ -191,6 +191,16 @@ Two decisions taken while scoping it:
       console would have stopped every row of the delivery log from parsing —
       in a build that was already in App Store review. Build 7 was pulled from
       review because of it.
+- [x] **O. The three acknowledgements (2026-09-20).** `member_welcome`,
+      `payment_received` and `dues_cleared`, added upstream in
+      `20260920100000`. Mirrored *before* anything can emit one rather than
+      after an incident: their rules seed disabled, so the console's checkbox
+      is what starts them, and this build has to be on phones before a gym
+      ticks it. Enum, both label forms, `kEditableTemplateEvents`, the rule
+      titles, `kTemplateVariables` and its sample values. `NotificationRule.isDues`
+      is gone — the floor and the cadence stopped being the same question when
+      the receipt gained a floor and no cadence, so it is `hasMinAmount` and
+      `hasRepeat` now, mirroring the console's own split.
 
 ### Discovered
 

@@ -377,11 +377,14 @@ enum NotificationChannel {
 
 /// Mirrors `public.notification_event`.
 ///
-/// Nine values, grown in four migrations: the five the schema shipped with,
+/// Twelve values, grown in five migrations: the five the schema shipped with,
 /// `custom_message` (the desk sending a member something by hand), the two
-/// visitor events, and `announcement`. `staff_invite` and `test_message` are
-/// here because the column can return them -- `send_member_notification`
-/// refuses both, because neither is addressed to a member.
+/// visitor events, `announcement`, and the three acknowledgements from
+/// `20260920100000` -- `member_welcome` on a member's first membership,
+/// `payment_received` on every payment, `dues_cleared` when nothing is left
+/// outstanding. `staff_invite` and `test_message` are here because the column
+/// can return them -- `send_member_notification` refuses both, because neither
+/// is addressed to a member.
 ///
 /// `announcement` is the same shape of thing and is here for a sharper reason:
 /// it landed upstream in `20260917100000_announcement_event.sql` while this
@@ -391,6 +394,12 @@ enum NotificationChannel {
 /// server", which was true and useless. No manual surface offers it:
 /// `send_member_notification` refuses it and a broadcast is fanned out by
 /// `send_announcement`, never enqueued one at a time.
+///
+/// The three acknowledgements are here before any gym can emit one: their
+/// rules seed disabled, so the console's checkbox is what starts them, and
+/// this mirror has to be in a shipped build before that checkbox is ticked.
+/// They are no more manually sendable than `announcement` is -- each rides a
+/// trigger on the row that causes it.
 enum NotificationEvent {
   @JsonValue('renewal_reminder')
   renewalReminder('renewal_reminder'),
@@ -409,7 +418,13 @@ enum NotificationEvent {
   @JsonValue('visitor_follow_up')
   visitorFollowUp('visitor_follow_up'),
   @JsonValue('announcement')
-  announcement('announcement');
+  announcement('announcement'),
+  @JsonValue('member_welcome')
+  memberWelcome('member_welcome'),
+  @JsonValue('payment_received')
+  paymentReceived('payment_received'),
+  @JsonValue('dues_cleared')
+  duesCleared('dues_cleared');
 
   const NotificationEvent(this.wire);
 

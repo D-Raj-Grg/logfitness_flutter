@@ -59,12 +59,27 @@ abstract class NotificationRule with _$NotificationRule {
     );
   }
 
-  /// The welcome rides an `after insert` trigger on `visitors`, so there is no
-  /// hour to choose: it goes out within a minute of the walk-in being logged.
-  /// Offering a time here would promise a schedule that does not exist.
-  bool get isImmediate => event == NotificationEvent.visitorWelcome;
+  /// These rules ride an `after insert` or `after update` trigger on the row
+  /// that causes them -- the walk-in, the first membership, the payment, the
+  /// invoice reaching zero -- so there is no hour to choose: they go out
+  /// within a minute. Offering a time here would promise a schedule that does
+  /// not exist.
+  bool get isImmediate =>
+      event == NotificationEvent.visitorWelcome ||
+      event == NotificationEvent.memberWelcome ||
+      event == NotificationEvent.paymentReceived ||
+      event == NotificationEvent.duesCleared;
 
-  bool get isDues => event == NotificationEvent.duesReminder;
+  /// Two rules have a floor, for the same reason and with different stakes: a
+  /// gym does not want to spend a message chasing small change, nor
+  /// receipting it. Everything else ignores `minAmountPaisa`.
+  bool get hasMinAmount =>
+      event == NotificationEvent.duesReminder ||
+      event == NotificationEvent.paymentReceived;
+
+  /// Only the chase has a cadence. The rest either happen once or happen
+  /// every time the thing behind them happens.
+  bool get hasRepeat => event == NotificationEvent.duesReminder;
 }
 
 /// `HH:MM` back to the `time` literal the column takes.

@@ -390,7 +390,8 @@ void main() {
       // Paisa, integer, formatted only at the render boundary -- Rs 500.
       expect(duesRule.minAmountPaisa, 50000);
       expect(duesRule.repeatAfterDays, 7);
-      expect(duesRule.isDues, isTrue);
+      expect(duesRule.hasMinAmount, isTrue);
+      expect(duesRule.hasRepeat, isTrue);
     });
 
     test('send_at_local stays text: 09:00:00 shows as 09:00', () {
@@ -419,24 +420,56 @@ void main() {
       expect(sendAtToWire(rule(sendAt: '23:59:00').sendAt), '23:59');
     });
 
-    test('isImmediate is true for visitor_welcome and nothing else', () {
-      // The welcome rides an `after insert` trigger, so there is no hour to
-      // choose. Offering a time picker would promise a schedule that does not
-      // exist.
-      expect(rule(event: 'visitor_welcome').isImmediate, isTrue);
+    test('isImmediate is true for the four trigger-driven rules', () {
+      // Each rides an `after insert` or `after update` trigger on the row that
+      // causes it, so there is no hour to choose. Offering a time picker would
+      // promise a schedule that does not exist.
+      for (final event in <String>[
+        'visitor_welcome',
+        'member_welcome',
+        'payment_received',
+        'dues_cleared',
+      ]) {
+        expect(rule(event: event).isImmediate, isTrue, reason: event);
+      }
       for (final event in <String>[
         'renewal_reminder',
         'dues_reminder',
         'birthday_greeting',
         'visitor_follow_up',
       ]) {
-        expect(rule(event: event).isImmediate, isFalse);
+        expect(rule(event: event).isImmediate, isFalse, reason: event);
       }
     });
 
-    test('isDues is true for dues_reminder only', () {
-      expect(rule(event: 'dues_reminder').isDues, isTrue);
-      expect(rule(event: 'renewal_reminder').isDues, isFalse);
+    test('hasMinAmount is true for the dues chase and the receipt', () {
+      // Both spend a message on an amount an owner may consider too small to
+      // be worth one. Nothing else reads the column.
+      expect(rule(event: 'dues_reminder').hasMinAmount, isTrue);
+      expect(rule(event: 'payment_received').hasMinAmount, isTrue);
+      for (final event in <String>[
+        'renewal_reminder',
+        'birthday_greeting',
+        'visitor_welcome',
+        'member_welcome',
+        'dues_cleared',
+      ]) {
+        expect(rule(event: event).hasMinAmount, isFalse, reason: event);
+      }
+    });
+
+    test('hasRepeat is true for dues_reminder only', () {
+      // A cadence belongs to a chase. The receipt fires every time money
+      // arrives, which is not the same thing as asking again.
+      expect(rule(event: 'dues_reminder').hasRepeat, isTrue);
+      for (final event in <String>[
+        'renewal_reminder',
+        'payment_received',
+        'member_welcome',
+        'dues_cleared',
+      ]) {
+        expect(rule(event: event).hasRepeat, isFalse, reason: event);
+      }
     });
   });
 

@@ -199,15 +199,19 @@ void main() {
         'visitor_welcome',
         'visitor_follow_up',
         'announcement',
+        'member_welcome',
+        'payment_received',
+        'dues_cleared',
       ]) {
         expect(NotificationEvent.fromDb(value).toDb(), value);
       }
     });
 
-    test('carries exactly the nine values notification_event has', () {
+    test('carries exactly the twelve values notification_event has', () {
       // Five from the original schema, `custom_message` from the manual-send
-      // migration, the two visitor events from 20260912100100, and
-      // `announcement` from 20260917100000.
+      // migration, the two visitor events from 20260912100100,
+      // `announcement` from 20260917100000, and the three acknowledgements
+      // from 20260920100000 -- member_welcome, payment_received, dues_cleared.
       //
       // This test is the reason the ninth value is here at all. It was added
       // upstream on 2026-09-17 and not mirrored, and because
@@ -216,6 +220,11 @@ void main() {
       // from parsing -- in a build that was already in App Store review. The
       // count is not pedantry; it is the only thing that fails when the
       // database grows a value nobody told this app about.
+      //
+      // The three from 20260920100000 are mirrored ahead of use rather than
+      // after an incident: their rules seed disabled, so the console's
+      // checkbox is what starts them, and this build has to be on phones
+      // before that checkbox is ticked.
       expect(
         NotificationEvent.values.map((e) => e.wire).toList(),
         [
@@ -228,6 +237,9 @@ void main() {
           'visitor_welcome',
           'visitor_follow_up',
           'announcement',
+          'member_welcome',
+          'payment_received',
+          'dues_cleared',
         ],
       );
     });

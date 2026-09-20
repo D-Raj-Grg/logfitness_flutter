@@ -131,7 +131,8 @@ member_gender      male | female | other
 notification_channel   sms | viber | email
 notification_event     renewal_reminder | dues_reminder | birthday_greeting |
                        staff_invite | test_message | custom_message |
-                       visitor_welcome | visitor_follow_up | announcement
+                       visitor_welcome | visitor_follow_up | announcement |
+                       member_welcome | payment_received | dues_cleared
 notification_provider  sparrow_sms | aakash_sms | smspasal_sms |
                        viber_business | resend_email | custom_http | log_only
 notification_status    queued | sending | sent | failed | cancelled | skipped

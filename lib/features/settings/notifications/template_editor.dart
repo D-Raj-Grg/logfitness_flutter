@@ -71,6 +71,32 @@ const Map<NotificationEvent, List<String>> kTemplateVariables =
         'plan_name',
         'visited_on',
       ],
+      NotificationEvent.memberWelcome: <String>[
+        'member_name',
+        'gym_name',
+        'branch_name',
+        'plan_name',
+        'start_date',
+        'end_date',
+      ],
+      // `due_amount` here is what is left on that invoice *after* the payment,
+      // which on the last instalment is Rs 0.
+      NotificationEvent.paymentReceived: <String>[
+        'member_name',
+        'gym_name',
+        'branch_name',
+        'amount',
+        'due_amount',
+        'invoice_no',
+        'paid_on',
+      ],
+      NotificationEvent.duesCleared: <String>[
+        'member_name',
+        'gym_name',
+        'branch_name',
+        'amount',
+        'invoice_no',
+      ],
     };
 
 /// What the rough preview substitutes. `SAMPLE` upstream, verbatim.
@@ -84,6 +110,10 @@ const Map<String, String> kTemplateSampleValues = <String, String>{
   'due_amount': 'Rs 2,000',
   'visitor_name': 'Bina Gurung',
   'visited_on': '12 Sep 2026',
+  'start_date': '20 Sep 2026',
+  'amount': 'Rs 2,500',
+  'invoice_no': 'INV000241',
+  'paid_on': '20 Sep 2026',
 };
 
 final RegExp _placeholder = RegExp(r'\{\{([a-z_]+)\}\}');
