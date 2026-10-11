@@ -202,12 +202,13 @@ void main() {
         'member_welcome',
         'payment_received',
         'dues_cleared',
+        'membership_renewed',
       ]) {
         expect(NotificationEvent.fromDb(value).toDb(), value);
       }
     });
 
-    test('carries exactly the twelve values notification_event has', () {
+    test('carries exactly the thirteen values notification_event has', () {
       // Five from the original schema, `custom_message` from the manual-send
       // migration, the two visitor events from 20260912100100,
       // `announcement` from 20260917100000, and the three acknowledgements
@@ -220,6 +221,9 @@ void main() {
       // from parsing -- in a build that was already in App Store review. The
       // count is not pedantry; it is the only thing that fails when the
       // database grows a value nobody told this app about.
+      //
+      // `membership_renewed` from 20261011100000 is mirrored the same way:
+      // its rule is held back until a build carrying it ships.
       //
       // The three from 20260920100000 are mirrored ahead of use rather than
       // after an incident: their rules seed disabled, so the console's
@@ -240,6 +244,7 @@ void main() {
           'member_welcome',
           'payment_received',
           'dues_cleared',
+          'membership_renewed',
         ],
       );
     });

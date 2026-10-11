@@ -424,7 +424,9 @@ enum NotificationEvent {
   @JsonValue('payment_received')
   paymentReceived('payment_received'),
   @JsonValue('dues_cleared')
-  duesCleared('dues_cleared');
+  duesCleared('dues_cleared'),
+  @JsonValue('membership_renewed')
+  membershipRenewed('membership_renewed');
 
   const NotificationEvent(this.wire);
 

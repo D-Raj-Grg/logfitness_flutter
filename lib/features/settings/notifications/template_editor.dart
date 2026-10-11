@@ -97,6 +97,19 @@ const Map<NotificationEvent, List<String>> kTemplateVariables =
         'amount',
         'invoice_no',
       ],
+      // `period` and `payment_line` are whole phrases the database builds.
+      NotificationEvent.membershipRenewed: <String>[
+        'member_name',
+        'gym_name',
+        'branch_name',
+        'plan_name',
+        'start_date',
+        'end_date',
+        'period',
+        'amount',
+        'due_amount',
+        'payment_line',
+      ],
     };
 
 /// What the rough preview substitutes. `SAMPLE` upstream, verbatim.

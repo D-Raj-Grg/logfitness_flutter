@@ -45,8 +45,9 @@ String notificationRuleTitle(NotificationRule rule) => switch (rule.event) {
   NotificationEvent.memberWelcome =>
     'When somebody buys their first membership',
   NotificationEvent.paymentReceived => 'Every time money is handed over',
-  NotificationEvent.duesCleared =>
-    'When a member has nothing left outstanding',
+  NotificationEvent.duesCleared => 'When a member has nothing left outstanding',
+  NotificationEvent.membershipRenewed =>
+    'When an existing member buys another plan; replaces the payment receipt for that sale',
   _ => rule.event.wire.replaceAll('_', ' '),
 };
 
