@@ -173,7 +173,17 @@ request_notification_gateway_balance read_notification_gateway_balance
 
 announcement_audience_count          send_announcement
 send_announcement_test               cancel_announcement
+
+assign_member_card(p_member_id, p_card_uid, p_replace default false)
+revoke_member_card(p_member_id, p_reason)
 ```
+
+The two card RPCs landed with `TASKS.md`'s "RFID cards" (2026-10-12). Both are
+security invoker, so RLS (`jwt_can_serve_members()`) decides who may run them.
+The door itself is `rfid_check_in`, which is SECURITY DEFINER, granted to
+`service_role` only, and called by the `rfid-check` edge function on behalf of
+a reader. It is **never callable from a client** -- this app included -- and is
+listed here only so nobody goes looking.
 
 The notification block landed on 2026-09-12 with `TASKS.md`'s "Notifications
 parity"; the four announcement RPCs on 2026-09-18 with "Announcements". Three of
