@@ -101,7 +101,10 @@ class _FakeMemberCardsRepository implements MemberCardsRepository {
   }
 
   @override
-  Future<void> revoke({required String memberId, required String reason}) async {
+  Future<void> revoke({
+    required String memberId,
+    required String reason,
+  }) async {
     revoked.add(<String, Object?>{'memberId': memberId, 'reason': reason});
     if (error != null) {
       throw error!;
@@ -243,10 +246,7 @@ void main() {
       );
 
       expect(outcome, isA<MemberAdminFailed>());
-      expect(
-        (outcome as MemberAdminFailed).failure.kind,
-        FailureKind.invalid,
-      );
+      expect((outcome as MemberAdminFailed).failure.kind, FailureKind.invalid);
       expect(cards.assigned, isEmpty);
     });
 

@@ -68,7 +68,7 @@ class MemberCardsRepository {
   /// The RPC refuses a member who already holds a card unless [replace] is
   /// set, in which case it revokes the old one with the reason `Replaced`. A
   /// UID that is live for someone else is refused with "That card belongs to
-  /// <member code>", which reaches the desk as written.
+  /// (member code)", which reaches the desk as written.
   Future<MemberCard> assign({
     required String memberId,
     required String cardUid,
@@ -98,10 +98,7 @@ class MemberCardsRepository {
     return guardFailures(() async {
       await _client.rpc<dynamic>(
         'revoke_member_card',
-        params: <String, dynamic>{
-          'p_member_id': memberId,
-          'p_reason': reason,
-        },
+        params: <String, dynamic>{'p_member_id': memberId, 'p_reason': reason},
       );
     });
   }
