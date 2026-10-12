@@ -89,6 +89,7 @@ const _$NotificationEventEnumMap = {
   NotificationEvent.memberWelcome: 'member_welcome',
   NotificationEvent.paymentReceived: 'payment_received',
   NotificationEvent.duesCleared: 'dues_cleared',
+  NotificationEvent.membershipRenewed: 'membership_renewed',
 };
 
 const _$NotificationProviderKindEnumMap = {
