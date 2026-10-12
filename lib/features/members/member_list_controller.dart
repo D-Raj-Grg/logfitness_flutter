@@ -195,8 +195,9 @@ class MemberList extends AsyncNotifier<MemberListState> {
   }
 }
 
-final memberListProvider =
-    AsyncNotifierProvider<MemberList, MemberListState>(MemberList.new);
+final memberListProvider = AsyncNotifierProvider<MemberList, MemberListState>(
+  MemberList.new,
+);
 
 /// The summary strip above the list.
 ///

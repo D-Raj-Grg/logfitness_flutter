@@ -25,10 +25,13 @@ import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/domain/format/plan_pricing.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/documents/document_actions_sheet.dart';
+import 'package:logfitness_flutter/features/documents/document_service.dart';
 import 'package:logfitness_flutter/features/common/payment_status_choice.dart';
 import 'package:logfitness_flutter/features/common/picker_field.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart'
     show discountReasonLabel;
+import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart';
 import 'package:logfitness_flutter/features/payments/payment_queries.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_controller.dart';
@@ -258,254 +261,320 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
             amountPaidPaisa: _paidPaisa,
           );
 
-    return Form(
-      key: _form,
-      child: ListView(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        children: <Widget>[
-          _CurrentPeriod(current: _currentMembership(existing)),
-          const SizedBox(height: Brand.spaceMd),
+    final ({int charged, int waived}) feeSplit = plan == null
+        ? (charged: 0, waived: 0)
+        : signupFeeSplit(
+            planSignupFeePaisa: plan.signupFeePaisa,
+            // Zero while the read is in flight or if it failed: the waiver
+            // is a memo, and a sale must not wait on it or break without it.
+            orgStandardFeePaisa:
+                ref.watch(orgStandardSignupFeeProvider).value ?? 0,
+            // The membership history, not the projected fee. Inferring it
+            // from `projection.signupFeePaisa > 0` was wrong for a plan
+            // priced without a joining fee: the projection charges zero
+            // either way, so a renewal of such a plan read as "not their
+            // first" — and then showed a waiver line for a fee the member
+            // had in fact already paid years ago. The RPC's own test is
+            // "does this member have any membership at all".
+            isFirstMembership: existing.isEmpty,
+          );
 
-          if (options.length > 1) ...<Widget>[
-            PickerField<String>(
-              key: const ValueKey<String>('renew-branch'),
-              label: 'Branch',
-              sheetTitle: 'Which branch is this sold at?',
-              hint: 'Pick a branch',
-              value: branchId,
-              options: <PickerOption<String>>[
-                for (final String id in options)
-                  PickerOption<String>(
-                    value: id,
-                    label: names[id] ?? 'Branch ${id.substring(0, 8)}',
-                  ),
+    final SaleFigures figures = SaleFigures(
+      emptyHint: 'Pick a plan to see the total.',
+      headline: plan == null ? null : '${plan.name} · ${planTermLabel(plan)}',
+      detail: projection == null
+          ? null
+          : 'New period ${_periodLabel(projection.startDate, projection.endDate)}',
+      totalPaisa: projection?.totalPaisa,
+      paidPaisa: projection?.amountPaidPaisa,
+      duePaisa: projection?.duePaisa,
+      lines: projection == null
+          ? const <SummaryLine>[]
+          : <SummaryLine>[
+              SummaryLine(
+                'Plan price',
+                projection.subtotalPaisa - projection.signupFeePaisa,
+              ),
+              if (projection.signupFeePaisa > 0)
+                SummaryLine('Joining fee', projection.signupFeePaisa),
+              if (feeSplit.waived > 0) ...<SummaryLine>[
+                SummaryLine('Joining fee', feeSplit.waived),
+                SummaryLine(
+                  'Joining fee waived',
+                  feeSplit.waived,
+                  negative: true,
+                ),
               ],
-              onChanged: (String? value) => setState(() {
-                _branchId = value;
-                // The catalogue is per branch, so a branch change invalidates
-                // a plan chosen at the previous one.
-                _plan = null;
-              }),
-              validator: (String? v) => v == null ? 'Pick a branch.' : null,
-            ),
-            const SizedBox(height: Brand.spaceMd),
-          ],
+              if (projection.discountPaisa > 0)
+                SummaryLine(
+                  'Discount',
+                  projection.discountPaisa,
+                  negative: true,
+                ),
+            ],
+    );
 
-          plans.when(
-            skipLoadingOnRefresh: false,
-            loading: () => const Padding(
-              padding: EdgeInsets.all(Brand.spaceMd),
-              child: LinearProgressIndicator(),
-            ),
-            // A catalogue that failed to load must never look like a gym with
-            // no plans -- that reads as "nothing to sell" and stops the sale
-            // for the wrong reason.
-            error: (Object error, StackTrace stackTrace) => _InlineFailure(
-              failure: mapError(error, stackTrace),
-              onRetry: branchId == null
-                  ? null
-                  : () => ref.invalidate(sellablePlansProvider(branchId)),
-            ),
-            data: (List<MembershipPlan> rows) => rows.isEmpty
-                ? const EmptyView(
-                    message: 'No plans are on sale at this branch.',
-                    icon: Icons.sell_outlined,
-                  )
-                : PickerField<MembershipPlan>(
-                    // Keyed by branch: a FormField keeps its own value after
-                    // the first build, so a branch change — which clears
-                    // `_plan` — has to rebuild the field rather than leave the
-                    // old plan's name sitting in it.
-                    key: ValueKey<String>('renew-plan-$branchId'),
-                    label: 'Plan',
-                    sheetTitle: 'Pick a plan',
-                    hint: 'Pick a plan',
-                    value: _plan,
-                    options: <PickerOption<MembershipPlan>>[
-                      for (final MembershipPlan item in rows)
-                        PickerOption<MembershipPlan>(
-                          value: item,
-                          label: item.name,
-                          subtitle: <String>[
-                            planTermLabel(item),
-                            formatMoney(item.pricePaisa),
-                            if (item.signupFeePaisa > 0)
-                              '+ ${formatMoney(item.signupFeePaisa)} joining fee',
-                          ].join(' · '),
+    final Widget form = Form(
+      key: _form,
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.all(Brand.spaceMd),
+        // A column, not a lazy list: every field stays mounted, so
+        // `Form.validate()` reaches all of them however far the desk scrolled.
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _CurrentPeriod(current: _currentMembership(existing)),
+            const SizedBox(height: Brand.spaceLg),
+            FormSection(
+              title: 'Plan',
+              children: <Widget>[
+                if (options.length > 1)
+                  PickerField<String>(
+                    key: const ValueKey<String>('renew-branch'),
+                    label: 'Branch',
+                    sheetTitle: 'Which branch is this sold at?',
+                    hint: 'Pick a branch',
+                    value: branchId,
+                    options: <PickerOption<String>>[
+                      for (final String id in options)
+                        PickerOption<String>(
+                          value: id,
+                          label: names[id] ?? 'Branch ${id.substring(0, 8)}',
                         ),
                     ],
-                    onChanged: _choosePlan,
-                    validator: (MembershipPlan? v) =>
-                        v == null ? 'Pick a plan.' : null,
+                    onChanged: (String? value) => setState(() {
+                      _branchId = value;
+                      // The catalogue is per branch, so a branch change
+                      // invalidates a plan chosen at the previous one.
+                      _plan = null;
+                    }),
+                    validator: (String? v) =>
+                        v == null ? 'Pick a branch.' : null,
                   ),
-          ),
-
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            key: const ValueKey<String>('renew-discount'),
-            controller: _discount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Discount',
-              prefixText: 'NPR ',
-            ),
-            onChanged: _changeDiscount,
-            validator: rupeeValidator,
-          ),
-          // Only once money is actually coming off. The RPC refuses a discount
-          // without a reason and a reason without a discount with equal force
-          // (`20260910130100_discount_reason_rpcs.sql`), so the field appears
-          // and disappears with the amount.
-          if (paisaOrZero(_discount.text) > 0) ...<Widget>[
-            const SizedBox(height: Brand.spaceMd),
-            PickerField<DiscountReason>(
-              key: const ValueKey<String>('renew-discount-reason'),
-              label: 'Reason for the discount',
-              sheetTitle: 'Why the discount?',
-              hint: 'Pick a reason',
-              value: _discountReason,
-              options: <PickerOption<DiscountReason>>[
-                for (final DiscountReason reason in DiscountReason.values)
-                  PickerOption<DiscountReason>(
-                    value: reason,
-                    label: discountReasonLabel(reason),
+                plans.when(
+                  skipLoadingOnRefresh: false,
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(Brand.spaceMd),
+                    child: LinearProgressIndicator(),
                   ),
-              ],
-              onChanged: (DiscountReason? value) =>
-                  setState(() => _discountReason = value),
-              validator: (DiscountReason? v) => v == null
-                  ? 'A discount the gym cannot explain later is one nobody '
-                        'can question now.'
-                  : null,
-            ),
-          ],
-          if (paisaOrZero(_discount.text) > 0 &&
-              _discountReason == DiscountReason.other) ...<Widget>[
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              key: const ValueKey<String>('renew-discount-note'),
-              controller: _discountNote,
-              maxLength: 120,
-              decoration: const InputDecoration(
-                labelText: 'Describe the reason',
-                helperText: 'Prints on the invoice',
-              ),
-              validator: (String? v) => (v?.trim().isEmpty ?? true)
-                  ? 'Describe the discount reason.'
-                  : null,
-            ),
-          ],
-          const SizedBox(height: Brand.spaceMd),
-          PaymentStatusChoice(value: _payment, onChanged: _choosePayment),
-          if (_payment == PaymentStatus.unpaid)
-            // Nothing is sent, so nothing is recorded: the RPC raises the
-            // invoice with the whole amount outstanding, and it shows on the
-            // profile and in the arrears report straight away.
-            Text(
-              'The invoice is raised in full and the whole amount shows as '
-              'due. Record the payment from their profile when it comes in.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            )
-          else ...<Widget>[
-            TextFormField(
-              key: const ValueKey<String>('renew-amount-paid'),
-              controller: _amountPaid,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              // Paid in full means the price after the discount, and the field
-              // follows the choice rather than the other way round — so a
-              // cashier cannot leave a stale part-payment behind by switching
-              // back to full.
-              readOnly: _payment == PaymentStatus.full,
-              decoration: InputDecoration(
-                labelText: 'Paid now',
-                prefixText: 'NPR ',
-                helperText: _payment == PaymentStatus.full
-                    ? 'The full price after any discount'
-                    : 'What actually came in',
-              ),
-              onChanged: (_) => setState(() {}),
-              validator: rupeeValidator,
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            PickerField<PaymentMethod>(
-              key: const ValueKey<String>('renew-method'),
-              label: 'Payment method',
-              sheetTitle: 'How did it come in?',
-              value: _method,
-              options: <PickerOption<PaymentMethod>>[
-                for (final PaymentMethod m in PaymentMethod.values)
-                  PickerOption<PaymentMethod>(
-                    value: m,
-                    label: paymentMethodLabel(m),
-                    icon: _methodIcon(m),
-                  ),
-              ],
-              onChanged: (PaymentMethod? v) =>
-                  setState(() => _method = v ?? PaymentMethod.cash),
-            ),
-            // Required only once money has actually moved on a rail that
-            // issues a transaction id — that id is what reconciles this drawer
-            // against the wallet's statement.
-            if (methodNeedsReference(_method) &&
-                paisaOrZero(_amountPaid.text) > 0) ...<Widget>[
-              const SizedBox(height: Brand.spaceMd),
-              TextFormField(
-                key: const ValueKey<String>('renew-reference'),
-                controller: _reference,
-                decoration: InputDecoration(
-                  labelText: '${paymentMethodLabel(_method)} reference no.',
+                  // A catalogue that failed to load must never look like a gym
+                  // with no plans -- that reads as "nothing to sell" and stops
+                  // the sale for the wrong reason.
+                  error: (Object error, StackTrace stackTrace) {
+                    final AppFailure failure = mapError(error, stackTrace);
+                    return FormProblem(
+                      message: failure.message,
+                      // A refusal repeats identically, so retrying it only
+                      // implies the desk did something wrong.
+                      onRetry: branchId == null || failure.isRefusal
+                          ? null
+                          : () =>
+                                ref.invalidate(sellablePlansProvider(branchId)),
+                    );
+                  },
+                  data: (List<MembershipPlan> rows) => rows.isEmpty
+                      ? const EmptyView(
+                          message: 'No plans are on sale at this branch.',
+                          icon: Icons.sell_outlined,
+                        )
+                      : PickerField<MembershipPlan>(
+                          // Keyed by branch: a FormField keeps its own value
+                          // after the first build, so a branch change — which
+                          // clears `_plan` — has to rebuild the field rather
+                          // than leave the old plan's name sitting in it.
+                          key: ValueKey<String>('renew-plan-$branchId'),
+                          label: 'Plan',
+                          sheetTitle: 'Pick a plan',
+                          hint: 'Pick a plan',
+                          value: _plan,
+                          options: <PickerOption<MembershipPlan>>[
+                            for (final MembershipPlan item in rows)
+                              PickerOption<MembershipPlan>(
+                                value: item,
+                                label: item.name,
+                                subtitle: <String>[
+                                  planTermLabel(item),
+                                  formatMoney(item.pricePaisa),
+                                  if (item.signupFeePaisa > 0)
+                                    '+ ${formatMoney(item.signupFeePaisa)} joining fee',
+                                ].join(' · '),
+                              ),
+                          ],
+                          onChanged: _choosePlan,
+                          validator: (MembershipPlan? v) =>
+                              v == null ? 'Pick a plan.' : null,
+                        ),
                 ),
-                validator: _referenceValidator,
-              ),
-            ],
-          ],
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            controller: _notes,
-            maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Notes (optional)'),
-          ),
-          const SizedBox(height: Brand.spaceMd),
-          _StartDateField(
-            value: _startDate,
-            onPick: (DateTime? picked) => setState(() => _startDate = picked),
-          ),
-
-          if (projection != null) ...<Widget>[
-            const SizedBox(height: Brand.spaceLg),
-            _RenewalSummary(
-              projection: projection,
-              // Zero while the read is in flight or if it failed: the waiver
-              // is a memo, and a sale must not wait on it or break without it.
-              feeSplit: signupFeeSplit(
-                planSignupFeePaisa: plan!.signupFeePaisa,
-                orgStandardFeePaisa:
-                    ref.watch(orgStandardSignupFeeProvider).value ?? 0,
-                // The membership history, not the projected fee. Inferring it
-                // from `projection.signupFeePaisa > 0` was wrong for a plan
-                // priced without a joining fee: the projection charges zero
-                // either way, so a renewal of such a plan read as "not their
-                // first" — and then showed a waiver line for a fee the member
-                // had in fact already paid years ago. The RPC's own test is
-                // "does this member have any membership at all".
-                isFirstMembership: existing.isEmpty,
-              ),
+                PlainDateField(
+                  label: 'Start date',
+                  helper:
+                      'Leave blank to follow on from the current membership, '
+                      "or start on this gym's own today. The gym's calendar "
+                      'sets the final dates.',
+                  emptyText: 'Decided by the gym',
+                  allowFuture: true,
+                  yearsBack: 2,
+                  pickKey: const ValueKey<String>('renew-start-date'),
+                  value: _startDate,
+                  onPick: (DateTime? picked) =>
+                      setState(() => _startDate = picked),
+                ),
+              ],
             ),
+            sectionGap,
+            FormSection(
+              title: 'Payment',
+              children: <Widget>[
+                TextFormField(
+                  key: const ValueKey<String>('renew-discount'),
+                  controller: _discount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Discount',
+                    helperText: 'Optional. Taken off the price.',
+                    prefixText: 'NPR ',
+                  ),
+                  onChanged: _changeDiscount,
+                  validator: rupeeValidator,
+                ),
+                // Only once money is actually coming off. The RPC refuses a
+                // discount without a reason and a reason without a discount
+                // with equal force (`20260910130100_discount_reason_rpcs.sql`),
+                // so the field appears and disappears with the amount.
+                if (paisaOrZero(_discount.text) > 0)
+                  PickerField<DiscountReason>(
+                    key: const ValueKey<String>('renew-discount-reason'),
+                    label: 'Reason for the discount',
+                    sheetTitle: 'Why the discount?',
+                    hint: 'Pick a reason',
+                    value: _discountReason,
+                    options: <PickerOption<DiscountReason>>[
+                      for (final DiscountReason reason in DiscountReason.values)
+                        PickerOption<DiscountReason>(
+                          value: reason,
+                          label: discountReasonLabel(reason),
+                        ),
+                    ],
+                    onChanged: (DiscountReason? value) =>
+                        setState(() => _discountReason = value),
+                    validator: (DiscountReason? v) => v == null
+                        ? 'A discount the gym cannot explain later is one '
+                              'nobody can question now.'
+                        : null,
+                  ),
+                if (paisaOrZero(_discount.text) > 0 &&
+                    _discountReason == DiscountReason.other)
+                  TextFormField(
+                    key: const ValueKey<String>('renew-discount-note'),
+                    controller: _discountNote,
+                    maxLength: 120,
+                    decoration: const InputDecoration(
+                      labelText: 'Describe the reason',
+                      helperText: 'Prints on the invoice',
+                    ),
+                    validator: (String? v) => (v?.trim().isEmpty ?? true)
+                        ? 'Describe the discount reason.'
+                        : null,
+                  ),
+                PaymentStatusChoice(value: _payment, onChanged: _choosePayment),
+                if (_payment == PaymentStatus.unpaid)
+                  // Nothing is sent, so nothing is recorded: the RPC raises the
+                  // invoice with the whole amount outstanding, and it shows on
+                  // the profile and in the arrears report straight away.
+                  const FormNote(
+                    'The invoice is raised in full and the whole amount shows '
+                    'as due. Record the payment from their profile when it '
+                    'comes in.',
+                  )
+                else ...<Widget>[
+                  TextFormField(
+                    key: const ValueKey<String>('renew-amount-paid'),
+                    controller: _amountPaid,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    // Paid in full means the price after the discount, and the
+                    // field follows the choice rather than the other way round
+                    // — so a cashier cannot leave a stale part-payment behind
+                    // by switching back to full.
+                    readOnly: _payment == PaymentStatus.full,
+                    decoration: InputDecoration(
+                      labelText: 'Paid now',
+                      prefixText: 'NPR ',
+                      helperText: _payment == PaymentStatus.full
+                          ? 'The full price after any discount'
+                          : 'What actually came in',
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: rupeeValidator,
+                  ),
+                  PickerField<PaymentMethod>(
+                    key: const ValueKey<String>('renew-method'),
+                    label: 'Payment method',
+                    sheetTitle: 'How did it come in?',
+                    value: _method,
+                    options: <PickerOption<PaymentMethod>>[
+                      for (final PaymentMethod m in PaymentMethod.values)
+                        PickerOption<PaymentMethod>(
+                          value: m,
+                          label: paymentMethodLabel(m),
+                          icon: _methodIcon(m),
+                        ),
+                    ],
+                    onChanged: (PaymentMethod? v) =>
+                        setState(() => _method = v ?? PaymentMethod.cash),
+                  ),
+                  // Required only once money has actually moved on a rail that
+                  // issues a transaction id — that id is what reconciles this
+                  // drawer against the wallet's statement.
+                  if (methodNeedsReference(_method) &&
+                      paisaOrZero(_amountPaid.text) > 0)
+                    TextFormField(
+                      key: const ValueKey<String>('renew-reference'),
+                      controller: _reference,
+                      decoration: InputDecoration(
+                        labelText:
+                            '${paymentMethodLabel(_method)} reference no.',
+                        helperText:
+                            'The transaction id from the wallet or bank',
+                      ),
+                      validator: _referenceValidator,
+                    ),
+                ],
+                TextFormField(
+                  controller: _notes,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                  ),
+                ),
+              ],
+            ),
+            sectionGap,
+            SaleSummarySection(figures: figures),
+            const SizedBox(height: Brand.spaceMd),
           ],
-
-          const SizedBox(height: Brand.spaceLg),
-          FilledButton(
-            key: const ValueKey<String>('renew-submit'),
-            onPressed: saving ? null : () => _submit(existing),
-            child: Text(saving ? 'Saving…' : 'Record renewal'),
-          ),
-          const SizedBox(height: Brand.spaceMd),
-        ],
+        ),
       ),
+    );
+
+    return Column(
+      children: <Widget>[
+        Expanded(child: form),
+        SaleSummaryBar(
+          key: const ValueKey<String>('renew-summary'),
+          submitKey: const ValueKey<String>('renew-submit'),
+          submitLabel: 'Record renewal',
+          busy: saving,
+          onSubmit: () => _submit(existing),
+          figures: figures,
+        ),
+      ],
     );
   }
 
@@ -679,10 +748,31 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
         ref
           ..invalidate(memberMembershipsProvider(widget.memberId))
           ..invalidate(memberInvoicesProvider(widget.memberId));
+        // Captured before the pop: the snackbar outlives this screen.
+        final DocumentActions documents = ref.read(documentActionsProvider);
+        final BuildContext rootContext = Navigator.of(
+          context,
+          rootNavigator: true,
+        ).context;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'Share / Print',
+                onPressed: () {
+                  if (!rootContext.mounted) {
+                    return;
+                  }
+                  showDocumentActionsSheet(
+                    rootContext,
+                    actions: documents,
+                    invoiceId: result.invoiceId,
+                    invoiceNo: result.invoiceNo,
+                  );
+                },
+              ),
               content: Text(
                 result.duePaisa == 0
                     ? 'Renewed to ${_periodLabel(result.startDate, result.endDate)} '
@@ -752,209 +842,48 @@ class _CurrentPeriod extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
     final Membership? row = current;
 
-    return Card(
-      key: const ValueKey<String>('renew-current-period'),
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('Running now', style: theme.textTheme.labelLarge),
-            const SizedBox(height: Brand.spaceXs),
-            if (row == null)
-              Text(
-                'No membership running. This will be their first, so the '
-                'joining fee applies.',
-                style: theme.textTheme.bodyMedium,
-              )
-            else ...<Widget>[
-              Text(row.planName, style: theme.textTheme.bodyLarge),
-              Text(
-                _periodLabel(row.startDate, row.endDate),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The sale, shown before it is recorded.
-class _RenewalSummary extends StatelessWidget {
-  const _RenewalSummary({required this.projection, required this.feeSplit});
-
-  final RenewalProjection projection;
-
-  /// What the joining fee comes to and what it lets off. The charged half is
-  /// already inside [RenewalProjection.signupFeePaisa]; the waived half is a
-  /// memo outside the total, printed so the desk can say out loud what the
-  /// invoice will say.
-  final ({int charged, int waived}) feeSplit;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Card(
-      key: const ValueKey<String>('renew-summary'),
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('New period', style: theme.textTheme.labelLarge),
-            const SizedBox(height: Brand.spaceXs),
-            Text(
-              _periodLabel(projection.startDate, projection.endDate),
-              style: theme.textTheme.titleMedium,
-            ),
-            const SizedBox(height: Brand.spaceXs),
-            Text(
-              // Honest about who decides. The RPC resolves the start date
-              // against the gym's own today, and a phone in the wrong
-              // timezone must not be allowed to promise otherwise.
-              'A projection. The gym\'s own calendar sets the final dates.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const Divider(height: Brand.spaceLg),
-            _row(
-              theme,
-              'Plan price',
-              projection.subtotalPaisa - projection.signupFeePaisa,
-            ),
-            if (projection.signupFeePaisa > 0)
-              _row(theme, 'Joining fee', projection.signupFeePaisa),
-            if (feeSplit.waived > 0) ...<Widget>[
-              _row(theme, 'Joining fee', feeSplit.waived),
-              _row(theme, 'Joining fee waived', -feeSplit.waived),
-            ],
-            if (projection.discountPaisa > 0)
-              _row(theme, 'Discount', -projection.discountPaisa),
-            _row(theme, 'Total', projection.totalPaisa),
-            _row(theme, 'Paid now', projection.amountPaidPaisa),
-            const Divider(),
-            _row(
-              theme,
-              'Outstanding',
-              projection.duePaisa,
-              emphasis: projection.duePaisa > 0,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(
-    ThemeData theme,
-    String label,
-    int paisa, {
-    bool emphasis = false,
-  }) {
-    final TextStyle? style = emphasis
-        ? theme.textTheme.titleMedium
-        : theme.textTheme.bodyMedium;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Brand.spaceXs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Text(label, style: style),
-          Text(formatMoney(paisa), style: style),
-        ],
-      ),
-    );
-  }
-}
-
-class _StartDateField extends StatelessWidget {
-  const _StartDateField({required this.value, required this.onPick});
-
-  final DateTime? value;
-  final ValueChanged<DateTime?> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: const InputDecoration(
-        labelText: 'Start date',
-        helperText:
-            'Leave blank to follow on from the current membership, or start '
-            "on this gym's own today",
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              value == null ? 'Decided by the gym' : formatPlainDate(value!),
-            ),
-          ),
-          if (value != null)
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Clear',
-              onPressed: () => onPick(null),
-            ),
-          IconButton(
-            key: const ValueKey<String>('renew-start-date'),
-            icon: const Icon(Icons.calendar_today_outlined),
-            tooltip: 'Pick a start date',
-            onPressed: () async {
-              final DateTime now = DateTime.now();
-              final DateTime? picked = await showDatePicker(
-                context: context,
-                initialDate: value ?? now,
-                firstDate: DateTime(now.year - 2),
-                lastDate: DateTime(now.year + 2),
-              );
-              if (picked != null) {
-                // Pinned to UTC midnight so no offset can move the day
-                // (`plain_date.dart`).
-                onPick(DateTime.utc(picked.year, picked.month, picked.day));
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A failure that replaces one field rather than the whole screen.
-class _InlineFailure extends StatelessWidget {
-  const _InlineFailure({required this.failure, required this.onRetry});
-
-  final AppFailure failure;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme scheme = Theme.of(context).colorScheme;
     return Container(
+      key: const ValueKey<String>('renew-current-period'),
       padding: const EdgeInsets.all(Brand.spaceMd),
       decoration: BoxDecoration(
-        color: scheme.errorContainer,
+        color: scheme.secondaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(Brand.radiusMedium),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Text(
-            failure.message,
-            style: TextStyle(color: scheme.onErrorContainer),
+            'Running now',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSecondaryContainer,
+            ),
           ),
-          // A refusal repeats identically, so retrying it only implies the
-          // desk did something wrong (`failure_snackbar.dart`).
-          if (!failure.isRefusal && onRetry != null)
-            TextButton(onPressed: onRetry, child: const Text('Try again')),
+          const SizedBox(height: Brand.spaceXs),
+          if (row == null)
+            Text(
+              'No membership running. This will be their first, so the '
+              'joining fee applies.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSecondaryContainer,
+              ),
+            )
+          else ...<Widget>[
+            Text(
+              row.planName,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+            Text(
+              _periodLabel(row.startDate, row.endDate),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSecondaryContainer,
+              ),
+            ),
+          ],
         ],
       ),
     );

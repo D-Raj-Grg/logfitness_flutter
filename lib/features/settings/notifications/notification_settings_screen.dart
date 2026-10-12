@@ -110,15 +110,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(Brand.spaceMd),
           children: <Widget>[
             Text(
-              'Which gateway carries your messages, when reminders go out, and '
-              'what they say.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: Brand.spaceSm),
-            Text(
-              'Every gym uses its own SMS account, so the credits and the sender '
-              'ID are yours. Tokens are stored encrypted and cannot be read back '
-              'from this screen, only replaced or cleared.',
+              'Choose how each channel sends, when reminders go out, and what '
+              'they say. Your gym uses its own SMS account, so the credits and '
+              'sender ID are yours. Tokens are stored encrypted and can be '
+              'replaced or cleared, never read back.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -174,23 +169,36 @@ class _ChannelTabs extends StatelessWidget {
                       // Two lines, so the default 46 is not enough: the state
                       // word sits under the channel name rather than beside
                       // it, which is what keeps three tabs on a phone.
-                      height: 56,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Text(notificationChannelLabel(channel)),
-                          Text(
-                            channelReadinessLabel(
-                              channelReadiness(
-                                settings.forChannel(channel),
-                                settings.tokenFor(settings.forChannel(channel)),
+                      height:
+                          56 *
+                          MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
+                      child: Builder(
+                        builder: (BuildContext context) {
+                          final ChannelReadiness readiness = channelReadiness(
+                            settings.forChannel(channel),
+                            settings.tokenFor(settings.forChannel(channel)),
+                          );
+                          final bool ok =
+                              readiness == ChannelReadiness.connected;
+                          final bool problem =
+                              readiness == ChannelReadiness.noToken;
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(notificationChannelLabel(channel)),
+                              Text(
+                                channelReadinessLabel(readiness),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: problem
+                                      ? theme.colorScheme.error
+                                      : ok
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
                               ),
-                            ),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                            ],
+                          );
+                        },
                       ),
                     ),
                 ],

@@ -22,6 +22,10 @@ import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/documents/document_actions_sheet.dart';
+import 'package:logfitness_flutter/features/documents/document_service.dart';
+import 'package:logfitness_flutter/features/common/picker_field.dart';
+import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart';
 import 'package:logfitness_flutter/features/payments/payment_queries.dart';
 import 'package:logfitness_flutter/features/payments/record_payment_controller.dart';
@@ -133,129 +137,189 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
     final bool saving = ref.watch(recordPaymentProvider);
     final bool overpaying = invoice != null && amountPaisa > invoice.duePaisa;
 
-    return Form(
+    final int afterPaisa = invoice == null
+        ? 0
+        : (invoice.duePaisa - amountPaisa).clamp(0, invoice.duePaisa);
+
+    final SaleFigures figures = SaleFigures(
+      emptyHint: 'Pick an invoice to see what is owed.',
+      headline: invoice?.invoiceNo,
+      detail: invoice == null
+          ? null
+          : 'Issued ${formatPlainDate(invoice.issuedOn)}',
+      totalLabel: 'Owed',
+      paidLabel: 'Taking now',
+      dueLabel: 'Left after',
+      totalPaisa: invoice?.duePaisa,
+      paidPaisa: amountPaisa,
+      duePaisa: afterPaisa,
+      lines: invoice == null
+          ? const <SummaryLine>[]
+          : <SummaryLine>[
+              SummaryLine('Invoice total', invoice.totalPaisa),
+              SummaryLine('Paid so far', invoice.paidPaisa),
+            ],
+    );
+
+    final Widget form = Form(
       key: _form,
-      child: ListView(
+      child: SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: const EdgeInsets.all(Brand.spaceMd),
-        children: <Widget>[
-          DropdownButtonFormField<String>(
-            key: const ValueKey<String>('payment-invoice'),
-            initialValue: _invoiceId,
-            decoration: const InputDecoration(labelText: 'Invoice'),
-            items: <DropdownMenuItem<String>>[
-              for (final Invoice item in invoices)
-                DropdownMenuItem<String>(
-                  value: item.id,
-                  child: Text(
-                    '${item.invoiceNo} · ${formatPlainDate(item.issuedOn)} · '
-                    '${formatMoney(item.duePaisa)} due',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            FormSection(
+              title: 'Invoice',
+              children: <Widget>[
+                PickerField<String>(
+                  key: const ValueKey<String>('payment-invoice'),
+                  label: 'Invoice',
+                  sheetTitle: 'Which invoice is this for?',
+                  hint: 'Pick an invoice',
+                  value: _invoiceId,
+                  options: <PickerOption<String>>[
+                    for (final Invoice item in invoices)
+                      PickerOption<String>(
+                        value: item.id,
+                        label: item.invoiceNo,
+                        subtitle:
+                            '${formatPlainDate(item.issuedOn)} · '
+                            '${formatMoney(item.duePaisa)} due',
+                      ),
+                  ],
+                  onChanged: (String? value) => setState(() {
+                    _invoiceId = value;
+                    final Invoice? next = _invoiceFor(invoices, value);
+                    if (next != null) {
+                      _amount.text = rupeesFromPaisa(next.duePaisa);
+                    }
+                  }),
+                  validator: (String? v) =>
+                      v == null ? 'Pick an invoice.' : null,
+                ),
+              ],
+            ),
+            sectionGap,
+            FormSection(
+              title: 'Payment',
+              children: <Widget>[
+                TextFormField(
+                  key: const ValueKey<String>('payment-amount'),
+                  controller: _amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount taken',
+                    prefixText: 'NPR ',
+                    helperText:
+                        'Starts at the full balance. Lower it for a part payment.',
+                    helperMaxLines: 2,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                  validator: (String? value) {
+                    final String? shape = rupeeValidator(value);
+                    if (shape != null) {
+                      return shape;
+                    }
+                    return paisaOrZero(value ?? '') <= 0
+                        // Matches the RPC: "A payment must be a positive
+                        // amount; use refund_payment to give money back."
+                        ? 'Enter the amount taken.'
+                        : null;
+                  },
+                ),
+                // Said, not enforced. The console's record-payment form does
+                // not clamp the amount either: `record_payment` raises
+                // "Payment exceeds the … outstanding on invoice …" as a
+                // `check_violation`, and that sentence — written for a person,
+                // naming the invoice and the figure — is better than anything
+                // this form could substitute. So the warning is a warning and
+                // the database stays the authority.
+                if (overpaying)
+                  const FormProblem(
+                    message:
+                        'That is more than this invoice has outstanding. The '
+                        'gym will refuse it.',
+                  ),
+                PickerField<PaymentMethod>(
+                  key: const ValueKey<String>('payment-method'),
+                  label: 'Payment method',
+                  sheetTitle: 'How did it come in?',
+                  value: _method,
+                  options: <PickerOption<PaymentMethod>>[
+                    for (final PaymentMethod m in PaymentMethod.values)
+                      PickerOption<PaymentMethod>(
+                        value: m,
+                        label: paymentMethodLabel(m),
+                        icon: _methodIcon(m),
+                      ),
+                  ],
+                  onChanged: (PaymentMethod? v) =>
+                      setState(() => _method = v ?? PaymentMethod.cash),
+                ),
+                TextFormField(
+                  key: const ValueKey<String>('payment-reference'),
+                  controller: _reference,
+                  decoration: InputDecoration(
+                    labelText: methodNeedsReference(_method)
+                        ? 'Reference no.'
+                        : 'Reference no. (optional)',
+                    helperText: methodNeedsReference(_method)
+                        ? 'The transaction id for the '
+                              '${paymentMethodLabel(_method)} payment'
+                        : null,
+                  ),
+                  validator: (String? value) =>
+                      methodNeedsReference(_method) &&
+                          (value?.trim().isEmpty ?? true)
+                      ? 'Enter the transaction reference.'
+                      : null,
+                ),
+                TextFormField(
+                  controller: _notes,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
                   ),
                 ),
-            ],
-            onChanged: (String? value) => setState(() {
-              _invoiceId = value;
-              final Invoice? next = _invoiceFor(invoices, value);
-              if (next != null) {
-                _amount.text = rupeesFromPaisa(next.duePaisa);
-              }
-            }),
-            validator: (String? v) => v == null ? 'Pick an invoice.' : null,
-          ),
-
-          if (invoice != null) ...<Widget>[
+              ],
+            ),
+            sectionGap,
+            SaleSummarySection(figures: figures),
             const SizedBox(height: Brand.spaceMd),
-            _OutstandingCard(invoice: invoice),
           ],
-
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            key: const ValueKey<String>('payment-amount'),
-            controller: _amount,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: 'Amount',
-              prefixText: 'NPR ',
-              // Said, not enforced. The console's record-payment form does
-              // not clamp the amount either: `record_payment` raises
-              // "Payment exceeds the … outstanding on invoice …" as a
-              // `check_violation`, and that sentence — written for a person,
-              // naming the invoice and the figure — is better than anything
-              // this form could substitute. So the warning is a warning and
-              // the database stays the authority.
-              helperText: overpaying
-                  ? 'That is more than this invoice has outstanding. The gym '
-                        'will refuse it.'
-                  : null,
-              helperMaxLines: 3,
-            ),
-            onChanged: (_) => setState(() {}),
-            validator: (String? value) {
-              final String? shape = rupeeValidator(value);
-              if (shape != null) {
-                return shape;
-              }
-              return paisaOrZero(value ?? '') <= 0
-                  // Matches the RPC: "A payment must be a positive amount;
-                  // use refund_payment to give money back."
-                  ? 'Enter the amount taken.'
-                  : null;
-            },
-          ),
-
-          const SizedBox(height: Brand.spaceMd),
-          DropdownButtonFormField<PaymentMethod>(
-            key: const ValueKey<String>('payment-method'),
-            initialValue: _method,
-            decoration: const InputDecoration(labelText: 'Method'),
-            items: <DropdownMenuItem<PaymentMethod>>[
-              for (final PaymentMethod m in PaymentMethod.values)
-                DropdownMenuItem<PaymentMethod>(
-                  value: m,
-                  child: Text(paymentMethodLabel(m)),
-                ),
-            ],
-            onChanged: (PaymentMethod? v) =>
-                setState(() => _method = v ?? PaymentMethod.cash),
-          ),
-
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            key: const ValueKey<String>('payment-reference'),
-            controller: _reference,
-            decoration: InputDecoration(
-              labelText: methodNeedsReference(_method)
-                  ? 'Reference no.'
-                  : 'Reference no. (optional)',
-              helperText: methodNeedsReference(_method)
-                  ? 'The transaction reference for the '
-                        '${paymentMethodLabel(_method)} payment'
-                  : null,
-            ),
-            validator: (String? value) =>
-                methodNeedsReference(_method) &&
-                    (value?.trim().isEmpty ?? true)
-                ? 'Enter the transaction reference.'
-                : null,
-          ),
-
-          const SizedBox(height: Brand.spaceMd),
-          TextFormField(
-            controller: _notes,
-            maxLines: 2,
-            decoration: const InputDecoration(labelText: 'Notes (optional)'),
-          ),
-
-          const SizedBox(height: Brand.spaceLg),
-          FilledButton(
-            key: const ValueKey<String>('payment-submit'),
-            onPressed: saving ? null : () => _submit(invoices),
-            child: Text(saving ? 'Saving…' : 'Record payment'),
-          ),
-          const SizedBox(height: Brand.spaceMd),
-        ],
+        ),
       ),
     );
+
+    return Column(
+      children: <Widget>[
+        Expanded(child: form),
+        SaleSummaryBar(
+          key: const ValueKey<String>('payment-outstanding'),
+          submitKey: const ValueKey<String>('payment-submit'),
+          submitLabel: 'Record payment',
+          busy: saving,
+          onSubmit: () => _submit(invoices),
+          figures: figures,
+        ),
+      ],
+    );
   }
+
+  /// An icon per rail, so the sheet is scannable at a counter.
+  static IconData _methodIcon(PaymentMethod method) => switch (method) {
+    PaymentMethod.cash => Icons.payments_outlined,
+    PaymentMethod.card => Icons.credit_card,
+    PaymentMethod.bank => Icons.account_balance_outlined,
+    PaymentMethod.esewa ||
+    PaymentMethod.khalti ||
+    PaymentMethod.fonepay => Icons.smartphone_outlined,
+  };
 
   static Invoice? _invoiceFor(List<Invoice> invoices, String? id) {
     for (final Invoice invoice in invoices) {
@@ -304,10 +368,33 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
         ref
           ..invalidate(memberInvoicesProvider(widget.memberId))
           ..invalidate(openInvoicesProvider(widget.memberId));
+        // Captured before the pop: the snackbar outlives this screen, and its
+        // action must not touch a disposed `ref` or `context`.
+        final DocumentActions documents = ref.read(documentActionsProvider);
+        final BuildContext rootContext = Navigator.of(
+          context,
+          rootNavigator: true,
+        ).context;
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'Share / Print',
+                onPressed: () {
+                  if (!rootContext.mounted) {
+                    return;
+                  }
+                  showDocumentActionsSheet(
+                    rootContext,
+                    actions: documents,
+                    paymentId: result.paymentId,
+                    invoiceId: result.invoiceId,
+                    invoiceNo: invoice.invoiceNo,
+                  );
+                },
+              ),
               content: Text(
                 // The figures come back from the invoice as the trigger left
                 // it, not from adding the amount to what this screen was
@@ -334,61 +421,5 @@ class _RecordPaymentScreenState extends ConsumerState<RecordPaymentScreen> {
   static String? _blankToNull(String value) {
     final String trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
-  }
-}
-
-/// What this invoice still owes, in front of the person about to take money
-/// for it.
-class _OutstandingCard extends StatelessWidget {
-  const _OutstandingCard({required this.invoice});
-
-  final Invoice invoice;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-
-    return Card(
-      key: const ValueKey<String>('payment-outstanding'),
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              '${invoice.invoiceNo} · issued '
-              '${formatPlainDate(invoice.issuedOn)}',
-              style: theme.textTheme.labelLarge,
-            ),
-            const SizedBox(height: Brand.spaceSm),
-            _row(theme, 'Invoice total', invoice.totalPaisa),
-            _row(theme, 'Paid so far', invoice.paidPaisa),
-            const Divider(),
-            _row(theme, 'Outstanding', invoice.duePaisa, emphasis: true),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(
-    ThemeData theme,
-    String label,
-    int paisa, {
-    bool emphasis = false,
-  }) {
-    final TextStyle? style = emphasis
-        ? theme.textTheme.titleMedium
-        : theme.textTheme.bodyMedium;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Brand.spaceXs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Text(label, style: style),
-          Text(formatMoney(paisa), style: style),
-        ],
-      ),
-    );
   }
 }

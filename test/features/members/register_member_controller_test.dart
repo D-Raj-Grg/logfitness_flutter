@@ -103,7 +103,6 @@ void main() {
       ],
     );
 
-
     // The screen holds this provider with `ref.watch`; without an equivalent
     // subscription here the notifier auto-disposes across the first await and
     // the test fails on a disposed Ref rather than on anything real.
@@ -143,10 +142,9 @@ void main() {
       homeBranchId: 'branch-1',
     );
 
-    final results = await Future.wait<RegisterOutcome>(<Future<RegisterOutcome>>[
-      first,
-      second,
-    ]);
+    final results = await Future.wait<RegisterOutcome>(
+      <Future<RegisterOutcome>>[first, second],
+    );
 
     expect(members.registerCallCount, 1);
     expect(results.whereType<RegisterSucceeded>(), hasLength(1));
@@ -170,26 +168,28 @@ void main() {
     expect(outcome.failure.kind, FailureKind.refused);
   });
 
-  test('a phone already in the org says so, not "record already exists"',
-      () async {
-    members.error = const PostgrestException(
-      message:
-          'duplicate key value violates unique constraint "members_org_phone_key"',
-      code: '23505',
-    );
+  test(
+    'a phone already in the org says so, not "record already exists"',
+    () async {
+      members.error = const PostgrestException(
+        message:
+            'duplicate key value violates unique constraint "members_org_phone_key"',
+        code: '23505',
+      );
 
-    final outcome = await notifier().submit(
-      fullName: 'Anjali Shrestha',
-      phone: '9800000000',
-      homeBranchId: 'branch-1',
-    );
+      final outcome = await notifier().submit(
+        fullName: 'Anjali Shrestha',
+        phone: '9800000000',
+        homeBranchId: 'branch-1',
+      );
 
-    expect(outcome, isA<RegisterFailed>());
-    expect(
-      (outcome as RegisterFailed).failure.message,
-      contains('already has that phone number'),
-    );
-  });
+      expect(outcome, isA<RegisterFailed>());
+      expect(
+        (outcome as RegisterFailed).failure.message,
+        contains('already has that phone number'),
+      );
+    },
+  );
 
   test('converting a walk-in registers, then links', () async {
     final outcome = await notifier().submit(

@@ -18,6 +18,11 @@ abstract class CurrentStaff with _$CurrentStaff {
     required String email,
     required StaffRole role,
     required List<String> branchIds,
+
+    /// The registered name, when it differs from [orgName]. Nullable and
+    /// defaulted so an older `current_staff()` that does not return it still
+    /// parses (`20260921093000_current_staff_knows_the_registered_name.sql`).
+    String? orgLegalName,
   }) = _CurrentStaff;
 
   factory CurrentStaff.fromJson(Map<String, dynamic> json) =>

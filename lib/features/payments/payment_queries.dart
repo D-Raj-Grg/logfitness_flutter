@@ -39,8 +39,7 @@ bool sameBranchIds(List<String>? a, List<String>? b) {
   return true;
 }
 
-int _branchIdsHash(List<String>? ids) =>
-    ids == null ? 0 : Object.hashAll(ids);
+int _branchIdsHash(List<String>? ids) => ids == null ? 0 : Object.hashAll(ids);
 
 /// Which day's drawer, over which branches.
 class CollectionQuery {
@@ -106,12 +105,12 @@ final memberMembershipsProvider =
     });
 
 /// One member's invoices, newest first.
-final memberInvoicesProvider =
-    FutureProvider.family<List<Invoice>, String>((ref, String memberId) {
-      return ref.watch(paymentsRepositoryProvider).listInvoicesForMember(
-        memberId,
-      );
-    });
+final memberInvoicesProvider = FutureProvider.family<List<Invoice>, String>((
+  ref,
+  String memberId,
+) {
+  return ref.watch(paymentsRepositoryProvider).listInvoicesForMember(memberId);
+});
 
 /// The invoices a payment can actually be collected against: something still
 /// outstanding, and not void.
@@ -119,18 +118,20 @@ final memberInvoicesProvider =
 /// Derived rather than filtered in the widget, so the screen's empty state
 /// ("nothing outstanding") is a property of the data and not of a `where`
 /// clause buried in a `build`.
-final openInvoicesProvider =
-    FutureProvider.family<List<Invoice>, String>((ref, String memberId) async {
-      final List<Invoice> all = await ref.watch(
-        memberInvoicesProvider(memberId).future,
-      );
-      return all
-          .where(
-            (Invoice invoice) =>
-                invoice.duePaisa > 0 && invoice.status != InvoiceStatus.voided,
-          )
-          .toList(growable: false);
-    });
+final openInvoicesProvider = FutureProvider.family<List<Invoice>, String>((
+  ref,
+  String memberId,
+) async {
+  final List<Invoice> all = await ref.watch(
+    memberInvoicesProvider(memberId).future,
+  );
+  return all
+      .where(
+        (Invoice invoice) =>
+            invoice.duePaisa > 0 && invoice.status != InvoiceStatus.voided,
+      )
+      .toList(growable: false);
+});
 
 /// Today's drawer, grouped by branch, collector, method and kind.
 final dailyCollectionProvider =
@@ -138,19 +139,17 @@ final dailyCollectionProvider =
       ref,
       CollectionQuery query,
     ) {
-      return ref.watch(paymentsRepositoryProvider).dailyCollection(
-        on: query.on,
-        branchIds: query.branchIds,
-      );
+      return ref
+          .watch(paymentsRepositoryProvider)
+          .dailyCollection(on: query.on, branchIds: query.branchIds);
     });
 
 /// Who owes money, aged by the database against the org's own today.
-final arrearsProvider =
-    FutureProvider.family<List<ArrearsRow>, ArrearsQuery>((
-      ref,
-      ArrearsQuery query,
-    ) {
-      return ref.watch(paymentsRepositoryProvider).arrearsReport(
-        branchIds: query.branchIds,
-      );
-    });
+final arrearsProvider = FutureProvider.family<List<ArrearsRow>, ArrearsQuery>((
+  ref,
+  ArrearsQuery query,
+) {
+  return ref
+      .watch(paymentsRepositoryProvider)
+      .arrearsReport(branchIds: query.branchIds);
+});

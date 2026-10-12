@@ -56,12 +56,12 @@ class MemberMessagesTab extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(
               Brand.spaceMd,
-              Brand.spaceMd,
+              Brand.spaceSm,
               Brand.spaceMd,
               Brand.spaceSm,
             ),
             child: Align(
-              alignment: Alignment.centerLeft,
+              alignment: Alignment.centerRight,
               child: FilledButton.tonalIcon(
                 key: const ValueKey<String>('member-messages-send'),
                 onPressed: () => showMemberMessageSheet(

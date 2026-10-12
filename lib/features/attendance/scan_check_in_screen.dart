@@ -26,23 +26,23 @@ import 'package:logfitness_flutter/data/attendance/attendance_rpc_results.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/features/attendance/check_in_controller.dart';
+import 'package:logfitness_flutter/features/attendance/check_in_screen.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 /// What to tell the desk when a scan is refused.
 String qrRefusalMessage(QrRefusal reason) => switch (reason) {
-      // The common one, and the only one that is nobody's fault: tokens are
-      // short-lived on purpose.
-      QrRefusal.expired =>
-        'That code has expired. Ask them to refresh it in their app.',
-      QrRefusal.malformed =>
-        'That is not a member code from this app.',
-      QrRefusal.badSignature =>
-        'That code could not be verified. Find the member by phone instead.',
-      QrRefusal.notVisible =>
-        'That member is not one this account can see. Check the branch you '
-            'are signed in to.',
-    };
+  // The common one, and the only one that is nobody's fault: tokens are
+  // short-lived on purpose.
+  QrRefusal.expired =>
+    'That code has expired. Ask them to refresh it in their app.',
+  QrRefusal.malformed => 'That is not a member code from this app.',
+  QrRefusal.badSignature =>
+    'That code could not be verified. Find the member by phone instead.',
+  QrRefusal.notVisible =>
+    'That member is not one this account can see. Check the branch you '
+        'are signed in to.',
+};
 
 class ScanCheckInScreen extends ConsumerStatefulWidget {
   const ScanCheckInScreen({super.key});
@@ -111,18 +111,43 @@ class _ScanCheckInScreenState extends ConsumerState<ScanCheckInScreen> {
               },
             ),
           ),
-          if (_lastResult != null || _lastMessage != null)
-            Padding(
+          SafeArea(
+            top: false,
+            child: Padding(
               padding: const EdgeInsets.all(Brand.spaceMd),
-              child: _ScanOutcome(
-                result: _lastResult,
-                message: _lastMessage,
-                onDismiss: () => setState(() {
-                  _lastResult = null;
-                  _lastMessage = null;
-                }),
-              ),
+              child: (_lastResult != null || _lastMessage != null)
+                  ? CheckInOutcomeCard(
+                      result: _lastResult,
+                      message: _lastMessage,
+                      onDismiss: () => setState(() {
+                        _lastResult = null;
+                        _lastMessage = null;
+                      }),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        if (_handling)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          const Icon(Icons.qr_code_scanner, size: 20),
+                        const SizedBox(width: Brand.spaceSm),
+                        Flexible(
+                          child: Text(
+                            _handling
+                                ? 'Checking…'
+                                : "Hold the member's QR code in view.",
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
+          ),
         ],
       ),
     );
@@ -134,7 +159,10 @@ class _ScanCheckInScreenState extends ConsumerState<ScanCheckInScreen> {
     }
     final String? token = capture.barcodes
         .map((Barcode b) => b.rawValue)
-        .firstWhere((String? v) => v != null && v.isNotEmpty, orElse: () => null);
+        .firstWhere(
+          (String? v) => v != null && v.isNotEmpty,
+          orElse: () => null,
+        );
     if (token == null) {
       return;
     }
@@ -152,8 +180,9 @@ class _ScanCheckInScreenState extends ConsumerState<ScanCheckInScreen> {
   Future<void> _verifyAndCheckIn(String token) async {
     final QrVerifyResult verified;
     try {
-      verified =
-          await ref.read(attendanceRepositoryProvider).verifyQrToken(token);
+      verified = await ref
+          .read(attendanceRepositoryProvider)
+          .verifyQrToken(token);
     } catch (error, stackTrace) {
       if (mounted) {
         showFailureSnackBar(context, mapError(error, stackTrace));
@@ -178,15 +207,19 @@ class _ScanCheckInScreenState extends ConsumerState<ScanCheckInScreen> {
     final scope = ref.read(branchScopeProvider);
     final branchId = scope.selectedBranchId ?? verified.homeBranchId;
     if (branchId == null) {
-      setState(() => _lastMessage =
-          'No branch is selected, so there is nowhere to record this visit.');
+      setState(
+        () => _lastMessage =
+            'No branch is selected, so there is nowhere to record this visit.',
+      );
       return;
     }
 
     // Verified only says who they are. The visit still goes through
     // `check_in_member`, so the banner and the dues reach the desk exactly as
     // they would for a member found by phone.
-    final outcome = await ref.read(checkInControllerProvider.notifier).checkIn(
+    final outcome = await ref
+        .read(checkInControllerProvider.notifier)
+        .checkIn(
           memberId: verified.memberId!,
           branchId: branchId,
           // Records how the visit was taken, which the attendance log shows.
@@ -213,51 +246,5 @@ class _ScanCheckInScreenState extends ConsumerState<ScanCheckInScreen> {
       case CheckInFailed(:final failure):
         showFailureSnackBar(context, failure);
     }
-  }
-}
-
-class _ScanOutcome extends StatelessWidget {
-  const _ScanOutcome({
-    required this.result,
-    required this.message,
-    required this.onDismiss,
-  });
-
-  final CheckInResult? result;
-  final String? message;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final attention = result?.needsAttention ?? true;
-    final background =
-        attention ? scheme.errorContainer : scheme.primaryContainer;
-    final foreground =
-        attention ? scheme.onErrorContainer : scheme.onPrimaryContainer;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(Brand.spaceMd),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(Brand.radiusMedium),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              message ??
-                  '${result?.member?.fullName ?? 'Member'} checked in',
-              style: TextStyle(color: foreground),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.close, color: foreground),
-            onPressed: onDismiss,
-          ),
-        ],
-      ),
-    );
   }
 }

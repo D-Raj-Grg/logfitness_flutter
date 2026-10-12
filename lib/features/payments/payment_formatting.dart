@@ -5,6 +5,8 @@
 // fractional amount survives it (CLAUDE.md: "Money is integer paisa in
 // `int`. Convert to a decimal exactly once, in the formatter at the render
 // boundary -- never in queries, totals, or business logic").
+import 'package:flutter/material.dart' show IconData, Icons;
+
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 
@@ -79,4 +81,15 @@ String paymentKindLabel(PaymentKind kind) => switch (kind) {
   PaymentKind.payment => 'Collected',
   PaymentKind.refund => 'Refunded',
   PaymentKind.reversal => 'Never received',
+};
+
+/// A glyph per rail, so a breakdown of methods scans without reading. The
+/// label always sits beside it; the icon is never the only signal.
+IconData paymentMethodIcon(PaymentMethod method) => switch (method) {
+  PaymentMethod.cash => Icons.payments_outlined,
+  PaymentMethod.esewa ||
+  PaymentMethod.khalti ||
+  PaymentMethod.fonepay => Icons.smartphone_outlined,
+  PaymentMethod.bank => Icons.account_balance_outlined,
+  PaymentMethod.card => Icons.credit_card_outlined,
 };

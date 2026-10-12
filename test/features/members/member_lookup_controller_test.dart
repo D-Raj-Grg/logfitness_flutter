@@ -52,9 +52,7 @@ void main() {
   setUp(() {
     repository = _FakeMembersRepository(<Member>[_member()]);
     container = ProviderContainer(
-      overrides: [
-        membersRepositoryProvider.overrideWithValue(repository),
-      ],
+      overrides: [membersRepositoryProvider.overrideWithValue(repository)],
     );
     addTearDown(container.dispose);
   });
@@ -71,11 +69,14 @@ void main() {
     expect(container.read(memberLookupProvider).value, hasLength(1));
   });
 
-  test('an empty query short-circuits without hitting the repository', () async {
-    await container.read(memberLookupProvider.future);
-    await container.read(memberLookupProvider.notifier).search('   ');
+  test(
+    'an empty query short-circuits without hitting the repository',
+    () async {
+      await container.read(memberLookupProvider.future);
+      await container.read(memberLookupProvider.notifier).search('   ');
 
-    expect(repository.lastQuery, isNull);
-    expect(container.read(memberLookupProvider).value, isEmpty);
-  });
+      expect(repository.lastQuery, isNull);
+      expect(container.read(memberLookupProvider).value, isEmpty);
+    },
+  );
 }

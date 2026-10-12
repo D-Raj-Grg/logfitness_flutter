@@ -167,10 +167,7 @@ void main() {
       // every status except `archived`, so anything but that filter keeps the
       // people the desk deliberately put away out of the list.
       expect(repository.lastQuery?.status, isNull);
-      expect(
-        repository.lastQuery?.status,
-        isNot(MemberListFilter.archived),
-      );
+      expect(repository.lastQuery?.status, isNot(MemberListFilter.archived));
     });
 
     testWidgets('only the Archived chip asks for archived members', (
@@ -246,7 +243,7 @@ void main() {
       expect(repository.lastBranchIds, <String>['branch-1']);
     });
 
-    testWidgets('the summary strip shows the status counts', (
+    testWidgets('the filter chips carry the status counts', (
       WidgetTester tester,
     ) async {
       final repository = _FakeMembersRepository(
@@ -263,9 +260,43 @@ void main() {
       );
       await _pump(tester, repository);
 
-      expect(find.text('12'), findsOneWidget);
-      expect(find.text('Active'), findsWidgets);
-      expect(find.text('With dues'), findsOneWidget);
+      // The counts live on the chips now (the separate summary strip was a
+      // second copy of the same five facts).
+      for (final String n in <String>['12', '3', '4', '1', '2']) {
+        expect(find.text(n), findsWidgets);
+      }
+      expect(
+        find.descendant(
+          of: find.byKey(memberFilterChipKey(MemberListFilter.active)),
+          matching: find.text('12'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a row does not overflow at 320dp and 2x text', (
+      WidgetTester tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(() {
+        tester.view.reset();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+      final repository = _FakeMembersRepository(
+        rows: <MemberOverview>[
+          _member(
+            'm-1',
+            name: 'Anjali Shrestha-Bajracharya of Thamel',
+            duePaisa: 150000,
+          ),
+        ],
+      );
+      FlutterError.onError = (d) => debugPrint(d.toString());
+      await _pump(tester, repository);
+
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('an empty list says so and offers the way out of it', (

@@ -23,6 +23,7 @@ import 'package:logfitness_flutter/features/common/payment_status_choice.dart';
 import 'package:logfitness_flutter/features/common/picker_field.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/members/register_member_controller.dart';
+import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 // Only the reference rule: `paymentMethodLabel` lives in `member_labels.dart`
 // and both libraries export it.
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart'
@@ -175,162 +176,275 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
         ? const AsyncValue<List<MembershipPlan>>.data(<MembershipPlan>[])
         : ref.watch(branchPlansProvider(_branchId!));
 
+    final MembershipPlan? plan = _plan;
+    final bool selling = _sellPlan;
+
+    final SaleFigures figures = SaleFigures(
+      emptyHint: selling
+          ? 'Pick a plan to see the total.'
+          : 'Registering without a membership.',
+      headline: selling && plan != null
+          ? '${plan.name} · ${planTermLabel(plan)}'
+          : null,
+      detail: selling && plan != null && _startDate != null
+          ? 'Starts ${formatPlainDate(_startDate!)}'
+          : null,
+      totalPaisa: selling && plan != null ? _totalPaisa : null,
+      paidPaisa: _paidPaisa,
+      duePaisa: _duePaisa,
+      lines: selling && plan != null ? _summaryLines(plan) : const [],
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
           widget.visitorId == null ? 'Register a member' : 'Register walk-in',
         ),
       ),
+      bottomNavigationBar: SaleSummaryBar(
+        submitKey: const ValueKey<String>('register-submit'),
+        submitLabel: selling ? 'Register and sell plan' : 'Register member',
+        busy: saving,
+        onSubmit: _submit,
+        figures: figures,
+      ),
       body: Form(
         key: _form,
-        child: ListView(
+        // A scroll view over a column, not a lazy ListView: every field stays
+        // mounted, so `Form.validate()` reaches all of them however far down
+        // the desk has scrolled.
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(Brand.spaceMd),
-          children: <Widget>[
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Full name'),
-              validator: (String? v) =>
-                  (v?.trim().isEmpty ?? true) ? 'A name is required.' : null,
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                // The identity anchor: unique per org, and how a returning
-                // member is found (PLANNING.md §5).
-                helperText: 'Unique for this gym',
-              ),
-              validator: (String? v) => (v?.trim().isEmpty ?? true)
-                  ? 'A phone number is required.'
-                  : null,
-            ),
-            if (options.length > 1) ...<Widget>[
-              const SizedBox(height: Brand.spaceMd),
-              DropdownButtonFormField<String>(
-                initialValue: _branchId,
-                decoration: const InputDecoration(labelText: 'Home branch'),
-                items: <DropdownMenuItem<String>>[
-                  for (final String id in options)
-                    DropdownMenuItem<String>(
-                      value: id,
-                      child: Text(names[id] ?? 'Branch ${id.substring(0, 8)}'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              FormSection(
+                title: 'Who',
+                children: <Widget>[
+                  TextFormField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[AutofillHints.name],
+                    decoration: const InputDecoration(labelText: 'Full name'),
+                    validator: (String? v) => (v?.trim().isEmpty ?? true)
+                        ? 'Enter the member’s name.'
+                        : null,
+                  ),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const <String>[
+                      AutofillHints.telephoneNumber,
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      // The identity anchor: unique per org, and how a returning
+                      // member is found (PLANNING.md §5).
+                      helperText:
+                          'How we find them again. Each phone is used once at '
+                          'this gym.',
+                      helperMaxLines: 2,
+                    ),
+                    validator: (String? v) => (v?.trim().isEmpty ?? true)
+                        ? 'Enter a phone number.'
+                        : null,
+                  ),
+                  if (options.length > 1)
+                    DropdownButtonFormField<String>(
+                      initialValue: _branchId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Home branch',
+                      ),
+                      items: <DropdownMenuItem<String>>[
+                        for (final String id in options)
+                          DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(
+                              names[id] ?? 'Branch ${id.substring(0, 8)}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (String? value) => setState(() {
+                        _branchId = value;
+                        // The plan list is per branch, so a branch change
+                        // invalidates a plan chosen at the previous one.
+                        _plan = null;
+                      }),
+                      validator: (String? v) =>
+                          v == null ? 'Pick a home branch.' : null,
                     ),
                 ],
-                onChanged: (String? value) => setState(() {
-                  _branchId = value;
-                  // The plan list is per branch, so a branch change
-                  // invalidates a plan chosen at the previous one.
-                  _plan = null;
-                }),
-                validator: (String? v) =>
-                    v == null ? 'Pick a home branch.' : null,
               ),
-            ],
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email (optional)'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            _DateField(
-              label: 'Date of birth (optional)',
-              value: _dateOfBirth,
-              onPick: (DateTime? picked) =>
-                  setState(() => _dateOfBirth = picked),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            DropdownButtonFormField<MemberGender>(
-              initialValue: _gender,
-              decoration: const InputDecoration(labelText: 'Gender (optional)'),
-              items: <DropdownMenuItem<MemberGender>>[
-                for (final MemberGender g in MemberGender.values)
-                  DropdownMenuItem<MemberGender>(
-                    value: g,
-                    child: Text(memberGenderLabel(g)),
+              const SizedBox(height: Brand.spaceMd),
+              // Everything the desk can skip at the counter and fill in later.
+              Theme(
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  key: const ValueKey<String>('register-more-details'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: Brand.spaceSm),
+                  title: const Text('More details'),
+                  subtitle: const Text(
+                    'Email, birthday, address, emergency contact. All optional.',
                   ),
+                  expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    const SizedBox(height: Brand.spaceSm),
+                    FormSection(
+                      title: 'Contact',
+                      children: <Widget>[
+                        TextFormField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const <String>[AutofillHints.email],
+                          decoration: const InputDecoration(labelText: 'Email'),
+                        ),
+                        TextFormField(
+                          controller: _address,
+                          textCapitalization: TextCapitalization.sentences,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'Address',
+                          ),
+                        ),
+                      ],
+                    ),
+                    sectionGap,
+                    FormSection(
+                      title: 'About them',
+                      children: <Widget>[
+                        PlainDateField(
+                          label: 'Date of birth',
+                          value: _dateOfBirth,
+                          initialYearsBack: 25,
+                          onPick: (DateTime? picked) =>
+                              setState(() => _dateOfBirth = picked),
+                        ),
+                        DropdownButtonFormField<MemberGender>(
+                          initialValue: _gender,
+                          decoration: const InputDecoration(
+                            labelText: 'Gender',
+                          ),
+                          items: <DropdownMenuItem<MemberGender>>[
+                            for (final MemberGender g in MemberGender.values)
+                              DropdownMenuItem<MemberGender>(
+                                value: g,
+                                child: Text(memberGenderLabel(g)),
+                              ),
+                          ],
+                          onChanged: (MemberGender? v) =>
+                              setState(() => _gender = v),
+                        ),
+                        TextFormField(
+                          controller: _notes,
+                          minLines: 2,
+                          maxLines: 4,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(labelText: 'Notes'),
+                        ),
+                      ],
+                    ),
+                    sectionGap,
+                    FormSection(
+                      title: 'Emergency contact',
+                      children: <Widget>[
+                        TextFormField(
+                          controller: _emergencyName,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(labelText: 'Name'),
+                        ),
+                        TextFormField(
+                          controller: _emergencyPhone,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(labelText: 'Phone'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              sectionGap,
+              FormSection(
+                title: 'Membership',
+                children: <Widget>[
+                  SwitchListTile(
+                    key: const ValueKey<String>('register-sell-plan'),
+                    contentPadding: EdgeInsets.zero,
+                    value: _sellPlan,
+                    onChanged: (bool value) => setState(() {
+                      _sellPlan = value;
+                      if (!value) {
+                        // A null plan registers only, and the RPC refuses money
+                        // or a start date without one — so turning the sale off
+                        // has to clear the sale, not just hide it.
+                        _plan = null;
+                        _discount.clear();
+                        _discountReason = null;
+                        _discountNote.clear();
+                        _amountPaid.clear();
+                        _reference.clear();
+                        _startDate = null;
+                        _payment = PaymentStatus.full;
+                      }
+                    }),
+                    title: const Text('Sell a plan now'),
+                    subtitle: const Text(
+                      'Leave off to register without a membership',
+                    ),
+                  ),
+                  if (_sellPlan) ..._planFields(plans),
+                ],
+              ),
+              if (_sellPlan && plan != null) ...<Widget>[
+                sectionGap,
+                FormSection(title: 'Payment', children: _paymentFields()),
               ],
-              onChanged: (MemberGender? v) => setState(() => _gender = v),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _address,
-              decoration: const InputDecoration(
-                labelText: 'Address (optional)',
-              ),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _emergencyName,
-              decoration: const InputDecoration(
-                labelText: 'Emergency contact name',
-              ),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _emergencyPhone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Emergency contact phone',
-              ),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _notes,
-              maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Notes (optional)'),
-            ),
-
-            const Divider(height: Brand.spaceXl),
-            SwitchListTile(
-              key: const ValueKey<String>('register-sell-plan'),
-              contentPadding: EdgeInsets.zero,
-              value: _sellPlan,
-              onChanged: (bool value) => setState(() {
-                _sellPlan = value;
-                if (!value) {
-                  // A null plan registers only, and the RPC refuses money or a
-                  // start date without one — so turning the sale off has to
-                  // clear the sale, not just hide it.
-                  _plan = null;
-                  _discount.clear();
-                  _discountReason = null;
-                  _discountNote.clear();
-                  _amountPaid.clear();
-                  _reference.clear();
-                  _startDate = null;
-                  _payment = PaymentStatus.full;
-                }
-              }),
-              title: const Text('Sell a plan now'),
-              subtitle: const Text(
-                'Leave off to register without a membership',
-              ),
-            ),
-
-            if (_sellPlan) ..._saleFields(plans),
-
-            const SizedBox(height: Brand.spaceLg),
-            FilledButton(
-              key: const ValueKey<String>('register-submit'),
-              onPressed: saving ? null : _submit,
-              child: Text(saving ? 'Saving…' : 'Register'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-          ],
+              sectionGap,
+              SaleSummarySection(figures: figures),
+              const SizedBox(height: Brand.spaceMd),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  List<Widget> _saleFields(AsyncValue<List<MembershipPlan>> plans) {
-    final bool takingMoney = _payment != PaymentStatus.unpaid;
+  List<SummaryLine> _summaryLines(MembershipPlan plan) {
+    // A member being registered has never paid a joining fee, so it always
+    // applies — no equivalent of the renew form's isFirstMembership flag is
+    // needed here.
+    final feeSplit = signupFeeSplit(
+      planSignupFeePaisa: plan.signupFeePaisa,
+      // Zero while the read is in flight or if it failed: the waiver is a
+      // memo, and a sale must not wait on it or break without it.
+      orgStandardFeePaisa: ref.watch(orgStandardSignupFeeProvider).value ?? 0,
+      isFirstMembership: true,
+    );
+    return <SummaryLine>[
+      SummaryLine(plan.name, plan.pricePaisa),
+      if (feeSplit.charged > 0) SummaryLine('Joining fee', feeSplit.charged),
+      // The waiver is a memo: it nets to nothing and leaves the total alone.
+      // It is shown so the desk can say out loud what the invoice will print.
+      if (feeSplit.waived > 0) ...<SummaryLine>[
+        SummaryLine('Joining fee', feeSplit.waived),
+        SummaryLine('Joining fee waived', feeSplit.waived, negative: true),
+      ],
+      if (_discountAppliedPaisa > 0)
+        SummaryLine('Discount', _discountAppliedPaisa, negative: true),
+    ];
+  }
 
+  List<Widget> _planFields(AsyncValue<List<MembershipPlan>> plans) {
     return <Widget>[
-      const SizedBox(height: Brand.spaceSm),
       plans.when(
         loading: () => const Padding(
           padding: EdgeInsets.all(Brand.spaceMd),
@@ -338,18 +452,19 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
         ),
         // A plan list that failed to load must not look like a gym with no
         // plans — that would push the desk into registering without a sale.
-        error: (Object error, StackTrace stackTrace) => _InlineFailure(
-          failure: mapError(error, stackTrace),
-          onRetry: () => ref.invalidate(branchPlansProvider(_branchId!)),
+        error: (Object error, StackTrace stackTrace) => FormProblem(
+          message: mapError(error, stackTrace).message,
+          onRetry: mapError(error, stackTrace).isRefusal
+              ? null
+              : () => ref.invalidate(branchPlansProvider(_branchId!)),
         ),
         // Two ways the list is legitimately empty, and neither should be
         // rendered as a picker with nothing in it: the branch is not chosen
         // yet (nothing was queried), and the branch genuinely sells nothing.
-        // Both used to look identical to a failed load.
         data: (List<MembershipPlan> rows) => _branchId == null
-            ? const _SaleNote('Pick a home branch to see its plans.')
+            ? const FormNote('Pick a home branch to see its plans.')
             : rows.isEmpty
-            ? const _SaleNote(
+            ? const FormNote(
                 'No plans are on sale at this branch. Add one on the web '
                 'console, or turn the sale off and register only.',
               )
@@ -384,12 +499,26 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
                     v == null ? 'Pick a plan, or turn the sale off.' : null,
               ),
       ),
-      const SizedBox(height: Brand.spaceMd),
+      PlainDateField(
+        label: 'Start date',
+        helper: "Leave blank to start today at this gym's own date",
+        emptyText: 'Today',
+        value: _startDate,
+        allowFuture: true,
+        onPick: (DateTime? picked) => setState(() => _startDate = picked),
+      ),
+    ];
+  }
+
+  List<Widget> _paymentFields() {
+    final bool takingMoney = _payment != PaymentStatus.unpaid;
+    return <Widget>[
       TextFormField(
         controller: _discount,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: const InputDecoration(
           labelText: 'Discount',
+          helperText: 'Optional. Taken off the price.',
           prefixText: 'NPR ',
         ),
         onChanged: _changeDiscount,
@@ -398,8 +527,7 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
       // Only once money is actually coming off. An empty reason sitting beside
       // an empty amount is a question nobody asked — and the RPC refuses a
       // reason without a discount just as firmly as the reverse.
-      if (_discountAppliedPaisa > 0) ...<Widget>[
-        const SizedBox(height: Brand.spaceMd),
+      if (_discountAppliedPaisa > 0)
         PickerField<DiscountReason>(
           key: const ValueKey<String>('register-discount-reason'),
           label: 'Reason for the discount',
@@ -420,10 +548,7 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
                     'question now.'
               : null,
         ),
-      ],
-      if (_discountAppliedPaisa > 0 &&
-          _discountReason == DiscountReason.other) ...[
-        const SizedBox(height: Brand.spaceMd),
+      if (_discountAppliedPaisa > 0 && _discountReason == DiscountReason.other)
         TextFormField(
           controller: _discountNote,
           maxLength: 120,
@@ -435,14 +560,12 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
               ? 'Describe the discount reason.'
               : null,
         ),
-      ],
-      const SizedBox(height: Brand.spaceMd),
       PaymentStatusChoice(value: _payment, onChanged: _choosePayment),
       if (!takingMoney)
         // Nothing is sent, so nothing is recorded: the RPC raises the invoice
         // with the full amount outstanding, and it shows as due on the profile
         // and in the arrears report the moment the desk looks.
-        const _SaleNote(
+        const FormNote(
           'The invoice is raised in full and the whole amount shows as due. '
           'Record the payment from their profile when it comes in.',
         )
@@ -466,7 +589,6 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
           onChanged: (_) => setState(() {}),
           validator: _moneyValidator,
         ),
-        const SizedBox(height: Brand.spaceMd),
         PickerField<PaymentMethod>(
           key: const ValueKey<String>('register-method'),
           label: 'Payment method',
@@ -490,48 +612,18 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
         // thing that reconciles this drawer against the wallet's statement —
         // so it is required once money has actually moved, and absent for
         // cash, where there is nothing to reconcile against.
-        if (methodNeedsReference(_method) && _paidPaisa > 0) ...<Widget>[
-          const SizedBox(height: Brand.spaceMd),
+        if (methodNeedsReference(_method) && _paidPaisa > 0)
           TextFormField(
             controller: _reference,
             decoration: InputDecoration(
               labelText: '${paymentMethodLabel(_method)} reference no.',
+              helperText: 'The transaction id from the wallet or bank',
             ),
             validator: (String? v) => (v?.trim().isEmpty ?? true)
                 ? 'A ${paymentMethodLabel(_method)} payment needs its '
                       'transaction reference.'
                 : null,
           ),
-        ],
-      ],
-      const SizedBox(height: Brand.spaceMd),
-      _DateField(
-        label: 'Start date',
-        helper: "Leave blank to start at this gym's own today",
-        value: _startDate,
-        allowFuture: true,
-        onPick: (DateTime? picked) => setState(() => _startDate = picked),
-      ),
-      if (_plan != null) ...<Widget>[
-        const SizedBox(height: Brand.spaceMd),
-        _SaleSummary(
-          plan: _plan!,
-          // A member being registered has never paid a joining fee, so it
-          // always applies — no equivalent of the renew form's
-          // isFirstMembership flag is needed here.
-          feeSplit: signupFeeSplit(
-            planSignupFeePaisa: _plan!.signupFeePaisa,
-            // Zero while the read is in flight or if it failed: the waiver is
-            // a memo, and a sale must not wait on it or break without it.
-            orgStandardFeePaisa:
-                ref.watch(orgStandardSignupFeeProvider).value ?? 0,
-            isFirstMembership: true,
-          ),
-          discountPaisa: _discountAppliedPaisa,
-          totalPaisa: _totalPaisa,
-          paidPaisa: _paidPaisa,
-          duePaisa: _duePaisa,
-        ),
       ],
     ];
   }
@@ -757,188 +849,5 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
   static String? _blankToNull(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
-  }
-}
-
-class _SaleSummary extends StatelessWidget {
-  const _SaleSummary({
-    required this.plan,
-    required this.feeSplit,
-    required this.discountPaisa,
-    required this.totalPaisa,
-    required this.paidPaisa,
-    required this.duePaisa,
-  });
-
-  final MembershipPlan plan;
-  final ({int charged, int waived}) feeSplit;
-  final int discountPaisa;
-  final int totalPaisa;
-  final int paidPaisa;
-  final int duePaisa;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          children: <Widget>[
-            _row(theme, plan.name, formatMoney(plan.pricePaisa)),
-            if (feeSplit.charged > 0)
-              _row(theme, 'Joining fee', formatMoney(feeSplit.charged)),
-            // The waiver is a memo: it nets to nothing and leaves the total
-            // alone. It is shown so the desk can say out loud what the invoice
-            // will print — the console's summary does the same.
-            if (feeSplit.waived > 0) ...<Widget>[
-              _row(theme, 'Joining fee', formatMoney(feeSplit.waived)),
-              _row(
-                theme,
-                'Joining fee waived',
-                '-${formatMoney(feeSplit.waived)}',
-              ),
-            ],
-            if (discountPaisa > 0)
-              _row(theme, 'Discount', '-${formatMoney(discountPaisa)}'),
-            const Divider(),
-            _row(theme, 'Total', formatMoney(totalPaisa)),
-            _row(theme, 'Paid now', formatMoney(paidPaisa)),
-            _row(
-              theme,
-              'Outstanding',
-              formatMoney(duePaisa),
-              emphasis: duePaisa > 0,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(
-    ThemeData theme,
-    String label,
-    String value, {
-    bool emphasis = false,
-  }) {
-    final style = emphasis
-        ? theme.textTheme.titleMedium
-        : theme.textTheme.bodyMedium;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Brand.spaceXs),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Expanded(child: Text(label, style: style)),
-          Text(value, style: style),
-        ],
-      ),
-    );
-  }
-}
-
-/// A sentence where the Plan dropdown would be, for the cases where there is
-/// nothing to choose between and nothing went wrong.
-class _SaleNote extends StatelessWidget {
-  const _SaleNote(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.all(Brand.spaceMd),
-      child: Text(
-        message,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineFailure extends StatelessWidget {
-  const _InlineFailure({required this.failure, required this.onRetry});
-
-  final AppFailure failure;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(Brand.spaceMd),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(Brand.radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            failure.message,
-            style: TextStyle(color: scheme.onErrorContainer),
-          ),
-          if (!failure.isRefusal)
-            TextButton(onPressed: onRetry, child: const Text('Try again')),
-        ],
-      ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  const _DateField({
-    required this.label,
-    required this.value,
-    required this.onPick,
-    this.helper,
-    this.allowFuture = false,
-  });
-
-  final String label;
-  final String? helper;
-  final DateTime? value;
-  final bool allowFuture;
-  final ValueChanged<DateTime?> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(labelText: label, helperText: helper),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(value == null ? 'Not set' : formatPlainDate(value!)),
-          ),
-          if (value != null)
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Clear',
-              onPressed: () => onPick(null),
-            ),
-          IconButton(
-            icon: const Icon(Icons.calendar_today_outlined),
-            tooltip: 'Pick a date',
-            onPressed: () async {
-              final now = DateTime.now();
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: value ?? now,
-                firstDate: DateTime(now.year - 100),
-                lastDate: allowFuture ? DateTime(now.year + 2) : now,
-              );
-              if (picked != null) {
-                // Pinned to UTC midnight so no offset can move the day.
-                onPick(DateTime.utc(picked.year, picked.month, picked.day));
-              }
-            },
-          ),
-        ],
-      ),
-    );
   }
 }

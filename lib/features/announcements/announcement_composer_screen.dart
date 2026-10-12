@@ -92,7 +92,9 @@ class _AnnouncementComposerScreenState
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
 
-    final AnnouncementAudienceQuery draft = ref.watch(announcementDraftProvider);
+    final AnnouncementAudienceQuery draft = ref.watch(
+      announcementDraftProvider,
+    );
     final AsyncValue<AnnouncementAudienceCount> count = ref.watch(
       announcementAudienceCountProvider,
     );
@@ -109,33 +111,13 @@ class _AnnouncementComposerScreenState
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           Brand.spaceMd,
+          Brand.spaceSm,
           Brand.spaceMd,
-          Brand.spaceMd,
-          Brand.spaceXl,
+          Brand.spaceLg,
         ),
         children: <Widget>[
-          Text(
-            'One message to everybody you pick. Sent now, or held until a date '
-            'you set.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: Brand.spaceMd),
-
-          TextField(
-            key: const ValueKey<String>('announcement-title'),
-            controller: _title,
-            enabled: !sending,
-            maxLength: 120,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              labelText: 'Title',
-              helperText: 'For your own log. It is not part of the message.',
-            ),
-          ),
-          const SizedBox(height: Brand.spaceSm),
-
+          // Step 1: who.
+          const _StepHeader(number: 1, title: 'Who gets it'),
           PickerField<AnnouncementAudience>(
             key: const ValueKey<String>('announcement-audience'),
             label: 'Send to',
@@ -157,12 +139,12 @@ class _AnnouncementComposerScreenState
               }
             },
           ),
-          const SizedBox(height: Brand.spaceSm),
 
           // Only when there is more than one thing to pick between. A desk at
           // one branch has nothing to choose, and the database resolves their
           // scope from their own claim anyway.
           if (scope.canSwitch && branches.length > 1) ...<Widget>[
+            const SizedBox(height: Brand.spaceSm),
             PickerField<String?>(
               key: const ValueKey<String>('announcement-branch'),
               label: 'Branch',
@@ -185,10 +167,10 @@ class _AnnouncementComposerScreenState
                   .read(announcementDraftProvider.notifier)
                   .setBranchId(branchId),
             ),
-            const SizedBox(height: Brand.spaceSm),
           ],
 
           if (draft.audience != AnnouncementAudience.visitors) ...<Widget>[
+            const SizedBox(height: Brand.spaceMd),
             Text('Members', style: theme.textTheme.labelLarge),
             const SizedBox(height: Brand.spaceXs),
             Wrap(
@@ -215,10 +197,10 @@ class _AnnouncementComposerScreenState
                 color: scheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: Brand.spaceSm),
           ],
 
           if (draft.audience != AnnouncementAudience.members) ...<Widget>[
+            const SizedBox(height: Brand.spaceMd),
             PickerField<int?>(
               key: const ValueKey<String>('announcement-visitor-window'),
               label: 'Visitors',
@@ -239,20 +221,23 @@ class _AnnouncementComposerScreenState
                   .read(announcementDraftProvider.notifier)
                   .setVisitorDays(days),
             ),
-            const SizedBox(height: Brand.spaceSm),
           ],
+          const SizedBox(height: Brand.spaceLg),
 
-          // Segments rather than characters is the number that turns into
-          // money, and "(Nepali)" is why 80 characters just became two
-          // messages.
-          Text(
-            '${_body.text.length} characters · ${segments.count} SMS'
-            '${segments.unicode ? ' (Nepali)' : ''}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+          // Step 2: what.
+          const _StepHeader(number: 2, title: 'What it says'),
+          TextField(
+            key: const ValueKey<String>('announcement-title'),
+            controller: _title,
+            enabled: !sending,
+            maxLength: 120,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Title',
+              helperText: 'For your own log. It is not part of the message.',
             ),
           ),
-          const SizedBox(height: Brand.spaceXs),
+          const SizedBox(height: Brand.spaceSm),
           TextField(
             key: const ValueKey<String>('announcement-body'),
             controller: _body,
@@ -268,21 +253,38 @@ class _AnnouncementComposerScreenState
                   'per person.',
             ),
           ),
-          const SizedBox(height: Brand.spaceSm),
-
-          SwitchListTile(
-            key: const ValueKey<String>('announcement-later'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Send it later'),
-            subtitle: Text(
-              _later && _scheduledFor != null
-                  ? 'Goes out ${formatDateTime(_scheduledFor!)}'
-                  : 'Hold it until a date and time you pick.',
+          // Segments rather than characters is the number that turns into
+          // money, and "(Nepali)" is why 80 characters just became two
+          // messages.
+          Text(
+            '${_body.text.length} characters · ${segments.count} SMS'
+            '${segments.unicode ? ' (Nepali)' : ''}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-            value: _later,
-            onChanged: sending
+          ),
+          const SizedBox(height: Brand.spaceMd),
+          _TestSendBlock(
+            controller: _testTo,
+            enabled: !sending && _body.text.trim().isNotEmpty,
+            onSend: _sendTest,
+          ),
+          const SizedBox(height: Brand.spaceLg),
+
+          // Step 3: when.
+          const _StepHeader(number: 3, title: 'When it goes'),
+          SegmentedButton<bool>(
+            key: const ValueKey<String>('announcement-later'),
+            showSelectedIcon: false,
+            segments: const <ButtonSegment<bool>>[
+              ButtonSegment<bool>(value: false, label: Text('Send now')),
+              ButtonSegment<bool>(value: true, label: Text('Send later')),
+            ],
+            selected: <bool>{_later},
+            onSelectionChanged: sending
                 ? null
-                : (bool on) {
+                : (Set<bool> next) {
+                    final bool on = next.first;
                     setState(() {
                       _later = on;
                       if (!on) _scheduledFor = null;
@@ -290,42 +292,60 @@ class _AnnouncementComposerScreenState
                     if (on) _pickSchedule();
                   },
           ),
+          const SizedBox(height: Brand.spaceSm),
           if (_later)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                key: const ValueKey<String>('announcement-pick-time'),
-                onPressed: sending ? null : _pickSchedule,
-                icon: const Icon(Icons.schedule_outlined),
-                label: Text(
-                  _scheduledFor == null ? 'Pick a time' : 'Change the time',
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    _scheduledFor != null
+                        ? 'Goes out ${formatDateTime(_scheduledFor!)}'
+                        : 'Pick a date and time.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ),
+                TextButton.icon(
+                  key: const ValueKey<String>('announcement-pick-time'),
+                  onPressed: sending ? null : _pickSchedule,
+                  icon: const Icon(Icons.schedule_outlined),
+                  label: Text(
+                    _scheduledFor == null ? 'Pick a time' : 'Change the time',
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              'Goes out as soon as you tap Send.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
               ),
             ),
-          const SizedBox(height: Brand.spaceSm),
-
-          _AudiencePanel(
-            count: count,
-            segments: segments.count,
-            hasBody: _body.text.trim().isNotEmpty,
-          ),
-          const SizedBox(height: Brand.spaceMd),
-
-          _TestSendBlock(
-            controller: _testTo,
-            enabled: !sending && _body.text.trim().isNotEmpty,
-            onSend: _sendTest,
-          ),
         ],
       ),
-      bottomNavigationBar: DockedAction(
-        label: sending
-            ? 'Queueing…'
-            : _later
-            ? 'Schedule it'
-            : 'Send to ${loaded?.reachable ?? 0}',
-        icon: Icons.campaign_outlined,
-        onPressed: _canSend(loaded, sending) ? _send : null,
+      // Count and credits sit directly on the button so the number is in view
+      // at the moment of the tap, whatever has been scrolled to.
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
+            child: _AudiencePanel(
+              count: count,
+              segments: segments.count,
+              hasBody: _body.text.trim().isNotEmpty,
+            ),
+          ),
+          DockedAction(
+            label: sending
+                ? 'Queueing…'
+                : _later
+                ? 'Schedule it'
+                : 'Send to ${loaded?.reachable ?? 0}',
+            icon: Icons.campaign_outlined,
+            onPressed: _canSend(loaded, sending) ? _send : null,
+          ),
+        ],
       ),
     );
   }
@@ -500,9 +520,14 @@ class _AudiencePanel extends StatelessWidget {
     return Container(
       key: const ValueKey<String>('announcement-audience-panel'),
       width: double.infinity,
-      padding: const EdgeInsets.all(Brand.spaceMd),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Brand.spaceMd,
+        vertical: Brand.spaceSm,
+      ),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
+        color: error != null
+            ? scheme.errorContainer
+            : scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(Brand.radiusMedium),
       ),
       child: Column(
@@ -511,7 +536,9 @@ class _AudiencePanel extends StatelessWidget {
           Text(
             headline,
             style: theme.textTheme.titleSmall?.copyWith(
-              color: error != null ? scheme.error : null,
+              color: error != null
+                  ? scheme.onErrorContainer
+                  : scheme.onSecondaryContainer,
             ),
           ),
           if (loaded != null && error == null) ...<Widget>[
@@ -524,7 +551,7 @@ class _AudiencePanel extends StatelessWidget {
                   '${loaded.unusable} with no usable number, logged as not sent',
               ].join(' · '),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+                color: scheme.onSecondaryContainer,
               ),
             ),
           ],
@@ -563,8 +590,7 @@ class _TestSendBlock extends StatelessWidget {
           Text('Send yourself one first', style: theme.textTheme.titleSmall),
           const SizedBox(height: Brand.spaceXs),
           Text(
-            'A variable that renders empty, or a Nepali sentence that arrives '
-            'as three messages, is obvious on a handset and invisible here.',
+            'Check how it looks on a real phone before it goes to everyone.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
             ),
@@ -590,6 +616,41 @@ class _TestSendBlock extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "1  Who gets it" — the numbered header of one step. The numbers are real:
+/// the three steps are done in order, top to bottom.
+class _StepHeader extends StatelessWidget {
+  const _StepHeader({required this.number, required this.title});
+
+  final int number;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Brand.spaceSm),
+      child: Row(
+        children: <Widget>[
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: scheme.primary,
+            child: Text(
+              '$number',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: Brand.spaceSm),
+          Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
         ],
       ),
     );

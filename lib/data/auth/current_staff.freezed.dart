@@ -15,7 +15,10 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CurrentStaff {
 
- String get staffId; String get orgId; String get orgName; String get fullName; String get email; StaffRole get role; List<String> get branchIds;
+ String get staffId; String get orgId; String get orgName; String get fullName; String get email; StaffRole get role; List<String> get branchIds;/// The registered name, when it differs from [orgName]. Nullable and
+/// defaulted so an older `current_staff()` that does not return it still
+/// parses (`20260921093000_current_staff_knows_the_registered_name.sql`).
+ String? get orgLegalName;
 /// Create a copy of CurrentStaff
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +31,16 @@ $CurrentStaffCopyWith<CurrentStaff> get copyWith => _$CurrentStaffCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is CurrentStaff&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.orgName, orgName) || other.orgName == orgName)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.branchIds, branchIds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is CurrentStaff&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.orgName, orgName) || other.orgName == orgName)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other.branchIds, branchIds)&&(identical(other.orgLegalName, orgLegalName) || other.orgLegalName == orgLegalName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,staffId,orgId,orgName,fullName,email,role,const DeepCollectionEquality().hash(branchIds));
+int get hashCode => Object.hash(runtimeType,staffId,orgId,orgName,fullName,email,role,const DeepCollectionEquality().hash(branchIds),orgLegalName);
 
 @override
 String toString() {
-  return 'CurrentStaff(staffId: $staffId, orgId: $orgId, orgName: $orgName, fullName: $fullName, email: $email, role: $role, branchIds: $branchIds)';
+  return 'CurrentStaff(staffId: $staffId, orgId: $orgId, orgName: $orgName, fullName: $fullName, email: $email, role: $role, branchIds: $branchIds, orgLegalName: $orgLegalName)';
 }
 
 
@@ -48,7 +51,7 @@ abstract mixin class $CurrentStaffCopyWith<$Res>  {
   factory $CurrentStaffCopyWith(CurrentStaff value, $Res Function(CurrentStaff) _then) = _$CurrentStaffCopyWithImpl;
 @useResult
 $Res call({
- String staffId, String orgId, String orgName, String fullName, String email, StaffRole role, List<String> branchIds
+ String staffId, String orgId, String orgName, String fullName, String email, StaffRole role, List<String> branchIds, String? orgLegalName
 });
 
 
@@ -65,7 +68,7 @@ class _$CurrentStaffCopyWithImpl<$Res>
 
 /// Create a copy of CurrentStaff
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? staffId = null,Object? orgId = null,Object? orgName = null,Object? fullName = null,Object? email = null,Object? role = null,Object? branchIds = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? staffId = null,Object? orgId = null,Object? orgName = null,Object? fullName = null,Object? email = null,Object? role = null,Object? branchIds = null,Object? orgLegalName = freezed,}) {
   return _then(_self.copyWith(
 staffId: null == staffId ? _self.staffId : staffId // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -74,7 +77,8 @@ as String,fullName: null == fullName ? _self.fullName : fullName // ignore: cast
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as StaffRole,branchIds: null == branchIds ? _self.branchIds : branchIds // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,orgLegalName: freezed == orgLegalName ? _self.orgLegalName : orgLegalName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
@@ -159,10 +163,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds,  String? orgLegalName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CurrentStaff() when $default != null:
-return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds);case _:
+return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds,_that.orgLegalName);case _:
   return orElse();
 
 }
@@ -180,10 +184,10 @@ return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.ema
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds,  String? orgLegalName)  $default,) {final _that = this;
 switch (_that) {
 case _CurrentStaff():
-return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds);case _:
+return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds,_that.orgLegalName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -200,10 +204,10 @@ return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.ema
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String staffId,  String orgId,  String orgName,  String fullName,  String email,  StaffRole role,  List<String> branchIds,  String? orgLegalName)?  $default,) {final _that = this;
 switch (_that) {
 case _CurrentStaff() when $default != null:
-return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds);case _:
+return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.email,_that.role,_that.branchIds,_that.orgLegalName);case _:
   return null;
 
 }
@@ -215,7 +219,7 @@ return $default(_that.staffId,_that.orgId,_that.orgName,_that.fullName,_that.ema
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class _CurrentStaff implements CurrentStaff {
-  const _CurrentStaff({required this.staffId, required this.orgId, required this.orgName, required this.fullName, required this.email, required this.role, required final  List<String> branchIds}): _branchIds = branchIds;
+  const _CurrentStaff({required this.staffId, required this.orgId, required this.orgName, required this.fullName, required this.email, required this.role, required final  List<String> branchIds, this.orgLegalName}): _branchIds = branchIds;
   factory _CurrentStaff.fromJson(Map<String, dynamic> json) => _$CurrentStaffFromJson(json);
 
 @override final  String staffId;
@@ -231,6 +235,10 @@ class _CurrentStaff implements CurrentStaff {
   return EqualUnmodifiableListView(_branchIds);
 }
 
+/// The registered name, when it differs from [orgName]. Nullable and
+/// defaulted so an older `current_staff()` that does not return it still
+/// parses (`20260921093000_current_staff_knows_the_registered_name.sql`).
+@override final  String? orgLegalName;
 
 /// Create a copy of CurrentStaff
 /// with the given fields replaced by the non-null parameter values.
@@ -245,16 +253,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CurrentStaff&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.orgName, orgName) || other.orgName == orgName)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._branchIds, _branchIds));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _CurrentStaff&&(identical(other.staffId, staffId) || other.staffId == staffId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.orgName, orgName) || other.orgName == orgName)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.email, email) || other.email == email)&&(identical(other.role, role) || other.role == role)&&const DeepCollectionEquality().equals(other._branchIds, _branchIds)&&(identical(other.orgLegalName, orgLegalName) || other.orgLegalName == orgLegalName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,staffId,orgId,orgName,fullName,email,role,const DeepCollectionEquality().hash(_branchIds));
+int get hashCode => Object.hash(runtimeType,staffId,orgId,orgName,fullName,email,role,const DeepCollectionEquality().hash(_branchIds),orgLegalName);
 
 @override
 String toString() {
-  return 'CurrentStaff(staffId: $staffId, orgId: $orgId, orgName: $orgName, fullName: $fullName, email: $email, role: $role, branchIds: $branchIds)';
+  return 'CurrentStaff(staffId: $staffId, orgId: $orgId, orgName: $orgName, fullName: $fullName, email: $email, role: $role, branchIds: $branchIds, orgLegalName: $orgLegalName)';
 }
 
 
@@ -265,7 +273,7 @@ abstract mixin class _$CurrentStaffCopyWith<$Res> implements $CurrentStaffCopyWi
   factory _$CurrentStaffCopyWith(_CurrentStaff value, $Res Function(_CurrentStaff) _then) = __$CurrentStaffCopyWithImpl;
 @override @useResult
 $Res call({
- String staffId, String orgId, String orgName, String fullName, String email, StaffRole role, List<String> branchIds
+ String staffId, String orgId, String orgName, String fullName, String email, StaffRole role, List<String> branchIds, String? orgLegalName
 });
 
 
@@ -282,7 +290,7 @@ class __$CurrentStaffCopyWithImpl<$Res>
 
 /// Create a copy of CurrentStaff
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? staffId = null,Object? orgId = null,Object? orgName = null,Object? fullName = null,Object? email = null,Object? role = null,Object? branchIds = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? staffId = null,Object? orgId = null,Object? orgName = null,Object? fullName = null,Object? email = null,Object? role = null,Object? branchIds = null,Object? orgLegalName = freezed,}) {
   return _then(_CurrentStaff(
 staffId: null == staffId ? _self.staffId : staffId // ignore: cast_nullable_to_non_nullable
 as String,orgId: null == orgId ? _self.orgId : orgId // ignore: cast_nullable_to_non_nullable
@@ -291,7 +299,8 @@ as String,fullName: null == fullName ? _self.fullName : fullName // ignore: cast
 as String,email: null == email ? _self.email : email // ignore: cast_nullable_to_non_nullable
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
 as StaffRole,branchIds: null == branchIds ? _self._branchIds : branchIds // ignore: cast_nullable_to_non_nullable
-as List<String>,
+as List<String>,orgLegalName: freezed == orgLegalName ? _self.orgLegalName : orgLegalName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

@@ -60,7 +60,8 @@ class CheckInSearch extends Notifier<AsyncValue<List<MemberOverview>>> {
 
     state = const AsyncValue<List<MemberOverview>>.loading();
     state = await AsyncValue.guard(
-      () => ref.read(membersRepositoryProvider).searchMembersForCheckIn(trimmed),
+      () =>
+          ref.read(membersRepositoryProvider).searchMembersForCheckIn(trimmed),
     );
   }
 
@@ -70,8 +71,8 @@ class CheckInSearch extends Notifier<AsyncValue<List<MemberOverview>>> {
 
 final checkInSearchProvider =
     NotifierProvider<CheckInSearch, AsyncValue<List<MemberOverview>>>(
-  CheckInSearch.new,
-);
+      CheckInSearch.new,
+    );
 
 /// Records check-ins. `true` while one is in flight.
 class CheckInController extends Notifier<bool> {
@@ -99,7 +100,9 @@ class CheckInController extends Notifier<bool> {
 
     state = true;
     try {
-      final result = await ref.read(attendanceRepositoryProvider).checkInMember(
+      final result = await ref
+          .read(attendanceRepositoryProvider)
+          .checkInMember(
             memberId: memberId,
             branchId: branchId,
             method: method,
@@ -119,5 +122,6 @@ class CheckInController extends Notifier<bool> {
   }
 }
 
-final checkInControllerProvider =
-    NotifierProvider<CheckInController, bool>(CheckInController.new);
+final checkInControllerProvider = NotifierProvider<CheckInController, bool>(
+  CheckInController.new,
+);

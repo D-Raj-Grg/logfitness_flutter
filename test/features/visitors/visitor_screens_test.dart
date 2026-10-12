@@ -443,6 +443,11 @@ void main() {
       final repository = _FakeVisitorsRepository();
       await _pump(tester, const VisitorFormScreen(), repository);
 
+      // The date and note now live under a collapsed "Add a note or change
+      // the date" row (minimal fields first), so open it before looking.
+      await tester.tap(find.text('Add a note or change the date'));
+      await tester.pumpAndSettle();
+
       expect(find.textContaining("this gym's own reckoning"), findsOneWidget);
     });
   });

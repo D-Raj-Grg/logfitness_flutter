@@ -223,11 +223,7 @@ class _MemberMessageSheetState extends ConsumerState<MemberMessageSheet> {
   Future<void> send() async {
     final SendMessageResult result = await ref
         .read(sendMessageProvider.notifier)
-        .toMember(
-          memberId: widget.memberId,
-          event: _event,
-          body: _body.text,
-        );
+        .toMember(memberId: widget.memberId, event: _event, body: _body.text);
     if (!mounted) return;
 
     switch (result) {

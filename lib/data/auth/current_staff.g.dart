@@ -17,6 +17,7 @@ _CurrentStaff _$CurrentStaffFromJson(Map<String, dynamic> json) =>
       branchIds: (json['branch_ids'] as List<dynamic>)
           .map((e) => e as String)
           .toList(),
+      orgLegalName: json['org_legal_name'] as String?,
     );
 
 Map<String, dynamic> _$CurrentStaffToJson(_CurrentStaff instance) =>
@@ -28,6 +29,7 @@ Map<String, dynamic> _$CurrentStaffToJson(_CurrentStaff instance) =>
       'email': instance.email,
       'role': _$StaffRoleEnumMap[instance.role]!,
       'branch_ids': instance.branchIds,
+      'org_legal_name': ?instance.orgLegalName,
     };
 
 const _$StaffRoleEnumMap = {

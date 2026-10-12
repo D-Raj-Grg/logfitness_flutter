@@ -48,7 +48,8 @@ class CollectorLines {
   final List<DailyCollectionRow> rows = <DailyCollectionRow>[];
 
   int get netPaisa => _sum(rows);
-  int get txnCount => rows.fold(0, (int a, DailyCollectionRow r) => a + r.txnCount);
+  int get txnCount =>
+      rows.fold(0, (int a, DailyCollectionRow r) => a + r.txnCount);
 }
 
 /// One branch's sheet: the three kinds kept apart, and the net that follows
@@ -75,8 +76,17 @@ class BranchCollection {
   /// summed independently, so the figures on screen can never disagree.
   int get netPaisa => collectedPaisa + refundedPaisa + neverReceivedPaisa;
 
-  int get txnCount => rows.fold(0, (int a, DailyCollectionRow r) => a + r.txnCount);
+  int get txnCount =>
+      rows.fold(0, (int a, DailyCollectionRow r) => a + r.txnCount);
+
+  /// What the cash box should hold: every cash line, takings and money back
+  /// alike. Digital rails never touch the box.
+  int get cashInBoxPaisa => _sumMethod(rows, PaymentMethod.cash);
 }
+
+int _sumMethod(List<DailyCollectionRow> rows, PaymentMethod method) => rows
+    .where((DailyCollectionRow r) => r.method == method)
+    .fold(0, (int a, DailyCollectionRow r) => a + r.amountPaisa);
 
 int _sum(List<DailyCollectionRow> rows) =>
     rows.fold(0, (int a, DailyCollectionRow r) => a + r.amountPaisa);
@@ -93,10 +103,8 @@ List<BranchCollection> groupCollection(List<DailyCollectionRow> rows) {
   for (final DailyCollectionRow row in rows) {
     final BranchCollection branch = branches.putIfAbsent(
       row.branchId,
-      () => BranchCollection(
-        branchId: row.branchId,
-        branchName: row.branchName,
-      ),
+      () =>
+          BranchCollection(branchId: row.branchId, branchName: row.branchName),
     );
     branch.rows.add(row);
 
@@ -118,11 +126,15 @@ List<BranchCollection> groupCollection(List<DailyCollectionRow> rows) {
   }
 
   final List<BranchCollection> ordered = branches.values.toList()
-    ..sort((BranchCollection a, BranchCollection b) =>
-        a.branchName.compareTo(b.branchName));
+    ..sort(
+      (BranchCollection a, BranchCollection b) =>
+          a.branchName.compareTo(b.branchName),
+    );
   for (final BranchCollection branch in ordered) {
-    branch.collectors.sort((CollectorLines a, CollectorLines b) =>
-        (a.staffName ?? '~').compareTo(b.staffName ?? '~'));
+    branch.collectors.sort(
+      (CollectorLines a, CollectorLines b) =>
+          (a.staffName ?? '~').compareTo(b.staffName ?? '~'),
+    );
   }
   return ordered;
 }
@@ -198,7 +210,7 @@ class _DayBar extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Brand.spaceMd,
-        Brand.spaceMd,
+        Brand.spaceSm,
         Brand.spaceSm,
         0,
       ),
@@ -208,6 +220,7 @@ class _DayBar extends StatelessWidget {
             child: Text(
               on == null ? 'Today' : formatPlainDate(on!),
               style: theme.textTheme.titleLarge,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (on != null)
@@ -241,6 +254,62 @@ class _DayBar extends StatelessWidget {
   }
 }
 
+/// The figures one drawer summary shows, whether for a branch or for all of
+/// them. [keyPrefix] keeps the value keys stable per scope.
+class _Totals {
+  const _Totals({
+    required this.title,
+    required this.keyPrefix,
+    required this.collected,
+    required this.refunded,
+    required this.neverReceived,
+    required this.net,
+    required this.cash,
+    required this.txnCount,
+    required this.rows,
+  });
+
+  factory _Totals.ofBranch(BranchCollection b) => _Totals(
+    title: b.branchName,
+    keyPrefix: 'collection-${b.branchId}',
+    collected: b.collectedPaisa,
+    refunded: b.refundedPaisa,
+    neverReceived: b.neverReceivedPaisa,
+    net: b.netPaisa,
+    cash: b.cashInBoxPaisa,
+    txnCount: b.txnCount,
+    rows: b.rows,
+  );
+
+  factory _Totals.ofAll(List<BranchCollection> all) {
+    int fold(int Function(BranchCollection) pick) =>
+        all.fold(0, (int a, BranchCollection b) => a + pick(b));
+    return _Totals(
+      title: 'All branches in scope',
+      keyPrefix: 'collection-total',
+      collected: fold((BranchCollection b) => b.collectedPaisa),
+      refunded: fold((BranchCollection b) => b.refundedPaisa),
+      neverReceived: fold((BranchCollection b) => b.neverReceivedPaisa),
+      net: fold((BranchCollection b) => b.netPaisa),
+      cash: fold((BranchCollection b) => b.cashInBoxPaisa),
+      txnCount: fold((BranchCollection b) => b.txnCount),
+      rows: <DailyCollectionRow>[
+        for (final BranchCollection b in all) ...b.rows,
+      ],
+    );
+  }
+
+  final String title;
+  final String keyPrefix;
+  final int collected;
+  final int refunded;
+  final int neverReceived;
+  final int net;
+  final int cash;
+  final int txnCount;
+  final List<DailyCollectionRow> rows;
+}
+
 class _Sheet extends StatelessWidget {
   const _Sheet({required this.branches});
 
@@ -251,73 +320,197 @@ class _Sheet extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(Brand.spaceMd),
       children: <Widget>[
-        for (final BranchCollection branch in branches) ...<Widget>[
-          _BranchCard(branch: branch),
-          const SizedBox(height: Brand.spaceMd),
+        // The org-wide figure leads when more than one branch is in scope.
+        if (branches.length > 1) ...<Widget>[
+          _Summary(
+            key: const ValueKey<String>('collection-grand-total'),
+            totals: _Totals.ofAll(branches),
+          ),
+          const SizedBox(height: Brand.spaceLg),
         ],
-        if (branches.length > 1) _GrandTotal(branches: branches),
+        for (final BranchCollection branch in branches) ...<Widget>[
+          _Summary(
+            key: ValueKey<String>('collection-branch-${branch.branchId}'),
+            totals: _Totals.ofBranch(branch),
+            collectors: branch.collectors,
+          ),
+          const SizedBox(height: Brand.spaceLg),
+        ],
       ],
     );
   }
 }
 
-class _BranchCard extends StatelessWidget {
-  const _BranchCard({required this.branch});
+/// One drawer summary: the net and the cash box first, then the four figures
+/// in a grid, then how it was paid, then who took it.
+///
+/// Refunded and never-received are always shown, zero or not: dropping a zero
+/// would make "no refunds today" look the same as "refunds not shown".
+class _Summary extends StatelessWidget {
+  const _Summary({required this.totals, this.collectors, super.key});
 
-  final BranchCollection branch;
+  final _Totals totals;
+  final List<CollectorLines>? collectors;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final String p = totals.keyPrefix;
 
     return Card(
-      key: ValueKey<String>('collection-branch-${branch.branchId}'),
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(Brand.spaceMd),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(branch.branchName, style: theme.textTheme.titleMedium),
-            const SizedBox(height: Brand.spaceSm),
-
-            // All four, always. Dropping the zero rows would make "no refunds
-            // today" look identical to "refunds not shown", which is the
-            // confusion this screen exists to prevent.
-            _Figure(
-              label: 'Collected',
-              paisa: branch.collectedPaisa,
-              valueKey: 'collection-${branch.branchId}-collected',
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    totals.title,
+                    style: theme.textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  '${totals.txnCount} '
+                  '${totals.txnCount == 1 ? 'transaction' : 'transactions'}',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-            _Figure(
-              label: 'Refunded (cash left the drawer)',
-              paisa: branch.refundedPaisa,
-              valueKey: 'collection-${branch.branchId}-refunded',
-            ),
-            _Figure(
-              label: 'Never received (rung up, never arrived)',
-              paisa: branch.neverReceivedPaisa,
-              valueKey: 'collection-${branch.branchId}-reversal',
-            ),
-            const Divider(),
-            _Figure(
-              label: 'Net in the drawer',
-              paisa: branch.netPaisa,
-              emphasis: true,
-              valueKey: 'collection-${branch.branchId}-net',
-            ),
-
             const SizedBox(height: Brand.spaceMd),
+
             Text(
-              '${branch.txnCount} '
-              '${branch.txnCount == 1 ? 'transaction' : 'transactions'}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              'Net collected',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  formatMoney(totals.net),
+                  key: ValueKey<String>('$p-net'),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: totals.net < 0 ? scheme.error : null,
+                    fontFeatures: const <FontFeature>[
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: Brand.spaceSm),
 
-            for (final CollectorLines collector in branch.collectors)
-              _CollectorBlock(collector: collector),
+            // The number the person counting the till is actually after.
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Brand.spaceMd - Brand.spaceXs,
+                vertical: Brand.spaceSm,
+              ),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(Brand.radiusMedium),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.payments_outlined,
+                    size: 20,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                  const SizedBox(width: Brand.spaceSm),
+                  Expanded(
+                    child: Text(
+                      'Expected cash in box',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Brand.spaceSm),
+                  Text(
+                    formatMoney(totals.cash),
+                    key: ValueKey<String>('$p-cash'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: scheme.onPrimaryContainer,
+                      fontFeatures: const <FontFeature>[
+                        FontFeature.tabularFigures(),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Brand.spaceMd),
+
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Expanded(
+                    child: _Kpi(
+                      label: 'Collected',
+                      caption: 'money in',
+                      paisa: totals.collected,
+                      valueKey: '$p-collected',
+                    ),
+                  ),
+                  const SizedBox(width: Brand.spaceSm),
+                  Expanded(
+                    child: _Kpi(
+                      label: 'Refunded',
+                      caption: 'cash left the drawer',
+                      paisa: totals.refunded,
+                      valueKey: '$p-refunded',
+                      problem: totals.refunded != 0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Brand.spaceSm),
+            _Kpi(
+              label: 'Never received',
+              caption: 'rung up, never arrived',
+              paisa: totals.neverReceived,
+              valueKey: '$p-reversal',
+              problem: totals.neverReceived != 0,
+              wide: true,
+            ),
+
+            const SizedBox(height: Brand.spaceLg),
+            Text('By method', style: theme.textTheme.titleSmall),
+            const SizedBox(height: Brand.spaceXs),
+            _MethodBreakdown(rows: totals.rows),
+
+            if (collectors != null && collectors!.isNotEmpty) ...<Widget>[
+              const SizedBox(height: Brand.spaceLg),
+              Text('By collector', style: theme.textTheme.titleSmall),
+              const SizedBox(height: Brand.spaceXs),
+              Theme(
+                // ExpansionTile draws its own top/bottom rules; the card
+                // already frames them.
+                data: theme.copyWith(dividerColor: scheme.surface.withAlpha(0)),
+                child: Column(
+                  children: <Widget>[
+                    for (final CollectorLines c in collectors!)
+                      _CollectorTile(
+                        collector: c,
+                        initiallyExpanded: collectors!.length == 1,
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -325,30 +518,216 @@ class _BranchCard extends StatelessWidget {
   }
 }
 
-class _CollectorBlock extends StatelessWidget {
-  const _CollectorBlock({required this.collector});
+/// A figure tile. A negative one is tinted as a problem and carries its minus
+/// sign: two signals, so a screenshot or a colour-blind reader still sees that
+/// it took money out.
+class _Kpi extends StatelessWidget {
+  const _Kpi({
+    required this.label,
+    required this.caption,
+    required this.paisa,
+    required this.valueKey,
+    this.problem = false,
+    this.wide = false,
+  });
 
-  final CollectorLines collector;
+  final String label;
+  final String caption;
+  final int paisa;
+  final String valueKey;
+  final bool problem;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final Color fg = problem ? scheme.onErrorContainer : scheme.onSurface;
+    final Color sub = problem
+        ? scheme.onErrorContainer
+        : scheme.onSurfaceVariant;
 
-    return Padding(
-      padding: const EdgeInsets.only(top: Brand.spaceSm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final Widget value = Text(
+      formatMoney(paisa),
+      key: ValueKey<String>(valueKey),
+      style: theme.textTheme.titleMedium?.copyWith(
+        color: fg,
+        fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+      ),
+    );
+    final Widget labels = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(label, style: theme.textTheme.labelLarge?.copyWith(color: fg)),
+        Text(caption, style: theme.textTheme.bodySmall?.copyWith(color: sub)),
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(Brand.spaceMd - Brand.spaceXs),
+      decoration: BoxDecoration(
+        color: problem ? scheme.errorContainer : scheme.surface,
+        borderRadius: BorderRadius.circular(Brand.radiusMedium),
+      ),
+      child: wide
+          ? Row(
+              children: <Widget>[
+                Expanded(child: labels),
+                const SizedBox(width: Brand.spaceSm),
+                value,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                labels,
+                const SizedBox(height: Brand.spaceXs),
+                FittedBox(fit: BoxFit.scaleDown, child: value),
+              ],
+            ),
+    );
+  }
+}
+
+/// Net per rail, with the money-back lines kept visible underneath rather than
+/// netted away.
+class _MethodBreakdown extends StatelessWidget {
+  const _MethodBreakdown({required this.rows});
+
+  final List<DailyCollectionRow> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final List<PaymentMethod> methods = <PaymentMethod>[
+      for (final PaymentMethod m in PaymentMethod.values)
+        if (rows.any((DailyCollectionRow r) => r.method == m)) m,
+    ];
+
+    return Column(
+      children: <Widget>[
+        for (final PaymentMethod m in methods)
+          Builder(
+            builder: (BuildContext context) {
+              final List<DailyCollectionRow> mine = rows
+                  .where((DailyCollectionRow r) => r.method == m)
+                  .toList();
+              final int net = _sum(mine);
+              final int txns = mine.fold(
+                0,
+                (int a, DailyCollectionRow r) => a + r.txnCount,
+              );
+              final int refunded = _sumOf(mine, PaymentKind.refund);
+              final int reversed = _sumOf(mine, PaymentKind.reversal);
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: Brand.spaceXs),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(
+                      paymentMethodIcon(m),
+                      size: 20,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: Brand.spaceSm + Brand.spaceXs),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            paymentMethodLabel(m),
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          Text(
+                            '$txns ${txns == 1 ? 'transaction' : 'transactions'}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (refunded != 0)
+                            Text(
+                              'Refunded ${formatMoney(refunded)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                          if (reversed != 0)
+                            Text(
+                              'Never received ${formatMoney(reversed)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.error,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: Brand.spaceSm),
+                    Text(
+                      formatMoney(net),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: net < 0 ? scheme.error : null,
+                        fontFeatures: const <FontFeature>[
+                          FontFeature.tabularFigures(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _CollectorTile extends StatelessWidget {
+  const _CollectorTile({
+    required this.collector,
+    required this.initiallyExpanded,
+  });
+
+  final CollectorLines collector;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final int net = collector.netPaisa;
+    final int n = collector.txnCount;
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: Brand.spaceSm),
+      initiallyExpanded: initiallyExpanded,
+      title: Text(
+        // A payment with no collector is a real row — the staff member was
+        // removed, or a function took it — and saying so beats a blank.
+        collector.staffName ?? 'No collector recorded',
+        style: theme.textTheme.bodyLarge,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Text('$n ${n == 1 ? 'transaction' : 'transactions'}'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(
-            // A payment with no collector is a real row — the staff member was
-            // removed, or a function took it — and saying so beats a blank.
-            collector.staffName ?? 'No collector recorded',
-            style: theme.textTheme.labelLarge,
+            formatMoney(net),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: net < 0 ? scheme.error : null,
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
           ),
-          for (final DailyCollectionRow row in collector.rows)
-            _Line(row: row),
+          const Icon(Icons.expand_more),
         ],
       ),
+      children: <Widget>[
+        for (final DailyCollectionRow row in collector.rows) _Line(row: row),
+      ],
     );
   }
 }
@@ -376,10 +755,9 @@ class _Line extends StatelessWidget {
                   paymentMethodLabel(row.method),
                   style: theme.textTheme.bodyMedium,
                 ),
-                // The kind rides on its own line rather than being folded
+                // The kind rides on its own chip rather than being folded
                 // into the method, so a refund can never be read as takings.
-                if (isMoneyBack)
-                  _KindChip(kind: row.kind),
+                if (isMoneyBack) _KindChip(kind: row.kind),
               ],
             ),
           ),
@@ -393,9 +771,6 @@ class _Line extends StatelessWidget {
           Text(
             formatMoney(row.amountPaisa),
             style: theme.textTheme.bodyMedium?.copyWith(
-              // Two signals, not one: the minus sign and the error colour.
-              // A screenshot, a colour-blind reader and a dark theme each
-              // still show that this line took money out.
               color: isMoneyBack ? theme.colorScheme.error : null,
               fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
             ),
@@ -425,101 +800,9 @@ class _KindChip extends StatelessWidget {
       ),
       child: Text(
         paymentKindLabel(kind).toLowerCase(),
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: scheme.onErrorContainer,
-        ),
-      ),
-    );
-  }
-}
-
-class _Figure extends StatelessWidget {
-  const _Figure({
-    required this.label,
-    required this.paisa,
-    required this.valueKey,
-    this.emphasis = false,
-  });
-
-  final String label;
-  final int paisa;
-  final String valueKey;
-  final bool emphasis;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final TextStyle? style = emphasis
-        ? theme.textTheme.titleMedium
-        : theme.textTheme.bodyMedium;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Brand.spaceXs),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(label, style: style)),
-          Text(
-            formatMoney(paisa),
-            key: ValueKey<String>(valueKey),
-            style: style?.copyWith(
-              color: paisa < 0 ? theme.colorScheme.error : null,
-              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The org-wide figures, when more than one branch is in scope. Still four
-/// numbers, for the same reason.
-class _GrandTotal extends StatelessWidget {
-  const _GrandTotal({required this.branches});
-
-  final List<BranchCollection> branches;
-
-  @override
-  Widget build(BuildContext context) {
-    int fold(int Function(BranchCollection) pick) =>
-        branches.fold(0, (int a, BranchCollection b) => a + pick(b));
-
-    return Card(
-      key: const ValueKey<String>('collection-grand-total'),
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'All branches in scope',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: Brand.spaceSm),
-            _Figure(
-              label: 'Collected',
-              paisa: fold((BranchCollection b) => b.collectedPaisa),
-              valueKey: 'collection-total-collected',
-            ),
-            _Figure(
-              label: 'Refunded',
-              paisa: fold((BranchCollection b) => b.refundedPaisa),
-              valueKey: 'collection-total-refunded',
-            ),
-            _Figure(
-              label: 'Never received',
-              paisa: fold((BranchCollection b) => b.neverReceivedPaisa),
-              valueKey: 'collection-total-reversal',
-            ),
-            const Divider(),
-            _Figure(
-              label: 'Net',
-              paisa: fold((BranchCollection b) => b.netPaisa),
-              emphasis: true,
-              valueKey: 'collection-total-net',
-            ),
-          ],
-        ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelSmall?.copyWith(color: scheme.onErrorContainer),
       ),
     );
   }

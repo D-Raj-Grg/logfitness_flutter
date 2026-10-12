@@ -14,38 +14,38 @@
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 
 String paymentMethodLabel(PaymentMethod method) => switch (method) {
-      PaymentMethod.cash => 'Cash',
-      PaymentMethod.esewa => 'eSewa',
-      PaymentMethod.khalti => 'Khalti',
-      PaymentMethod.fonepay => 'Fonepay',
-      PaymentMethod.bank => 'Bank transfer',
-      PaymentMethod.card => 'Card',
-    };
+  PaymentMethod.cash => 'Cash',
+  PaymentMethod.esewa => 'eSewa',
+  PaymentMethod.khalti => 'Khalti',
+  PaymentMethod.fonepay => 'Fonepay',
+  PaymentMethod.bank => 'Bank transfer',
+  PaymentMethod.card => 'Card',
+};
 
 /// How a `payments` row reads on screen.
 ///
 /// "Never received" rather than "Reversal" because that is the fact, and it
 /// is the phrase the console uses on the drawer sheet.
 String paymentKindLabel(PaymentKind kind) => switch (kind) {
-      PaymentKind.payment => 'Payment',
-      PaymentKind.refund => 'Refund',
-      PaymentKind.reversal => 'Never received',
-    };
+  PaymentKind.payment => 'Payment',
+  PaymentKind.refund => 'Refund',
+  PaymentKind.reversal => 'Never received',
+};
 
 String membershipStatusLabel(MembershipStatus status) => switch (status) {
-      MembershipStatus.upcoming => 'Upcoming',
-      MembershipStatus.active => 'Active',
-      MembershipStatus.frozen => 'Frozen',
-      MembershipStatus.expired => 'Expired',
-      MembershipStatus.cancelled => 'Cancelled',
-    };
+  MembershipStatus.upcoming => 'Upcoming',
+  MembershipStatus.active => 'Active',
+  MembershipStatus.frozen => 'Frozen',
+  MembershipStatus.expired => 'Expired',
+  MembershipStatus.cancelled => 'Cancelled',
+};
 
 String memberStatusLabel(MemberStatus status) => switch (status) {
-      MemberStatus.active => 'Active',
-      MemberStatus.expired => 'Expired',
-      MemberStatus.frozen => 'Frozen',
-      MemberStatus.left => 'Left',
-    };
+  MemberStatus.active => 'Active',
+  MemberStatus.expired => 'Expired',
+  MemberStatus.frozen => 'Frozen',
+  MemberStatus.left => 'Left',
+};
 
 /// `2 days` / `1 day`, for the sentences that report what a freeze cost.
 String dayCount(int days) {

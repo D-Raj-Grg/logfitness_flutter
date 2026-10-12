@@ -73,3 +73,38 @@ class VisitorStatusBadge extends StatelessWidget {
     );
   }
 }
+
+/// The round status mark used where a full pill would crowd a row: a dot in
+/// the status colour, read by screen readers as the same label as the badge.
+class VisitorStatusDot extends StatelessWidget {
+  const VisitorStatusDot(this.status, {this.size = 10, super.key});
+
+  final VisitorStatus status;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // Open work is loud, finished work recedes -- same rule as the badge.
+    final (Color fill, Color? ring) = switch (status) {
+      VisitorStatus.isNew => (scheme.primary, null),
+      VisitorStatus.contacted => (Colors.transparent, scheme.primary),
+      VisitorStatus.converted => (scheme.tertiary, null),
+      VisitorStatus.lost => (scheme.outlineVariant, null),
+    };
+    return Semantics(
+      label: 'Status: ${visitorStatusLabel(status)}',
+      child: ExcludeSemantics(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: fill,
+            border: ring == null ? null : Border.all(color: ring, width: 2),
+          ),
+        ),
+      ),
+    );
+  }
+}

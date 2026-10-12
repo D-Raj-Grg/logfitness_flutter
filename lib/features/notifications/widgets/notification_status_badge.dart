@@ -24,7 +24,11 @@ class NotificationStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
 
-    final (Color background, Color foreground, Color? border) = switch (status) {
+    final (
+      Color background,
+      Color foreground,
+      Color? border,
+    ) = switch (status) {
       // Arrived at the gateway. The good end, and quiet: a log is read to find
       // what did *not* work.
       NotificationStatus.sent => (
@@ -51,8 +55,7 @@ class NotificationStatusBadge extends StatelessWidget {
         null,
       ),
       // Neither of these is a failure; both recede.
-      NotificationStatus.skipped ||
-      NotificationStatus.cancelled => (
+      NotificationStatus.skipped || NotificationStatus.cancelled => (
         scheme.surfaceContainerHighest,
         scheme.onSurfaceVariant,
         null,

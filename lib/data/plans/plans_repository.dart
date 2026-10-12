@@ -1,16 +1,18 @@
 // The plan catalogue, mirroring the web console's
 // `logfitness_saas/lib/db/plans.ts`.
 //
-// Read-only on purpose. Plan catalogue CRUD stays on the web console
-// (PLANNING.md §1 and §8), so the console's `insertPlan` and `updatePlan` have
-// no counterpart here -- their absence is a scope decision, not an oversight.
-// What mobile needs is the list a sale picks from and the plan behind a
-// membership.
+// Reads the catalogue and, since the 2026-09-09 parity decision (TASKS.md),
+// writes it: `createPlan` and `updatePlan` mirror the console's `insertPlan`
+// and `updatePlan`, and `setPlanActive` mirrors its `setPlanActive` action.
+// There is no delete: the console offers none either -- a plan is retired by
+// deactivating it, because memberships keep pointing at it.
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/data/repository_guard.dart';
+import 'package:logfitness_flutter/domain/errors/app_failure.dart';
+import 'package:logfitness_flutter/domain/validation/plan_form.dart';
 import 'package:logfitness_flutter/supabase/supabase_providers.dart';
 
 part 'plans_repository.g.dart';
@@ -83,6 +85,81 @@ class PlansRepository {
       }
       return MembershipPlan.fromJson(row);
     });
+  }
+
+  /// Adds a plan and returns its id. Mirrors the console's `insertPlan`.
+  ///
+  /// `org_id` comes from the caller's claims, never from a form; the RLS
+  /// insert policy independently rejects any other org. A new plan is always
+  /// active. The (org, name) unique rule surfaces as
+  /// [kPlanDuplicateName], as on the console.
+  Future<String> createPlan({
+    required String orgId,
+    required PlanValues values,
+  }) {
+    return guardFailures(() async {
+      try {
+        final Map<String, dynamic> row = await _client
+            .from(_table)
+            .insert(<String, dynamic>{
+              'org_id': orgId,
+              ...values.toRow(),
+              'is_active': true,
+            })
+            .select('id')
+            .single();
+        return row['id'] as String;
+      } on PostgrestException catch (error) {
+        throw _duplicateOr(error);
+      }
+    });
+  }
+
+  /// Rewrites a plan's editable columns. Mirrors the console's `updatePlan`.
+  ///
+  /// RLS turns a plan the caller may not touch into zero updated rows rather
+  /// than an error, so the row count is checked: a silent no-op must never
+  /// look like a save.
+  Future<void> updatePlan(String planId, PlanValues values) {
+    return guardFailures(() => _update(planId, values.toRow()));
+  }
+
+  /// Puts a plan on or off sale. Mirrors the console's `setPlanActive`.
+  Future<void> setPlanActive(String planId, bool isActive) {
+    return guardFailures(
+      () => _update(planId, <String, dynamic>{'is_active': isActive}),
+    );
+  }
+
+  Future<void> _update(String planId, Map<String, dynamic> row) async {
+    try {
+      final PostgrestList updated = await _client
+          .from(_table)
+          .update(row)
+          .eq('id', planId)
+          .select('id');
+      if (updated.isEmpty) {
+        throw const AppFailure(
+          FailureKind.notFound,
+          'That plan could not be found.',
+        );
+      }
+    } on PostgrestException catch (error) {
+      throw _duplicateOr(error);
+    }
+  }
+
+  /// `23505` on this table can only be the (org, name) rule.
+  Object _duplicateOr(PostgrestException error) {
+    if (error.code == '23505') {
+      return AppFailure(
+        FailureKind.duplicate,
+        kPlanDuplicateName,
+        cause: error,
+        code: error.code,
+      );
+    }
+    return error;
   }
 }
 

@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/attendance/attendance_rpc_results.dart';
 import 'package:logfitness_flutter/data/members/member_overview.dart';
+import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/attendance/check_in_controller.dart';
 import 'package:logfitness_flutter/features/attendance/scan_check_in_screen.dart';
@@ -23,17 +24,17 @@ import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 /// What the desk is told, in words rather than enum names.
 String checkInBannerLabel(CheckInBanner banner) => switch (banner) {
-      CheckInBanner.active => 'Membership active',
-      CheckInBanner.expiring => 'Expiring soon',
-      CheckInBanner.upcoming => 'Membership not started yet',
-      // Frozen is not expired, and saying so matters: a frozen member has not
-      // lapsed, and telling them they have is a bad conversation to have at a
-      // counter.
-      CheckInBanner.frozen => 'Membership frozen',
-      CheckInBanner.expired => 'Membership expired',
-      CheckInBanner.none => 'No membership',
-      CheckInBanner.left => 'This member has left',
-    };
+  CheckInBanner.active => 'Membership active',
+  CheckInBanner.expiring => 'Expiring soon',
+  CheckInBanner.upcoming => 'Membership not started yet',
+  // Frozen is not expired, and saying so matters: a frozen member has not
+  // lapsed, and telling them they have is a bad conversation to have at a
+  // counter.
+  CheckInBanner.frozen => 'Membership frozen',
+  CheckInBanner.expired => 'Membership expired',
+  CheckInBanner.none => 'No membership',
+  CheckInBanner.left => 'This member has left',
+};
 
 class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
@@ -46,6 +47,10 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
   final TextEditingController _search = TextEditingController();
   CheckInResult? _lastResult;
 
+  /// This sitting's check-ins, newest first. Local and presentational: the
+  /// attendance log is the record, this is just the desk's short memory.
+  final List<CheckInResult> _recent = <CheckInResult>[];
+
   @override
   void dispose() {
     _search.dispose();
@@ -56,6 +61,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
   Widget build(BuildContext context) {
     final results = ref.watch(checkInSearchProvider);
     final busy = ref.watch(checkInControllerProvider);
+
+    final bool searching = _search.text.trim().isNotEmpty;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -74,7 +81,12 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       body: Column(
         children: <Widget>[
           Padding(
-            padding: const EdgeInsets.all(Brand.spaceMd),
+            padding: const EdgeInsets.fromLTRB(
+              Brand.spaceMd,
+              Brand.spaceMd,
+              Brand.spaceMd,
+              Brand.spaceSm,
+            ),
             child: TextField(
               controller: _search,
               // Deliberately not autofocused. The shell keeps every
@@ -97,6 +109,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                     ? null
                     : IconButton(
                         icon: const Icon(Icons.close),
+                        tooltip: 'Clear search',
                         onPressed: () {
                           _search.clear();
                           ref.read(checkInSearchProvider.notifier).clear();
@@ -111,34 +124,51 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
             ),
           ),
           if (_lastResult != null)
-            _ResultBanner(
-              result: _lastResult!,
-              onDismiss: () => setState(() => _lastResult = null),
-            ),
-          Expanded(
-            child: AsyncValueView<List<MemberOverview>>(
-              value: results,
-              isEmpty: (List<MemberOverview> rows) => rows.isEmpty,
-              emptyMessage: _search.text.trim().isEmpty
-                  ? 'Type a phone number to find a member.'
-                  : 'Nobody matches that.',
-              data: (List<MemberOverview> rows) => ListView.separated(
-                // Scrolling the results is the other way the desk says it is
-                // done typing.
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                itemCount: rows.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (BuildContext context, int index) {
-                  final MemberOverview member = rows[index];
-                  return _MemberRow(
-                    member: member,
-                    busy: busy,
-                    onCheckIn: () => _checkIn(member),
-                  );
-                },
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Brand.spaceMd,
+                Brand.spaceXs,
+                Brand.spaceMd,
+                Brand.spaceSm,
+              ),
+              child: CheckInOutcomeCard(
+                result: _lastResult,
+                onDismiss: () => setState(() => _lastResult = null),
               ),
             ),
+          Expanded(
+            child: searching
+                ? AsyncValueView<List<MemberOverview>>(
+                    value: results,
+                    isEmpty: (List<MemberOverview> rows) => rows.isEmpty,
+                    emptyMessage: 'Nobody matches that.',
+                    data: (List<MemberOverview> rows) => ListView.separated(
+                      // Scrolling the results is the other way the desk says
+                      // it is done typing.
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(
+                        Brand.spaceMd,
+                        0,
+                        Brand.spaceMd,
+                        // Clear of the Scan button.
+                        88,
+                      ),
+                      itemCount: rows.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: Brand.spaceSm),
+                      itemBuilder: (BuildContext context, int index) {
+                        final MemberOverview member = rows[index];
+                        return _MemberCard(
+                          member: member,
+                          busy: busy,
+                          large: rows.length == 1,
+                          onCheckIn: () => _checkIn(member),
+                        );
+                      },
+                    ),
+                  )
+                : _Recent(recent: _recent),
           ),
         ],
       ),
@@ -152,7 +182,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     // means.
     final branchId = scope.selectedBranchId ?? member.homeBranchId;
 
-    final outcome = await ref.read(checkInControllerProvider.notifier).checkIn(
+    final outcome = await ref
+        .read(checkInControllerProvider.notifier)
+        .checkIn(
           memberId: member.id,
           branchId: branchId,
           overrideReason: overrideReason,
@@ -164,7 +196,18 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
     switch (outcome) {
       case CheckInRecorded(:final result):
-        setState(() => _lastResult = result);
+        // Clear the box so the next person in the queue can be typed straight
+        // away; the banner above stays until the next result replaces it.
+        _search.clear();
+        ref.read(checkInSearchProvider.notifier).clear();
+        FocusScope.of(context).unfocus();
+        setState(() {
+          _lastResult = result;
+          _recent.insert(0, result);
+          if (_recent.length > 8) {
+            _recent.removeLast();
+          }
+        });
       case CheckInDuplicate(:final result):
         final reason = await _askOverrideReason(context, result);
         if (reason != null && mounted) {
@@ -225,107 +268,433 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
   }
 }
 
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({
+/// Colour, icon and words for each membership state. Strong and distinct so a
+/// glance across a counter reads it: good, nearly over, stopped, or paused.
+({Color bg, Color fg, IconData icon}) _tone(
+  ColorScheme scheme,
+  CheckInBanner? banner,
+) => switch (banner) {
+  CheckInBanner.active => (
+    bg: scheme.tertiaryContainer,
+    fg: scheme.onTertiaryContainer,
+    icon: Icons.check_circle,
+  ),
+  CheckInBanner.expiring => (
+    bg: scheme.primaryContainer,
+    fg: scheme.onPrimaryContainer,
+    icon: Icons.schedule,
+  ),
+  CheckInBanner.frozen || CheckInBanner.upcoming => (
+    bg: scheme.secondaryContainer,
+    fg: scheme.onSecondaryContainer,
+    icon: Icons.pause_circle,
+  ),
+  CheckInBanner.expired || CheckInBanner.none || CheckInBanner.left => (
+    bg: scheme.errorContainer,
+    fg: scheme.onErrorContainer,
+    icon: Icons.cancel,
+  ),
+  null => (
+    bg: scheme.surfaceContainerHighest,
+    fg: scheme.onSurfaceVariant,
+    icon: Icons.help_outline,
+  ),
+};
+
+/// What the desk will be told once this member is checked in, worked out from
+/// the overview row so the status is visible *before* the tap. The result
+/// that comes back from `check_in_member` is still the authority; this only
+/// mirrors its rules (expiring = within seven days of the end date).
+CheckInBanner _bannerFor(MemberOverview m) {
+  if (m.status == MemberStatus.left) {
+    return CheckInBanner.left;
+  }
+  return switch (m.membershipStatus) {
+    null => CheckInBanner.none,
+    MembershipStatus.upcoming => CheckInBanner.upcoming,
+    MembershipStatus.frozen => CheckInBanner.frozen,
+    MembershipStatus.expired ||
+    MembershipStatus.cancelled => CheckInBanner.expired,
+    MembershipStatus.active =>
+      (m.daysToExpiry != null && m.daysToExpiry! <= 7)
+          ? CheckInBanner.expiring
+          : CheckInBanner.active,
+  };
+}
+
+/// A short, plain status for a result row: "Active", "Expires in 3 days".
+String _statusLine(MemberOverview m, CheckInBanner banner) {
+  final int? days = m.daysToExpiry;
+  if (banner == CheckInBanner.expiring && days != null) {
+    return switch (days) {
+      0 => 'Expires today',
+      1 => 'Expires tomorrow',
+      _ => 'Expires in $days days',
+    };
+  }
+  if (banner == CheckInBanner.expired && days != null && days < 0) {
+    final int ago = -days;
+    return 'Expired ${ago == 1 ? 'yesterday' : '$ago days ago'}';
+  }
+  return switch (banner) {
+    CheckInBanner.active => 'Active',
+    CheckInBanner.expiring => 'Expiring soon',
+    CheckInBanner.upcoming => 'Not started yet',
+    CheckInBanner.frozen => 'Frozen',
+    CheckInBanner.expired => 'Expired',
+    CheckInBanner.none => 'No membership',
+    CheckInBanner.left => 'Has left',
+  };
+}
+
+/// A search result: who, what is true about them, and one big way to check
+/// them in. A lone result (the usual case after typing a phone number) gets
+/// the full-width button.
+class _MemberCard extends StatelessWidget {
+  const _MemberCard({
     required this.member,
     required this.busy,
+    required this.large,
     required this.onCheckIn,
   });
 
   final MemberOverview member;
   final bool busy;
+  final bool large;
   final VoidCallback onCheckIn;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final owes = member.duePaisa > 0;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final CheckInBanner banner = _bannerFor(member);
+    final tone = _tone(scheme, banner);
+    final bool owes = member.duePaisa > 0;
 
-    return ListTile(
-      // The desk is matching a person to a record with a queue behind them.
-      leading: MemberAvatar(
-        fullName: member.fullName,
-        photoPath: member.photoPath,
+    final Widget status = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Brand.spaceSm + Brand.spaceXs,
+        vertical: Brand.spaceXs + 2,
       ),
-      title: Text(member.fullName),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: tone.bg,
+        borderRadius: BorderRadius.circular(Brand.radiusLarge),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text('${member.memberCode} · ${member.phone}'),
-          if (owes)
-            Text(
-              // Surfaced before the check-in, not after: the desk can ask for
-              // the money while the member is standing there.
-              '${formatMoney(member.duePaisa)} outstanding',
-              style: TextStyle(color: theme.colorScheme.error),
+          Icon(tone.icon, size: 18, color: tone.fg),
+          const SizedBox(width: Brand.spaceXs + 2),
+          Flexible(
+            child: Text(
+              _statusLine(member, banner),
+              style: theme.textTheme.labelLarge?.copyWith(color: tone.fg),
+              overflow: TextOverflow.ellipsis,
             ),
+          ),
         ],
       ),
-      isThreeLine: owes,
-      trailing: FilledButton(
+    );
+
+    final Widget dues = Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: Brand.spaceSm + Brand.spaceXs,
+        vertical: Brand.spaceXs + 2,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(Brand.radiusSmall),
+      ),
+      child: Text(
+        // Surfaced before the check-in, not after: the desk can ask for the
+        // money while the member is standing there.
+        '${formatMoney(member.duePaisa)} outstanding',
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: scheme.onErrorContainer,
+        ),
+      ),
+    );
+
+    final Widget identity = Row(
+      children: <Widget>[
+        MemberAvatar(fullName: member.fullName, photoPath: member.photoPath),
+        const SizedBox(width: Brand.spaceMd),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                member.fullName,
+                style: large
+                    ? theme.textTheme.titleLarge
+                    : theme.textTheme.titleMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${member.memberCode} · ${member.phone}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final Widget button = SizedBox(
+      width: large ? double.infinity : null,
+      height: large ? 56 : null,
+      child: FilledButton(
         onPressed: busy ? null : onCheckIn,
+        style: large
+            ? FilledButton.styleFrom(
+                textStyle: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            : null,
         child: const Text('Check in'),
+      ),
+    );
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(Brand.spaceMd),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            identity,
+            const SizedBox(height: Brand.spaceSm + Brand.spaceXs),
+            Wrap(
+              spacing: Brand.spaceSm,
+              runSpacing: Brand.spaceSm,
+              children: <Widget>[status, if (owes) dues],
+            ),
+            const SizedBox(height: Brand.spaceMd),
+            if (large)
+              button
+            else
+              Align(alignment: Alignment.centerRight, child: button),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ResultBanner extends StatelessWidget {
-  const _ResultBanner({required this.result, required this.onDismiss});
+/// The desk's short memory, shown when the search box is empty.
+class _Recent extends StatelessWidget {
+  const _Recent({required this.recent});
 
-  final CheckInResult result;
+  final List<CheckInResult> recent;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+
+    if (recent.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(Brand.spaceXl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(Icons.dialpad, size: 40, color: scheme.onSurfaceVariant),
+            const SizedBox(height: Brand.spaceMd),
+            Text(
+              'Type a phone number to find a member.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 88),
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Brand.spaceMd,
+            Brand.spaceSm,
+            Brand.spaceMd,
+            Brand.spaceXs,
+          ),
+          child: Text(
+            'Checked in this session',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        for (final CheckInResult r in recent)
+          Builder(
+            builder: (BuildContext context) {
+              final tone = _tone(scheme, r.banner);
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Brand.spaceMd,
+                  vertical: Brand.spaceSm,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: tone.bg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(tone.icon, size: 18, color: tone.fg),
+                    ),
+                    const SizedBox(width: Brand.spaceMd),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            r.member?.fullName ?? 'Member',
+                            style: theme.textTheme.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            <String>[
+                              if (r.banner != null)
+                                checkInBannerLabel(r.banner!),
+                              if (r.member?.memberCode != null)
+                                r.member!.memberCode!,
+                            ].join(' · '),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (r.duePaisa > 0) ...<Widget>[
+                      const SizedBox(width: Brand.spaceSm),
+                      Text(
+                        formatMoney(r.duePaisa),
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.error,
+                          fontFeatures: const <FontFeature>[
+                            FontFeature.tabularFigures(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+/// The big answer after a check-in: who, and the state of their membership in
+/// the colour and size a desk can read from across the counter, with any dues
+/// in their own block. Also carries a plain message (a refused scan, a
+/// duplicate) when there is no result to show.
+class CheckInOutcomeCard extends StatelessWidget {
+  const CheckInOutcomeCard({
+    required this.onDismiss,
+    this.result,
+    this.message,
+    super.key,
+  });
+
+  final CheckInResult? result;
+  final String? message;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final attention = result.needsAttention;
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
 
-    final (Color background, Color foreground) = attention
-        ? (scheme.errorContainer, scheme.onErrorContainer)
-        : (scheme.primaryContainer, scheme.onPrimaryContainer);
+    // A message with no result is a refusal or a duplicate: stop-colour.
+    final tone = message != null
+        ? _tone(scheme, CheckInBanner.expired)
+        : _tone(scheme, result?.banner);
+    final String name = result?.member?.fullName ?? 'Member';
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
       padding: const EdgeInsets.all(Brand.spaceMd),
       decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(Brand.radiusMedium),
+        color: tone.bg,
+        borderRadius: BorderRadius.circular(Brand.radiusLarge),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(
-            attention ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-            color: foreground,
-          ),
-          const SizedBox(width: Brand.spaceSm),
+          Icon(tone.icon, size: 40, color: tone.fg),
+          const SizedBox(width: Brand.spaceMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  '${result.member?.fullName ?? 'Member'} checked in',
-                  style: TextStyle(
-                    color: foreground,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (result.banner != null)
+                if (message != null)
                   Text(
-                    checkInBannerLabel(result.banner!),
-                    style: TextStyle(color: foreground),
-                  ),
-                if (result.duePaisa > 0)
+                    message!,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: tone.fg,
+                    ),
+                  )
+                else ...<Widget>[
                   Text(
-                    '${formatMoney(result.duePaisa)} outstanding',
-                    style: TextStyle(color: foreground),
+                    '$name checked in',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: tone.fg,
+                    ),
                   ),
+                  if (result?.banner != null)
+                    Text(
+                      checkInBannerLabel(result!.banner!),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: tone.fg,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  if ((result?.duePaisa ?? 0) > 0) ...<Widget>[
+                    const SizedBox(height: Brand.spaceSm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Brand.spaceSm + Brand.spaceXs,
+                        vertical: Brand.spaceXs + 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.error,
+                        borderRadius: BorderRadius.circular(Brand.radiusSmall),
+                      ),
+                      child: Text(
+                        '${formatMoney(result!.duePaisa)} outstanding',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: scheme.onError,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close, color: foreground),
+            icon: Icon(Icons.close, color: tone.fg),
             onPressed: onDismiss,
             tooltip: 'Dismiss',
           ),

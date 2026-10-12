@@ -20,6 +20,7 @@ import 'package:logfitness_flutter/data/payments/payment_with_collector.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/memberships/membership_actions_controller.dart';
 import 'package:logfitness_flutter/features/memberships/membership_action_labels.dart';
 
@@ -74,78 +75,123 @@ class _RefundPaymentScreenState extends ConsumerState<RefundPaymentScreen> {
     final theme = Theme.of(context);
     final busy = ref.watch(membershipActionsProvider);
 
+    final int refundPaisa = _typedPaisa();
+
+    final SaleFigures figures = SaleFigures(
+      totalLabel: 'Taken',
+      paidLabel: 'Going back',
+      dueLabel: 'Kept',
+      totalPaisa: _original.amountPaisa,
+      paidPaisa: refundPaisa,
+      // What the gym keeps once this goes through. Never negative: a typed
+      // figure above the payment is refused by the validator below.
+      duePaisa: (_original.amountPaisa - refundPaisa).clamp(
+        0,
+        _original.amountPaisa,
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Refund payment')),
+      bottomNavigationBar: SaleSummaryBar(
+        submitKey: refundSubmitKey,
+        submitLabel: 'Record refund',
+        busy: busy,
+        destructive: true,
+        onSubmit: _submit,
+        figures: figures,
+      ),
       body: Form(
         key: _formKey,
-        child: ListView(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(Brand.spaceMd),
-          children: <Widget>[
-            _OriginalPaymentCard(payment: widget.payment),
-            const SizedBox(height: Brand.spaceMd),
-            Text(
-              // The sentence that says what kind of record this makes. It is
-              // the whole difference between this screen and an edit form.
-              'The refund is recorded as a separate line. The original '
-              'payment stays on the books exactly as it is.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _OriginalPaymentCard(payment: widget.payment),
+              const SizedBox(height: Brand.spaceSm),
+              Text(
+                // The sentence that says what kind of record this makes. It is
+                // the whole difference between this screen and an edit form.
+                'The refund is recorded as a separate line. The original '
+                'payment stays on the books exactly as it is.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: Brand.spaceLg),
-            TextFormField(
-              key: refundAmountFieldKey,
-              controller: _amount,
-              enabled: !busy,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Amount going back (NPR)',
-                border: OutlineInputBorder(),
+              sectionGap,
+              FormSection(
+                title: 'Refund',
+                children: <Widget>[
+                  TextFormField(
+                    key: refundAmountFieldKey,
+                    controller: _amount,
+                    enabled: !busy,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Amount going back',
+                      prefixText: 'NPR ',
+                      helperText:
+                          'Starts at the whole payment. Lower it for a part '
+                          'refund.',
+                      helperMaxLines: 2,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    validator: _validateAmount,
+                  ),
+                  TextFormField(
+                    key: refundReasonFieldKey,
+                    controller: _reason,
+                    enabled: !busy,
+                    minLines: 2,
+                    maxLines: 4,
+                    maxLength: 500,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason',
+                      hintText: 'Why the money is going back',
+                      helperText:
+                          'Written onto the refund. It is the only explanation '
+                          'anyone reading this back will have.',
+                      helperMaxLines: 3,
+                    ),
+                    // Required by `refund_payment` itself, not only by this
+                    // form. Validating here saves a round trip; it does not
+                    // replace the rule, which lives in the migration.
+                    validator: (String? value) => (value ?? '').trim().isEmpty
+                        ? 'A reason is required.'
+                        : null,
+                  ),
+                ],
               ),
-              validator: _validateAmount,
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              key: refundReasonFieldKey,
-              controller: _reason,
-              enabled: !busy,
-              minLines: 2,
-              maxLines: 4,
-              maxLength: 500,
-              decoration: const InputDecoration(
-                labelText: 'Reason',
-                hintText: 'Why the money is going back',
-                helperText:
-                    'Written onto the refund. It is the only explanation '
-                    'anyone reading this back will have.',
-                helperMaxLines: 3,
-                border: OutlineInputBorder(),
-              ),
-              // Required by `refund_payment` itself, not only by this form.
-              // Validating here saves a round trip; it does not replace the
-              // rule, which lives in the migration.
-              validator: (String? value) =>
-                  (value ?? '').trim().isEmpty ? 'A reason is required.' : null,
-            ),
-            const SizedBox(height: Brand.spaceLg),
-            FilledButton.icon(
-              key: refundSubmitKey,
-              onPressed: busy ? null : _submit,
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
-              icon: const Icon(Icons.currency_exchange),
-              label: Text(busy ? 'Saving…' : 'Record refund'),
-            ),
-          ],
+              sectionGap,
+              SaleSummarySection(figures: figures),
+              const SizedBox(height: Brand.spaceMd),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  /// The amount as typed, in paisa, for the running figures only. Anything
+  /// unparseable counts as zero here and is refused by the validator.
+  int _typedPaisa() {
+    final String text = _amount.text.trim();
+    if (text.isEmpty) {
+      return 0;
+    }
+    try {
+      return toPaisa(text);
+    } on FormatException {
+      return 0;
+    }
   }
 
   String? _validateAmount(String? value) {
@@ -178,7 +224,9 @@ class _RefundPaymentScreenState extends ConsumerState<RefundPaymentScreen> {
       return;
     }
 
-    final result = await ref.read(membershipActionsProvider.notifier).refund(
+    final result = await ref
+        .read(membershipActionsProvider.notifier)
+        .refund(
           paymentId: _original.id,
           // The one conversion from rupees to integer paisa.
           amountPaisa: toPaisa(_amount.text.trim()),
@@ -203,7 +251,9 @@ class _RefundPaymentScreenState extends ConsumerState<RefundPaymentScreen> {
           ..hideCurrentSnackBar()
           ..showSnackBar(
             SnackBar(
-              content: Text('${formatMoney(value.amountPaisa.abs())} refunded.'),
+              content: Text(
+                '${formatMoney(value.amountPaisa.abs())} refunded.',
+              ),
             ),
           );
         Navigator.of(context).pop(true);
@@ -225,54 +275,56 @@ class _OriginalPaymentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final Payment original = payment.payment;
 
-    return Card(
+    return Container(
       key: refundOriginalPaymentKey,
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'Correcting this payment',
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+      padding: const EdgeInsets.all(Brand.spaceMd),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(Brand.radiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'Correcting this payment',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-            const SizedBox(height: Brand.spaceSm),
-            Text(
-              formatMoney(original.amountPaisa),
-              style: theme.textTheme.headlineSmall,
-            ),
+          ),
+          const SizedBox(height: Brand.spaceSm),
+          Text(
+            formatMoney(original.amountPaisa),
+            style: theme.textTheme.headlineSmall,
+          ),
+          const SizedBox(height: Brand.spaceXs),
+          Text(
+            '${paymentMethodLabel(original.method)} · '
+            '${formatDateTime(original.paidAt)}',
+            style: theme.textTheme.bodyMedium,
+          ),
+          if (payment.collectorName != null) ...<Widget>[
             const SizedBox(height: Brand.spaceXs),
             Text(
-              '${paymentMethodLabel(original.method)} · '
-              '${formatDateTime(original.paidAt)}',
-              style: theme.textTheme.bodyMedium,
+              'Taken by ${payment.collectorName}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
-            if (payment.collectorName != null) ...<Widget>[
-              const SizedBox(height: Brand.spaceXs),
-              Text(
-                'Taken by ${payment.collectorName}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            if (original.referenceNo != null &&
-                original.referenceNo!.trim().isNotEmpty) ...<Widget>[
-              const SizedBox(height: Brand.spaceXs),
-              Text(
-                'Reference ${original.referenceNo}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
           ],
-        ),
+          if (original.referenceNo != null &&
+              original.referenceNo!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(height: Brand.spaceXs),
+            Text(
+              'Reference ${original.referenceNo}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

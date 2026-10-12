@@ -127,6 +127,8 @@ const Map<String, String> kTemplateSampleValues = <String, String>{
   'amount': 'Rs 2,500',
   'invoice_no': 'INV000241',
   'paid_on': '20 Sep 2026',
+  'period': 'from 20 Sep 2026 to 20 Oct 2026',
+  'payment_line': 'Received Rs 2,500, thank you.',
 };
 
 final RegExp _placeholder = RegExp(r'\{\{([a-z_]+)\}\}');

@@ -166,7 +166,10 @@ class SendAnnouncement extends _$SendAnnouncement {
     // phone.
     if (state) {
       return const AnnouncementFailed(
-        AppFailure(FailureKind.invalid, 'That announcement is already sending.'),
+        AppFailure(
+          FailureKind.invalid,
+          'That announcement is already sending.',
+        ),
       );
     }
 

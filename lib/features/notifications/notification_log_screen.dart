@@ -158,8 +158,6 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
     return Scaffold(
       body: Column(
         children: <Widget>[
-          const _SummaryStrip(),
-          _LiveRefreshLine(state: live),
           _SearchRow(
             controller: _search,
             filterCount: _extraFilterCount(filter),
@@ -167,13 +165,9 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
                 ref.read(notificationFilterProvider.notifier).setQuery(value),
             onOpenFilters: () => showNotificationFilterSheet(context),
           ),
-          _StatusChips(
-            selected: filter.status,
-            onSelected: (NotificationStatus? status) => ref
-                .read(notificationFilterProvider.notifier)
-                .setStatus(status),
-          ),
-          _CountLine(listing: listing),
+          const _StatusFilterRow(),
+          _ResultsLine(listing: listing, live: live),
+          const Divider(height: 1),
           Expanded(
             child: RefreshIndicator(
               onRefresh: () =>
@@ -189,8 +183,8 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
                 emptyMessage: filter.isFiltered
                     ? 'Nothing matches this filter.'
                     : 'Nothing has been sent yet. Reminders start going out once a '
-              'gateway is set up in Settings. Until then nothing is queued '
-              'and nothing is charged.',
+                          'gateway is set up in Settings. Until then nothing is queued '
+                          'and nothing is charged.',
                 emptyAction: filter.isFiltered
                     ? TextButton(
                         onPressed: () => ref
@@ -224,9 +218,7 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
                       // exists the row says "by" nobody rather than "by
                       // 3f2a-...". Reported to the orchestrator as a gap.
                       senderName: null,
-                      trailing: canAct
-                          ? _RowActions(message: message)
-                          : null,
+                      trailing: canAct ? _RowActions(message: message) : null,
                     );
                   },
                 ),
@@ -249,104 +241,175 @@ class _NotificationLogScreenState extends ConsumerState<NotificationLogScreen> {
       (filter.event != null ? 1 : 0) + (filter.channel != null ? 1 : 0);
 }
 
-/// The four counts the log opens on.
+/// One row of status filters, with the counts folded in.
 ///
-/// They are counts of the whole branch scope, not of the current filter: the
-/// strip is the denominator the filter is read against, and a "Failed 0" that
-/// only means "0 among the twelve rows matching your search" is worse than no
-/// number at all. Tapping one narrows the list to it, and tapping it again
-/// widens back.
-class _SummaryStrip extends ConsumerWidget {
-  const _SummaryStrip();
+/// This used to be two rows -- a strip of counts and, under it, a second strip
+/// of the same statuses as chips -- so every status appeared twice and the
+/// screen spent its first third on controls. The counts are of the whole branch
+/// scope, not of the current filter: they are the denominator the filter is
+/// read against, and a "Failed 0" that only means "0 among the twelve rows
+/// matching your search" is worse than no number at all.
+///
+/// `sending` and `cancelled` have no count (the summary only counts four), but
+/// are still rows somebody may want to isolate, so they follow without one.
+class _StatusFilterRow extends ConsumerWidget {
+  const _StatusFilterRow();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<NotificationStatusCounts> counts = ref.watch(
-      notificationStatusCountsProvider,
-    );
     final NotificationStatus? selected = ref.watch(
       notificationFilterProvider.select(
         (NotificationListFilter filter) => filter.status,
       ),
     );
-
     // A failed count is not worth a FailureView over a log that loaded: the
-    // list underneath is the screen, and the strip is a summary of it. It goes
-    // quiet instead, and the list's own error surface is what speaks.
-    final NotificationStatusCounts? loaded = counts.value;
+    // list underneath is the screen. The chips just lose their numbers.
+    final NotificationStatusCounts? counts = ref
+        .watch(notificationStatusCountsProvider)
+        .value;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(
-        Brand.spaceMd,
-        Brand.spaceMd,
-        Brand.spaceMd,
-        0,
-      ),
-      child: Row(
+    void select(NotificationStatus? status) =>
+        ref.read(notificationFilterProvider.notifier).setStatus(status);
+
+    // Failed is the only chip that asks for attention, and only while there is
+    // something to attend to.
+    final bool anyFailed =
+        counts != null && counts[NotificationStatus.failed] > 0;
+
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
         children: <Widget>[
-          for (final NotificationStatus status in kSummaryStatuses)
-            Padding(
-              padding: const EdgeInsets.only(right: Brand.spaceSm),
-              child: FilterChip(
-                key: ValueKey<String>('notification-count-${status.name}'),
-                label: Text(
-                  loaded == null
-                      ? notificationStatusShort(status)
-                      : '${notificationStatusShort(status)} ${loaded[status]}',
-                ),
-                selected: selected == status,
-                onSelected: (bool now) => ref
-                    .read(notificationFilterProvider.notifier)
-                    .setStatus(now ? status : null),
-              ),
+          _chip(
+            key: 'notification-filter-all',
+            label: 'All',
+            selected: selected == null,
+            onSelected: (_) => select(null),
+          ),
+          for (final NotificationStatus status in <NotificationStatus>[
+            ...kSummaryStatuses,
+            NotificationStatus.sending,
+            NotificationStatus.cancelled,
+          ])
+            _chip(
+              key: 'notification-filter-${status.name}',
+              label: counts != null && kSummaryStatuses.contains(status)
+                  ? '${notificationStatusShort(status)} ${counts[status]}'
+                  : notificationStatusShort(status),
+              selected: selected == status,
+              onSelected: (bool now) => select(now ? status : null),
+              alert: status == NotificationStatus.failed && anyFailed,
+              scheme: scheme,
             ),
         ],
       ),
     );
   }
+
+  static Widget _chip({
+    required String key,
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+    bool alert = false,
+    ColorScheme? scheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: Brand.spaceSm),
+      child: Center(
+        child: FilterChip(
+          key: ValueKey<String>(key),
+          label: Text(label),
+          selected: selected,
+          showCheckmark: false,
+          visualDensity: VisualDensity.compact,
+          side: alert && !selected && scheme != null
+              ? BorderSide(color: scheme.error)
+              : null,
+          labelStyle: alert && !selected && scheme != null
+              ? TextStyle(color: scheme.error)
+              : null,
+          onSelected: onSelected,
+        ),
+      ),
+    );
+  }
 }
 
-/// "3 still moving — this list updates itself", and what it says once it has
-/// given up. Both strings are the console's, verbatim.
-class _LiveRefreshLine extends ConsumerWidget {
-  const _LiveRefreshLine({required this.state});
+/// "134 messages", or "20 of 134", and beside it whether the list is still
+/// moving. One line where there were two, and nothing at all while there is
+/// nothing to say. Both live strings are the console's, verbatim.
+class _ResultsLine extends ConsumerWidget {
+  const _ResultsLine({required this.listing, required this.live});
 
-  final NotificationLiveRefreshState state;
+  final AsyncValue<NotificationLogState> listing;
+  final NotificationLiveRefreshState live;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Nothing in flight: the line is not rendered at all, exactly as
-    // `live-refresh.tsx` returns null on `pending === 0`.
-    if (state.pending == 0) {
+    final ThemeData theme = Theme.of(context);
+    final TextStyle? quiet = theme.textTheme.labelMedium?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    final NotificationLogState? state = listing.value;
+    // Both numbers, because "20" alone does not say whether the reader is
+    // looking at the whole filter or the first page of it.
+    final String? count = state == null || state.rows.isEmpty
+        ? null
+        : state.rows.length >= state.total
+        ? '${state.total} message${state.total == 1 ? '' : 's'}'
+        : '${state.rows.length} of ${state.total}';
+
+    if (count == null && live.pending == 0) {
       return const SizedBox(height: Brand.spaceXs);
     }
-
-    final ThemeData theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Brand.spaceMd,
-        Brand.spaceSm,
-        Brand.spaceMd,
         0,
+        Brand.spaceMd,
+        Brand.spaceXs,
       ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: state.gaveUp
-            ? TextButton(
-                key: const ValueKey<String>('notification-live-resume'),
-                onPressed: () => ref
-                    .read(notificationLiveRefreshProvider.notifier)
-                    .resume(),
-                child: const Text('Stopped checking. Check again'),
-              )
-            : Text(
-                '${state.pending} still moving — this list updates itself',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+      child: Row(
+        children: <Widget>[
+          if (count != null) Text(count, style: quiet),
+          // Flexible, with the status pushed to the far edge: on a narrow
+          // phone or at a larger text size the two no longer share a line, and
+          // an unwrapped Row would clip the live status rather than wrap it.
+          if (live.pending > 0)
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: live.gaveUp
+                    ? TextButton(
+                        key: const ValueKey<String>('notification-live-resume'),
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => ref
+                            .read(notificationLiveRefreshProvider.notifier)
+                            .resume(),
+                        child: const Text(
+                          'Stopped checking. Check again',
+                          textAlign: TextAlign.end,
+                        ),
+                      )
+                    : Text(
+                        '${live.pending} still moving — this list updates '
+                        'itself',
+                        style: quiet,
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
+            ),
+        ],
       ),
     );
   }
@@ -395,22 +458,21 @@ class _SearchRow extends StatelessWidget {
                 // on the keystroke that changed the field.
                 suffix: ValueListenableBuilder<TextEditingValue>(
                   valueListenable: controller,
-                  builder:
-                      (BuildContext context, TextEditingValue value, _) =>
-                          value.text.isEmpty
-                          ? const SizedBox.shrink()
-                          : IconButton(
-                              key: const ValueKey<String>(
-                                'notification-search-clear',
-                              ),
-                              tooltip: 'Clear the search',
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                controller.clear();
-                                onSubmitted('');
-                              },
-                            ),
+                  builder: (BuildContext context, TextEditingValue value, _) =>
+                      value.text.isEmpty
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          key: const ValueKey<String>(
+                            'notification-search-clear',
+                          ),
+                          tooltip: 'Clear the search',
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            controller.clear();
+                            onSubmitted('');
+                          },
+                        ),
                 ),
               ),
               onSubmitted: onSubmitted,
@@ -429,85 +491,6 @@ class _SearchRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusChips extends StatelessWidget {
-  const _StatusChips({required this.selected, required this.onSelected});
-
-  final NotificationStatus? selected;
-  final ValueChanged<NotificationStatus?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
-      child: Row(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: Brand.spaceSm),
-            child: FilterChip(
-              key: const ValueKey<String>('notification-filter-all'),
-              label: const Text(kEveryMessageLabel),
-              selected: selected == null,
-              onSelected: (_) => onSelected(null),
-            ),
-          ),
-          // Every status, not only the four the strip summarises: `sending` and
-          // `cancelled` have no count chip but are still rows somebody may want
-          // to isolate.
-          for (final NotificationStatus status in NotificationStatus.values)
-            Padding(
-              padding: const EdgeInsets.only(right: Brand.spaceSm),
-              child: FilterChip(
-                key: ValueKey<String>('notification-filter-${status.name}'),
-                label: Text(notificationStatusShort(status)),
-                selected: selected == status,
-                onSelected: (bool now) => onSelected(now ? status : null),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CountLine extends StatelessWidget {
-  const _CountLine({required this.listing});
-
-  final AsyncValue<NotificationLogState> listing;
-
-  @override
-  Widget build(BuildContext context) {
-    final NotificationLogState? state = listing.value;
-    if (state == null || state.rows.isEmpty) {
-      return const SizedBox(height: Brand.spaceSm);
-    }
-
-    // Both numbers, because "20" alone does not say whether the reader is
-    // looking at the whole filter or the first page of it.
-    final String text = state.rows.length >= state.total
-        ? '${state.total} message${state.total == 1 ? '' : 's'}'
-        : '${state.rows.length} of ${state.total}';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Brand.spaceMd,
-        Brand.spaceSm,
-        Brand.spaceMd,
-        Brand.spaceXs,
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
       ),
     );
   }
@@ -564,8 +547,10 @@ class _RowActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Not `SizedBox.shrink()`: the menu's width is reserved so the times on
+    // rows with and without actions line up down the right edge.
     if (!message.isResendable && !message.isCancellable) {
-      return const SizedBox.shrink();
+      return const SizedBox(width: 40);
     }
 
     return PopupMenuButton<String>(
@@ -579,10 +564,7 @@ class _RowActions extends ConsumerWidget {
             child: Text('Send again'),
           ),
         if (message.isCancellable)
-          const PopupMenuItem<String>(
-            value: 'cancel',
-            child: Text('Cancel'),
-          ),
+          const PopupMenuItem<String>(value: 'cancel', child: Text('Cancel')),
       ],
     );
   }

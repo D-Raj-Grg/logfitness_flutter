@@ -21,36 +21,35 @@ class AnnouncementStateBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
 
-    final (Color background, Color foreground, Color? border) =
-        switch (state) {
-          // Everything that was going to go out has gone. The good end, and
-          // quiet: this list is read to find what is still moving.
-          AnnouncementState.sent => (
-            scheme.secondaryContainer,
-            scheme.onSecondaryContainer,
-            null,
-          ),
-          // Leaving the outbox right now, a minute at a time.
-          AnnouncementState.sending => (
-            scheme.primaryContainer,
-            scheme.onPrimaryContainer,
-            null,
-          ),
-          // Written, dated forward, and not going anywhere yet.
-          AnnouncementState.scheduled => (
-            Colors.transparent,
-            scheme.onSurfaceVariant,
-            scheme.outline,
-          ),
-          // Stopped, and deliberately **not** an error colour. Nothing went
-          // wrong: somebody changed their mind in time, which is the feature
-          // working.
-          AnnouncementState.cancelled => (
-            scheme.surfaceContainerHighest,
-            scheme.onSurfaceVariant,
-            null,
-          ),
-        };
+    final (Color background, Color foreground, Color? border) = switch (state) {
+      // Everything that was going to go out has gone. The good end, and
+      // quiet: this list is read to find what is still moving.
+      AnnouncementState.sent => (
+        scheme.secondaryContainer,
+        scheme.onSecondaryContainer,
+        null,
+      ),
+      // Leaving the outbox right now, a minute at a time.
+      AnnouncementState.sending => (
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+        null,
+      ),
+      // Written, dated forward, and not going anywhere yet.
+      AnnouncementState.scheduled => (
+        Colors.transparent,
+        scheme.onSurfaceVariant,
+        scheme.outline,
+      ),
+      // Stopped, and deliberately **not** an error colour. Nothing went
+      // wrong: somebody changed their mind in time, which is the feature
+      // working.
+      AnnouncementState.cancelled => (
+        scheme.surfaceContainerHighest,
+        scheme.onSurfaceVariant,
+        null,
+      ),
+    };
 
     return Container(
       padding: const EdgeInsets.symmetric(

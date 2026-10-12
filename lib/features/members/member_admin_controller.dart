@@ -58,7 +58,9 @@ class MemberAdmin extends Notifier<bool> {
     String? notes,
   }) {
     return _run(memberId, () async {
-      await ref.read(membersRepositoryProvider).updateMember(
+      await ref
+          .read(membersRepositoryProvider)
+          .updateMember(
             memberId: memberId,
             fullName: fullName,
             phone: phone,
@@ -83,10 +85,9 @@ class MemberAdmin extends Notifier<bool> {
   /// presented as one.
   Future<MemberAdminOutcome> archive(String memberId, {String? reason}) {
     return _run(memberId, () async {
-      await ref.read(membersRepositoryProvider).archiveMember(
-            memberId,
-            reason: reason,
-          );
+      await ref
+          .read(membersRepositoryProvider)
+          .archiveMember(memberId, reason: reason);
       return null;
     });
   }
@@ -147,7 +148,9 @@ class MemberAdmin extends Notifier<bool> {
     }
 
     return _run(memberId, () async {
-      final path = await ref.read(memberPhotosRepositoryProvider).upload(
+      final path = await ref
+          .read(memberPhotosRepositoryProvider)
+          .upload(
             orgId: orgId,
             memberId: memberId,
             bytes: bytes,
@@ -204,5 +207,6 @@ class MemberAdmin extends Notifier<bool> {
   }
 }
 
-final memberAdminProvider =
-    NotifierProvider<MemberAdmin, bool>(MemberAdmin.new);
+final memberAdminProvider = NotifierProvider<MemberAdmin, bool>(
+  MemberAdmin.new,
+);

@@ -99,6 +99,15 @@ enum StaffCapability {
   /// Branch reports: `daily_collection` over a range, `arrears_report`.
   viewBranchReports,
 
+  /// Add, edit, activate and deactivate membership plans (Settings -> Plans).
+  ///
+  /// Owner and manager, matching the console's `requireRole('owner',
+  /// 'manager')` on `/plans`. A front desk may add a plan inline while
+  /// registering a member on the console; that path is not a Settings screen
+  /// and is not offered here. A manager is bounded to plans sold inside their
+  /// own branches (`canScopePlan`), which RLS enforces independently.
+  managePlans,
+
   /// Send one member or one walk-in a message by hand.
   ///
   /// Front desk and up, and not a guess: `member_message_target` gates on
@@ -147,6 +156,15 @@ enum StaffCapability {
   /// has none.
   configureNotifications,
 
+  /// The gym's letterhead: registered name, address, PAN/VAT, terms and logo,
+  /// printed on every invoice and receipt.
+  ///
+  /// Owner only. `orgs` UPDATE and the `org-logos` storage writes both require
+  /// `jwt_is_owner()` in RLS, and the console's `/settings` is
+  /// `requireRole('owner')`. A manager reaching the screen anyway would be
+  /// refused `42501` on save.
+  manageOrgProfile,
+
   /// Manager capability across *every* branch in the org, rather than only
   /// the branches on the staff row. Read by the branch switcher, never by a
   /// nav destination — an owner's surface is a manager's surface widened, not
@@ -178,6 +196,7 @@ const Set<StaffCapability> _manager = <StaffCapability>{
   StaffCapability.refundPayment,
   StaffCapability.viewBranchReports,
   StaffCapability.viewNotificationLog,
+  StaffCapability.managePlans,
 };
 
 /// PLANNING.md §4, transcribed. This is the whole role model; nothing else in
@@ -198,6 +217,7 @@ _capabilitiesByRole = <StaffRole, Set<StaffCapability>>{
     ..._manager,
     StaffCapability.accessAllBranches,
     StaffCapability.configureNotifications,
+    StaffCapability.manageOrgProfile,
   },
 };
 

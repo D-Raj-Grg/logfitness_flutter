@@ -37,86 +37,110 @@ class MemberAdminPanel extends ConsumerWidget {
     // is a courtesy, never an access control (CLAUDE.md).
     final canManage = capabilities.contains(StaffCapability.manageMembers);
 
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+
+    final List<Widget> tiles = <Widget>[
+      ListTile(
+        key: const ValueKey<String>('member-edit'),
+        leading: const Icon(Icons.edit_outlined),
+        title: const Text('Edit details'),
+        subtitle: const Text('Name, phone, contact and message consent'),
+        onTap: busy ? null : () => _edit(context),
+      ),
+      if (member.email != null && member.email!.trim().isNotEmpty)
+        ListTile(
+          key: const ValueKey<String>('member-invite'),
+          leading: const Icon(Icons.phone_iphone),
+          title: Text(
+            member.hasPendingInvite
+                ? 'Resend app invitation'
+                : 'Invite to the member app',
+          ),
+          subtitle: Text(
+            member.acceptedAt != null ? 'Already using the app' : member.email!,
+          ),
+          // Already linked means there is nothing to send.
+          onTap: busy || member.acceptedAt != null
+              ? null
+              : () => _invite(context, ref),
+        ),
+      if (canManage && member.isArchived)
+        ListTile(
+          key: const ValueKey<String>('member-restore'),
+          leading: const Icon(Icons.unarchive_outlined),
+          title: const Text('Restore to the working list'),
+          subtitle: Text(
+            member.archivedReason == null
+                ? 'Archived'
+                : 'Archived: ${member.archivedReason}',
+          ),
+          onTap: busy ? null : () => _restore(context, ref),
+        )
+      else if (canManage)
+        ListTile(
+          key: const ValueKey<String>('member-archive'),
+          leading: const Icon(Icons.archive_outlined),
+          title: const Text('Archive'),
+          // Says what it does, because "archive" next to "cancel" reads
+          // like a delete to someone moving quickly.
+          subtitle: const Text(
+            'Hides them from lists. No membership, invoice or payment is '
+            'touched, and it can be undone.',
+          ),
+          onTap: busy ? null : () => _archive(context, ref),
+        ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        ListTile(
-          key: const ValueKey<String>('member-edit'),
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.edit_outlined),
-          title: const Text('Edit details'),
-          subtitle: const Text('Name, phone, contact and message consent'),
-          onTap: busy ? null : () => _edit(context),
-        ),
-
-        if (member.email != null && member.email!.trim().isNotEmpty)
-          ListTile(
-            key: const ValueKey<String>('member-invite'),
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.phone_iphone),
-            title: Text(
-              member.hasPendingInvite
-                  ? 'Resend app invitation'
-                  : 'Invite to the member app',
-            ),
-            subtitle: Text(
-              member.acceptedAt != null
-                  ? 'Already using the app'
-                  : member.email!,
-            ),
-            // Already linked means there is nothing to send.
-            onTap: busy || member.acceptedAt != null
-                ? null
-                : () => _invite(context, ref),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Brand.spaceXs,
+            Brand.spaceMd,
+            Brand.spaceXs,
+            Brand.spaceSm,
           ),
-
-        if (canManage) ...<Widget>[
-          const Divider(height: Brand.spaceLg),
-          if (member.isArchived)
-            ListTile(
-              key: const ValueKey<String>('member-restore'),
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.unarchive_outlined),
-              title: const Text('Restore to the working list'),
-              subtitle: Text(
-                member.archivedReason == null
-                    ? 'Archived'
-                    : 'Archived: ${member.archivedReason}',
-              ),
-              onTap: busy ? null : () => _restore(context, ref),
-            )
-          else
-            ListTile(
-              key: const ValueKey<String>('member-archive'),
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.archive_outlined),
-              title: const Text('Archive'),
-              // Says what it does, because "archive" next to "cancel" reads
-              // like a delete to someone moving quickly.
-              subtitle: const Text(
-                'Hides them from lists. No membership, invoice or payment is '
-                'touched, and it can be undone.',
-              ),
-              onTap: busy ? null : () => _archive(context, ref),
+          child: Text(
+            'Member record',
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
             ),
-        ],
+          ),
+        ),
+        Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          child: Column(
+            children: <Widget>[
+              for (int i = 0; i < tiles.length; i++) ...<Widget>[
+                if (i > 0) const Divider(height: 1),
+                tiles[i],
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
 
   Future<void> _edit(BuildContext context) async {
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => MemberEditScreen(member: member),
-      ),
+      MaterialPageRoute<bool>(builder: (_) => MemberEditScreen(member: member)),
     );
   }
 
   Future<void> _invite(BuildContext context, WidgetRef ref) async {
-    final outcome = await ref.read(memberAdminProvider.notifier).inviteToApp(
-          memberId: member.id,
-          email: member.email!.trim(),
-        );
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .inviteToApp(memberId: member.id, email: member.email!.trim());
     if (!context.mounted) {
       return;
     }
@@ -149,9 +173,7 @@ class MemberAdminPanel extends ConsumerWidget {
             const SizedBox(height: Brand.spaceMd),
             TextField(
               controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Reason (optional)',
-              ),
+              decoration: const InputDecoration(labelText: 'Reason (optional)'),
             ),
           ],
         ),
@@ -173,10 +195,9 @@ class MemberAdminPanel extends ConsumerWidget {
     }
 
     final reason = controller.text.trim();
-    final outcome = await ref.read(memberAdminProvider.notifier).archive(
-          member.id,
-          reason: reason.isEmpty ? null : reason,
-        );
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .archive(member.id, reason: reason.isEmpty ? null : reason);
     if (!context.mounted) {
       return;
     }
@@ -193,8 +214,9 @@ class MemberAdminPanel extends ConsumerWidget {
   }
 
   Future<void> _restore(BuildContext context, WidgetRef ref) async {
-    final outcome =
-        await ref.read(memberAdminProvider.notifier).restore(member.id);
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .restore(member.id);
     if (!context.mounted) {
       return;
     }

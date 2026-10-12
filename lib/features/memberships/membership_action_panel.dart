@@ -98,37 +98,43 @@ class MembershipActionPanel extends ConsumerWidget {
   /// problem -- the console draws the same line
   /// (`payment.kind === 'payment' && payment.amount_paisa > 0`).
   List<PaymentWithCollector> get _correctable => payments
-      .where((PaymentWithCollector row) =>
-          row.payment.kind == PaymentKind.payment &&
-          row.payment.amountPaisa > 0)
+      .where(
+        (PaymentWithCollector row) =>
+            row.payment.kind == PaymentKind.payment &&
+            row.payment.amountPaisa > 0,
+      )
       .toList();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final Set<StaffCapability> capabilities =
-        ref.watch(staffCapabilitiesProvider);
+    final Set<StaffCapability> capabilities = ref.watch(
+      staffCapabilitiesProvider,
+    );
     final bool busy = ref.watch(membershipActionsProvider);
 
     // UX only -- see the banner at the top of this file. Freeze, cancel and
     // refund are manager-and-up, so a front desk sees only the departure
     // actions here.
-    final bool canFreeze =
-        capabilities.contains(StaffCapability.freezeMembership);
-    final bool canCancel =
-        capabilities.contains(StaffCapability.cancelMembership);
-    final bool canRefund =
-        capabilities.contains(StaffCapability.refundPayment);
+    final bool canFreeze = capabilities.contains(
+      StaffCapability.freezeMembership,
+    );
+    final bool canCancel = capabilities.contains(
+      StaffCapability.cancelMembership,
+    );
+    final bool canRefund = capabilities.contains(StaffCapability.refundPayment);
     // Front desk and up: the database already permits it, and an unrecorded
     // departure leaves someone counted as active. See `recordDeparture`.
-    final bool canRecordDeparture =
-        capabilities.contains(StaffCapability.recordDeparture);
+    final bool canRecordDeparture = capabilities.contains(
+      StaffCapability.recordDeparture,
+    );
     // Adjusting a sold membership's window is free days, and free days are
     // money. §4 puts it under member management rather than under freezes,
     // and the console agrees -- `member-action-panel.tsx` gates "Adjust
     // dates" on owner-or-manager with the comment "Free days are money".
-    final bool canAdjustDates =
-        capabilities.contains(StaffCapability.manageMembers);
+    final bool canAdjustDates = capabilities.contains(
+      StaffCapability.manageMembers,
+    );
 
     final Membership? current = membership;
     final MembershipStatus? status = current?.status;
@@ -140,7 +146,8 @@ class MembershipActionPanel extends ConsumerWidget {
           actionKey: freezeActionKey,
           icon: Icons.pause_circle_outline,
           title: 'Freeze membership',
-          subtitle: 'The end date stops moving until it is unfrozen. The days '
+          subtitle:
+              'The end date stops moving until it is unfrozen. The days '
               'paused are added back on at the end.',
           enabled: !busy,
           onTap: () => _freeze(context, ref, current!),
@@ -150,7 +157,8 @@ class MembershipActionPanel extends ConsumerWidget {
           actionKey: unfreezeActionKey,
           icon: Icons.play_circle_outline,
           title: 'Unfreeze membership',
-          subtitle: 'Starts the clock again and pushes the end date out by '
+          subtitle:
+              'Starts the clock again and pushes the end date out by '
               'however long the freeze lasted.',
           enabled: !busy,
           onTap: () => _unfreeze(context, ref, current!),
@@ -165,7 +173,8 @@ class MembershipActionPanel extends ConsumerWidget {
           // Stated as a correction, because that is what it is for. A
           // routine extension is a renewal, which is a different screen and
           // raises an invoice.
-          subtitle: 'A correction, not a renewal. Moves the window and '
+          subtitle:
+              'A correction, not a renewal. Moves the window and '
               'records the reason. The plan, the price and the invoice do '
               'not move.',
           enabled: !busy,
@@ -180,7 +189,8 @@ class MembershipActionPanel extends ConsumerWidget {
           title: 'Cancel membership',
           // The date rule stated plainly: a cancellation counts on the day it
           // was cancelled, whatever end date the row still carries.
-          subtitle: 'Closes the plan today. It counts as cancelled on the day '
+          subtitle:
+              'Closes the plan today. It counts as cancelled on the day '
               'you cancel it, not on the end date it still shows.',
           destructive: true,
           enabled: !busy,
@@ -194,7 +204,8 @@ class MembershipActionPanel extends ConsumerWidget {
           actionKey: markLeftActionKey,
           icon: Icons.logout,
           title: 'Mark as left',
-          subtitle: 'Records the day they left. Their history and anything '
+          subtitle:
+              'Records the day they left. Their history and anything '
               'they still owe are kept.',
           destructive: true,
           enabled: !busy,
@@ -208,7 +219,8 @@ class MembershipActionPanel extends ConsumerWidget {
           // Says what actually happens rather than promising "active": the
           // status is trigger-derived, and a member with no live membership
           // comes back as expired.
-          subtitle: 'Reopens the record. They will show as expired until a '
+          subtitle:
+              'Reopens the record. They will show as expired until a '
               'new plan is sold.',
           enabled: !busy,
           onTap: () => _reactivate(context, ref),
@@ -226,8 +238,8 @@ class MembershipActionPanel extends ConsumerWidget {
           subtitle: correctable.isEmpty
               ? 'Nothing collected yet, so there is nothing to refund.'
               : 'Money goes back to the member. Recorded as a separate '
-                  'negative line — the original payment is never deleted or '
-                  'edited.',
+                    'negative line — the original payment is never deleted or '
+                    'edited.',
           destructive: true,
           enabled: !busy && correctable.isNotEmpty,
           onTap: () => _refund(context, ref, correctable),
@@ -242,8 +254,8 @@ class MembershipActionPanel extends ConsumerWidget {
           subtitle: correctable.isEmpty
               ? 'Nothing collected yet, so there is nothing to take back.'
               : 'For an entry that was rung up but never arrived. Nothing '
-                  'left the drawer, so this is not a refund — the invoice '
-                  'owes it again.',
+                    'left the drawer, so this is not a refund — the invoice '
+                    'owes it again.',
           destructive: true,
           enabled: !busy && correctable.isNotEmpty,
           onTap: () => _reverse(context, ref, correctable),
@@ -258,7 +270,7 @@ class MembershipActionPanel extends ConsumerWidget {
       // boundary and not a loading state. It is still not the control -- see
       // the banner above.
       return Padding(
-        padding: const EdgeInsets.all(Brand.spaceMd),
+        padding: const EdgeInsets.symmetric(vertical: Brand.spaceMd),
         child: Text(
           'Freezes, cancellations and refunds are handled by a manager.',
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -296,7 +308,8 @@ class MembershipActionPanel extends ConsumerWidget {
     final String? notes = await _showReasonDialog(
       context,
       title: 'Freeze this membership?',
-      body: 'The end date stops moving from today until it is unfrozen, and '
+      body:
+          'The end date stops moving from today until it is unfrozen, and '
           'the days paused are added back on at the end. Nothing is charged '
           'and nothing is refunded.',
       fieldLabel: 'Note',
@@ -330,7 +343,8 @@ class MembershipActionPanel extends ConsumerWidget {
     final bool confirmed = await _confirm(
       context,
       title: 'Unfreeze this membership?',
-      body: 'The membership becomes active again from today, and the end date '
+      body:
+          'The membership becomes active again from today, and the end date '
           'moves out by however long the freeze lasted. The exact number of '
           'days is worked out by the gym’s own calendar, not this phone.',
       confirmLabel: 'Unfreeze',
@@ -349,7 +363,7 @@ class MembershipActionPanel extends ConsumerWidget {
       (UnfreezeMembershipResult value) => value.pausedDays == 0
           ? 'Active again.'
           : 'Active again. The end date moved out by '
-              '${dayCount(value.pausedDays)}.',
+                '${dayCount(value.pausedDays)}.',
     );
   }
 
@@ -364,7 +378,8 @@ class MembershipActionPanel extends ConsumerWidget {
       // Three separate facts, all of which the desk gets wrong otherwise:
       // when it counts from, that the money stays, and that a refund is a
       // separate decision.
-      body: 'It closes today and counts as cancelled on today’s date, not on '
+      body:
+          'It closes today and counts as cancelled on today’s date, not on '
           'the ${current.endDate == null ? 'end of the pack' : formatPlainDate(current.endDate!)} '
           'it still shows.\n\n'
           'Money already taken stays on the invoice. Nothing is refunded by '
@@ -408,7 +423,9 @@ class MembershipActionPanel extends ConsumerWidget {
     await _perform<AdjustMembershipDatesResult>(
       context,
       ref,
-      () => ref.read(membershipActionsProvider.notifier).adjustDates(
+      () => ref
+          .read(membershipActionsProvider.notifier)
+          .adjustDates(
             membershipId: current.id,
             startDate: input.startDate,
             endDate: input.endDate,
@@ -422,8 +439,9 @@ class MembershipActionPanel extends ConsumerWidget {
         final int changed = value.daysChanged;
         final String start = formatPlainDate(value.startDate);
         final DateTime? end = value.endDate;
-        final String window =
-            end == null ? 'Starts $start.' : 'Runs $start to ${formatPlainDate(end)}.';
+        final String window = end == null
+            ? 'Starts $start.'
+            : 'Runs $start to ${formatPlainDate(end)}.';
         final String movedText = moved == 0
             ? ''
             : ' Moved ${moved > 0 ? 'later' : 'earlier'} by ${dayCount(moved)}.';
@@ -439,7 +457,8 @@ class MembershipActionPanel extends ConsumerWidget {
     final String? reason = await _showReasonDialog(
       context,
       title: 'Mark ${member.fullName} as left?',
-      body: 'Records today as the day they left, and they drop out of the '
+      body:
+          'Records today as the day they left, and they drop out of the '
           'active list. Their history and anything they still owe are kept — '
           'nothing is deleted.',
       fieldLabel: 'Reason',
@@ -458,13 +477,13 @@ class MembershipActionPanel extends ConsumerWidget {
       // `leftOn` is deliberately not passed: omitting it lets the RPC use the
       // gym's own today rather than this device's. A late-logged departure is
       // the only case that would pass one, and this panel is not that screen.
-      () => ref.read(membershipActionsProvider.notifier).markLeft(
-            member.id,
-            reason: reason.isEmpty ? null : reason,
-          ),
+      () => ref
+          .read(membershipActionsProvider.notifier)
+          .markLeft(member.id, reason: reason.isEmpty ? null : reason),
       // The status is read back, never assumed: `members.status` is
       // trigger-derived and is never written from the client (CLAUDE.md).
-      (MemberStatusResult value) => 'Marked as left. They now show as '
+      (MemberStatusResult value) =>
+          'Marked as left. They now show as '
           '${memberStatusLabel(value.status).toLowerCase()}.',
     );
   }
@@ -473,7 +492,8 @@ class MembershipActionPanel extends ConsumerWidget {
     final bool confirmed = await _confirm(
       context,
       title: 'Reactivate ${member.fullName}?',
-      body: 'Clears the leaving date so their record reopens. It does not '
+      body:
+          'Clears the leaving date so their record reopens. It does not '
           'sell them anything — they will show as expired until a new plan '
           'is sold.',
       confirmLabel: 'Reactivate',
@@ -488,7 +508,8 @@ class MembershipActionPanel extends ConsumerWidget {
       () => ref.read(membershipActionsProvider.notifier).reactivate(member.id),
       // Read back, never assumed: `members.status` is trigger-derived and a
       // member with no live membership comes back `expired`, not `active`.
-      (MemberStatusResult value) => 'Reactivated. They now show as '
+      (MemberStatusResult value) =>
+          'Reactivated. They now show as '
           '${memberStatusLabel(value.status).toLowerCase()}.',
     );
   }
@@ -545,7 +566,9 @@ class MembershipActionPanel extends ConsumerWidget {
     await _perform<ReversePaymentResult>(
       context,
       ref,
-      () => ref.read(membershipActionsProvider.notifier).reverse(
+      () => ref
+          .read(membershipActionsProvider.notifier)
+          .reverse(
             paymentId: chosen.payment.id,
             reason: input.reason,
             amountPaisa: input.amountPaisa,
@@ -557,9 +580,9 @@ class MembershipActionPanel extends ConsumerWidget {
         final int? due = value.duePaisa;
         return due == null
             ? '${formatMoney(taken)} taken back. It no longer counts '
-                'against the drawer.'
+                  'against the drawer.'
             : '${formatMoney(taken)} taken back. The invoice owes '
-                '${formatMoney(due)} again.';
+                  '${formatMoney(due)} again.';
       },
     );
   }
@@ -637,24 +660,44 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.fromLTRB(
+            Brand.spaceXs,
             Brand.spaceMd,
-            Brand.spaceLg,
-            Brand.spaceMd,
+            Brand.spaceXs,
             Brand.spaceSm,
           ),
           child: Text(
             title,
             style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.primary,
+              color: scheme.onSurfaceVariant,
             ),
           ),
         ),
-        ...children,
+        // One grouped surface per section, so the actions read as a set and
+        // not as a wall of separate rows.
+        Card(
+          margin: EdgeInsets.zero,
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          color: scheme.surfaceContainerLow,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          child: Column(
+            children: <Widget>[
+              for (int i = 0; i < children.length; i++) ...<Widget>[
+                if (i > 0) const Divider(height: 1),
+                children[i],
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -697,11 +740,11 @@ class _ActionTile extends StatelessWidget {
       leading: Icon(icon, color: enabled ? foreground : null),
       title: Text(
         title,
-        style: theme.textTheme.titleMedium
-            ?.copyWith(color: enabled ? foreground : null),
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: enabled ? foreground : null,
+        ),
       ),
       subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
-      isThreeLine: true,
       onTap: enabled ? onTap : null,
     );
   }
@@ -1128,7 +1171,8 @@ class _ReverseDialogState extends State<_ReverseDialog> {
       }
       if (received <= 0 || received >= _original.amountPaisa) {
         setState(() {
-          _error = 'Enter what the member actually gave — less than '
+          _error =
+              'Enter what the member actually gave — less than '
               '${formatMoney(_original.amountPaisa)}. For the whole entry, '
               'pick “None of it came in”.';
         });
@@ -1137,9 +1181,9 @@ class _ReverseDialogState extends State<_ReverseDialog> {
       takenBack = _original.amountPaisa - received;
     }
 
-    Navigator.of(context).pop(
-      _ReverseInput(reason: _reason.text.trim(), amountPaisa: takenBack),
-    );
+    Navigator.of(
+      context,
+    ).pop(_ReverseInput(reason: _reason.text.trim(), amountPaisa: takenBack));
   }
 
   @override
@@ -1205,8 +1249,9 @@ class _ReverseDialogState extends State<_ReverseDialog> {
               TextField(
                 key: reverseReceivedKey,
                 controller: _received,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],

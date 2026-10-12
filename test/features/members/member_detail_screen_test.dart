@@ -43,8 +43,12 @@ MemberOverview _overview({int duePaisa = 0}) => MemberOverview(
   hasMembershipHistory: true,
 );
 
-Member _member({DateTime? invitedAt, DateTime? acceptedAt, DateTime? archivedAt,
-    String? archivedReason}) => Member(
+Member _member({
+  DateTime? invitedAt,
+  DateTime? acceptedAt,
+  DateTime? archivedAt,
+  String? archivedReason,
+}) => Member(
   id: _memberId,
   orgId: 'org-1',
   homeBranchId: 'branch-1',
@@ -120,6 +124,7 @@ class _FakeMembersRepository implements MembersRepository {
     MemberOverview? overview,
     Member? member,
     this.error,
+
     /// The row does not exist, or RLS hides it -- indistinguishable, which is
     /// the point of the case this flag sets up.
     this.hidden = false,
@@ -198,7 +203,6 @@ class _FakeBranchesRepository implements BranchesRepository {
       throw UnimplementedError('${invocation.memberName} is not faked');
 }
 
-
 class _FakeAttendanceRepository implements AttendanceRepository {
   _FakeAttendanceRepository({this.rows = const <AttendanceDetail>[]});
 
@@ -208,8 +212,7 @@ class _FakeAttendanceRepository implements AttendanceRepository {
   Future<List<AttendanceDetail>> listForMember(
     String memberId, {
     int limit = 60,
-  }) async =>
-      rows;
+  }) async => rows;
 
   @override
   Never noSuchMethod(Invocation invocation) =>
@@ -217,16 +220,16 @@ class _FakeAttendanceRepository implements AttendanceRepository {
 }
 
 AttendanceDetail _visit({bool isOverride = false}) => AttendanceDetail(
-      id: 'a-1',
-      memberId: 'm-1',
-      orgId: 'org-1',
-      branchId: 'branch-1',
-      branchName: 'Thamel',
-      attendedOn: DateTime.utc(2026, 9, 9),
-      checkedInAt: DateTime.utc(2026, 9, 9, 0, 45),
-      isOverride: isOverride,
-      overrideReason: isOverride ? 'Manager waved through' : null,
-    );
+  id: 'a-1',
+  memberId: 'm-1',
+  orgId: 'org-1',
+  branchId: 'branch-1',
+  branchName: 'Thamel',
+  attendedOn: DateTime.utc(2026, 9, 9),
+  checkedInAt: DateTime.utc(2026, 9, 9, 0, 45),
+  isOverride: isOverride,
+  overrideReason: isOverride ? 'Manager waved through' : null,
+);
 
 List<dynamic> _overrides({
   required _FakeMembersRepository members,
@@ -263,9 +266,7 @@ Future<void> _pump(WidgetTester tester, List<dynamic> overrides) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [...overrides],
-      child: const MaterialApp(
-        home: MemberDetailScreen(memberId: _memberId),
-      ),
+      child: const MaterialApp(home: MemberDetailScreen(memberId: _memberId)),
     ),
   );
   await tester.pumpAndSettle();
@@ -276,10 +277,7 @@ void main() {
     testWidgets('the header says who this is and where they belong', (
       WidgetTester tester,
     ) async {
-      await _pump(
-        tester,
-        _overrides(members: _FakeMembersRepository()),
-      );
+      await _pump(tester, _overrides(members: _FakeMembersRepository()));
 
       expect(find.text('Anjali Shrestha'), findsWidgets);
       expect(find.text('M-0001 · 9800000000 · Thamel'), findsOneWidget);
@@ -293,7 +291,9 @@ void main() {
       await _pump(
         tester,
         _overrides(
-          members: _FakeMembersRepository(overview: _overview(duePaisa: 150000)),
+          members: _FakeMembersRepository(
+            overview: _overview(duePaisa: 150000),
+          ),
         ),
       );
 
@@ -351,7 +351,10 @@ void main() {
       );
 
       expect(find.text('Archived'), findsOneWidget);
-      expect(find.textContaining('hidden from the member list'), findsOneWidget);
+      expect(
+        find.textContaining('hidden from the member list'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a refusal renders as a refusal, not a missing member', (
@@ -378,9 +381,7 @@ void main() {
     ) async {
       await _pump(
         tester,
-        _overrides(
-          members: _FakeMembersRepository(hidden: true),
-        ),
+        _overrides(members: _FakeMembersRepository(hidden: true)),
       );
 
       // Hidden and absent are indistinguishable by design, so the screen does

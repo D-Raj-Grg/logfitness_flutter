@@ -265,13 +265,11 @@ void main() {
   testWidgets('the welcome and the clearance take neither', (
     WidgetTester tester,
   ) async {
-    for (final (String id, NotificationEvent event) in <(
-      String,
-      NotificationEvent,
-    )>[
-      ('rule-welcome', NotificationEvent.memberWelcome),
-      ('rule-cleared', NotificationEvent.duesCleared),
-    ]) {
+    for (final (String id, NotificationEvent event)
+        in <(String, NotificationEvent)>[
+          ('rule-welcome', NotificationEvent.memberWelcome),
+          ('rule-cleared', NotificationEvent.duesCleared),
+        ]) {
       final _FakeRepository repository = _FakeRepository(<NotificationRule>[
         _rule(id: id, event: event, offsetDays: 0),
       ]);

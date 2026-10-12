@@ -68,8 +68,8 @@ class MemberPhotoField extends ConsumerWidget {
                 // nullable and every surface falls back to initials.
                 'Optional. Helps the desk recognise them at check-in.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: Brand.spaceSm),
               Wrap(
@@ -145,7 +145,9 @@ class MemberPhotoField extends ConsumerWidget {
       return;
     }
 
-    final outcome = await ref.read(memberAdminProvider.notifier).setPhoto(
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .setPhoto(
           memberId: member.id,
           orgId: member.orgId,
           bytes: bytes,
@@ -159,10 +161,9 @@ class MemberPhotoField extends ConsumerWidget {
   }
 
   Future<void> _clear(BuildContext context, WidgetRef ref) async {
-    final outcome = await ref.read(memberAdminProvider.notifier).clearPhoto(
-          memberId: member.id,
-          path: member.photoPath,
-        );
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .clearPhoto(memberId: member.id, path: member.photoPath);
     if (!context.mounted) {
       return;
     }

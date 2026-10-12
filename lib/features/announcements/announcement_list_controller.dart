@@ -52,8 +52,10 @@ class AnnouncementListState {
 
   /// How many messages across the loaded announcements are still moving. The
   /// live-refresh poller runs on exactly this number and stops at zero.
-  int get pendingCount =>
-      rows.fold<int>(0, (int sum, AnnouncementOverview row) => sum + row.queued);
+  int get pendingCount => rows.fold<int>(
+    0,
+    (int sum, AnnouncementOverview row) => sum + row.queued,
+  );
 
   AnnouncementListState copyWith({
     List<AnnouncementOverview>? rows,
@@ -117,10 +119,7 @@ class AnnouncementList extends _$AnnouncementList {
       final AnnouncementPage page = await ref
           .read(announcementsRepositoryProvider)
           .listAnnouncements(
-            AnnouncementListFilter(
-              page: current.page + 1,
-              pageSize: _pageSize,
-            ),
+            AnnouncementListFilter(page: current.page + 1, pageSize: _pageSize),
           );
       if (_generation != startedAt) return;
       state = AsyncValue<AnnouncementListState>.data(

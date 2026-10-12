@@ -9,11 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/members/member.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
-import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/members/member_admin_controller.dart';
 import 'package:logfitness_flutter/features/members/member_labels.dart';
 import 'package:logfitness_flutter/features/members/widgets/member_photo_field.dart';
+import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 class MemberEditScreen extends ConsumerStatefulWidget {
@@ -28,20 +28,27 @@ class MemberEditScreen extends ConsumerStatefulWidget {
 class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
   final GlobalKey<FormState> _form = GlobalKey<FormState>();
 
-  late final TextEditingController _name =
-      TextEditingController(text: widget.member.fullName);
-  late final TextEditingController _phone =
-      TextEditingController(text: widget.member.phone);
-  late final TextEditingController _email =
-      TextEditingController(text: widget.member.email ?? '');
-  late final TextEditingController _address =
-      TextEditingController(text: widget.member.address ?? '');
-  late final TextEditingController _emergencyName =
-      TextEditingController(text: widget.member.emergencyContactName ?? '');
-  late final TextEditingController _emergencyPhone =
-      TextEditingController(text: widget.member.emergencyContactPhone ?? '');
-  late final TextEditingController _notes =
-      TextEditingController(text: widget.member.notes ?? '');
+  late final TextEditingController _name = TextEditingController(
+    text: widget.member.fullName,
+  );
+  late final TextEditingController _phone = TextEditingController(
+    text: widget.member.phone,
+  );
+  late final TextEditingController _email = TextEditingController(
+    text: widget.member.email ?? '',
+  );
+  late final TextEditingController _address = TextEditingController(
+    text: widget.member.address ?? '',
+  );
+  late final TextEditingController _emergencyName = TextEditingController(
+    text: widget.member.emergencyContactName ?? '',
+  );
+  late final TextEditingController _emergencyPhone = TextEditingController(
+    text: widget.member.emergencyContactPhone ?? '',
+  );
+  late final TextEditingController _notes = TextEditingController(
+    text: widget.member.notes ?? '',
+  );
 
   late MemberGender? _gender = widget.member.gender;
   late DateTime? _dateOfBirth = widget.member.dateOfBirth;
@@ -51,7 +58,13 @@ class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
   @override
   void dispose() {
     for (final TextEditingController c in <TextEditingController>[
-      _name, _phone, _email, _address, _emergencyName, _emergencyPhone, _notes,
+      _name,
+      _phone,
+      _email,
+      _address,
+      _emergencyName,
+      _emergencyPhone,
+      _notes,
     ]) {
       c.dispose();
     }
@@ -67,127 +80,164 @@ class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
     // The member's current home branch stays offered even when this session
     // does not cover it: an edit form that silently moved someone to a branch
     // the editor happens to work at would be a data change nobody asked for.
-    final options = <String>{..._branchIdOptions(scope.options), _branchId}
-        .toList(growable: false);
+    final options = <String>{
+      ..._branchIdOptions(scope.options),
+      _branchId,
+    }.toList(growable: false);
 
     return Scaffold(
       appBar: AppBar(title: Text('Edit ${widget.member.fullName}')),
+      bottomNavigationBar: SaleSummaryBar(
+        submitKey: const ValueKey<String>('member-edit-save'),
+        submitLabel: 'Save changes',
+        busy: saving,
+        onSubmit: _save,
+      ),
       body: Form(
         key: _form,
-        child: ListView(
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.all(Brand.spaceMd),
-          children: <Widget>[
-            // Uploads on pick rather than on Save: the member already exists,
-            // so a failed upload costs the photo and nothing else.
-            MemberPhotoField(member: widget.member),
-            const Divider(height: Brand.spaceXl),
-            TextFormField(
-              controller: _name,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Full name'),
-              validator: (String? v) =>
-                  (v?.trim().isEmpty ?? true) ? 'A name is required.' : null,
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                helperText: 'Unique for this gym',
-              ),
-              validator: (String? v) => (v?.trim().isEmpty ?? true)
-                  ? 'A phone number is required.'
-                  : null,
-            ),
-            if (options.length > 1) ...<Widget>[
-              const SizedBox(height: Brand.spaceMd),
-              DropdownButtonFormField<String>(
-                initialValue: _branchId,
-                decoration: const InputDecoration(labelText: 'Home branch'),
-                items: <DropdownMenuItem<String>>[
-                  for (final String id in options)
-                    DropdownMenuItem<String>(
-                      value: id,
-                      child: Text(names[id] ?? 'Branch ${id.substring(0, 8)}'),
-                    ),
-                ],
-                onChanged: (String? v) =>
-                    setState(() => _branchId = v ?? _branchId),
-              ),
-            ],
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            _DobField(
-              value: _dateOfBirth,
-              onPick: (DateTime? v) => setState(() => _dateOfBirth = v),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            DropdownButtonFormField<MemberGender>(
-              initialValue: _gender,
-              decoration: const InputDecoration(labelText: 'Gender'),
-              items: <DropdownMenuItem<MemberGender>>[
-                for (final MemberGender g in MemberGender.values)
-                  DropdownMenuItem<MemberGender>(
-                    value: g,
-                    child: Text(memberGenderLabel(g)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              // Uploads on pick rather than on Save: the member already
+              // exists, so a failed upload costs the photo and nothing else.
+              MemberPhotoField(member: widget.member),
+              sectionGap,
+              FormSection(
+                title: 'Who',
+                children: <Widget>[
+                  TextFormField(
+                    controller: _name,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Full name'),
+                    validator: (String? v) => (v?.trim().isEmpty ?? true)
+                        ? 'Enter the member’s name.'
+                        : null,
                   ),
-              ],
-              onChanged: (MemberGender? v) => setState(() => _gender = v),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _address,
-              decoration: const InputDecoration(labelText: 'Address'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _emergencyName,
-              decoration:
-                  const InputDecoration(labelText: 'Emergency contact name'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _emergencyPhone,
-              keyboardType: TextInputType.phone,
-              decoration:
-                  const InputDecoration(labelText: 'Emergency contact phone'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _notes,
-              maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Notes'),
-            ),
-
-            const Divider(height: Brand.spaceXl),
-            SwitchListTile(
-              key: const ValueKey<String>('member-notifications-opt-out'),
-              contentPadding: EdgeInsets.zero,
-              value: _optOut,
-              onChanged: (bool v) => setState(() => _optOut = v),
-              title: const Text('No automated messages'),
-              // Consent, checked by every enqueue job upstream. Sending
-              // automated SMS with no way to stop is not shippable, which is
-              // why this field exists at all.
-              subtitle: const Text(
-                'Stops renewal reminders, dues chases and birthday greetings',
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      helperText:
+                          'How we find them again. Each phone is used once at '
+                          'this gym.',
+                      helperMaxLines: 2,
+                    ),
+                    validator: (String? v) => (v?.trim().isEmpty ?? true)
+                        ? 'Enter a phone number.'
+                        : null,
+                  ),
+                  if (options.length > 1)
+                    DropdownButtonFormField<String>(
+                      initialValue: _branchId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Home branch',
+                      ),
+                      items: <DropdownMenuItem<String>>[
+                        for (final String id in options)
+                          DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(
+                              names[id] ?? 'Branch ${id.substring(0, 8)}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (String? v) =>
+                          setState(() => _branchId = v ?? _branchId),
+                    ),
+                  PlainDateField(
+                    label: 'Date of birth',
+                    value: _dateOfBirth,
+                    initialYearsBack: 25,
+                    onPick: (DateTime? v) => setState(() => _dateOfBirth = v),
+                  ),
+                  DropdownButtonFormField<MemberGender>(
+                    initialValue: _gender,
+                    decoration: const InputDecoration(labelText: 'Gender'),
+                    items: <DropdownMenuItem<MemberGender>>[
+                      for (final MemberGender g in MemberGender.values)
+                        DropdownMenuItem<MemberGender>(
+                          value: g,
+                          child: Text(memberGenderLabel(g)),
+                        ),
+                    ],
+                    onChanged: (MemberGender? v) => setState(() => _gender = v),
+                  ),
+                ],
               ),
-            ),
-
-            const SizedBox(height: Brand.spaceLg),
-            FilledButton(
-              key: const ValueKey<String>('member-edit-save'),
-              onPressed: saving ? null : _save,
-              child: Text(saving ? 'Saving…' : 'Save changes'),
-            ),
-            const SizedBox(height: Brand.spaceMd),
-          ],
+              sectionGap,
+              FormSection(
+                title: 'Contact',
+                children: <Widget>[
+                  TextFormField(
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  TextFormField(
+                    controller: _address,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Address'),
+                  ),
+                ],
+              ),
+              sectionGap,
+              FormSection(
+                title: 'Emergency contact',
+                children: <Widget>[
+                  TextFormField(
+                    controller: _emergencyName,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                  ),
+                  TextFormField(
+                    controller: _emergencyPhone,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: 'Phone'),
+                  ),
+                ],
+              ),
+              sectionGap,
+              FormSection(
+                title: 'Notes and messages',
+                children: <Widget>[
+                  TextFormField(
+                    controller: _notes,
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(labelText: 'Notes'),
+                  ),
+                  SwitchListTile(
+                    key: const ValueKey<String>('member-notifications-opt-out'),
+                    contentPadding: EdgeInsets.zero,
+                    value: _optOut,
+                    onChanged: (bool v) => setState(() => _optOut = v),
+                    title: const Text('No automated messages'),
+                    // Consent, checked by every enqueue job upstream. Sending
+                    // automated SMS with no way to stop is not shippable,
+                    // which is why this field exists at all.
+                    subtitle: const Text(
+                      'Stops renewal reminders, dues chases and birthday '
+                      'greetings',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Brand.spaceMd),
+            ],
+          ),
         ),
       ),
     );
@@ -200,7 +250,9 @@ class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
       return;
     }
 
-    final outcome = await ref.read(memberAdminProvider.notifier).save(
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .save(
           memberId: widget.member.id,
           fullName: _name.text.trim(),
           phone: _phone.text.trim(),
@@ -231,49 +283,5 @@ class _MemberEditScreenState extends ConsumerState<MemberEditScreen> {
   static String? _blankToNull(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
-  }
-}
-
-class _DobField extends StatelessWidget {
-  const _DobField({required this.value, required this.onPick});
-
-  final DateTime? value;
-  final ValueChanged<DateTime?> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: const InputDecoration(labelText: 'Date of birth'),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(value == null ? 'Not set' : formatPlainDate(value!)),
-          ),
-          if (value != null)
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Clear',
-              onPressed: () => onPick(null),
-            ),
-          IconButton(
-            icon: const Icon(Icons.calendar_today_outlined),
-            tooltip: 'Pick a date',
-            onPressed: () async {
-              final now = DateTime.now();
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: value ?? DateTime(now.year - 25),
-                firstDate: DateTime(now.year - 100),
-                lastDate: now,
-              );
-              if (picked != null) {
-                // UTC midnight so no offset can move the day.
-                onPick(DateTime.utc(picked.year, picked.month, picked.day));
-              }
-            },
-          ),
-        ],
-      ),
-    );
   }
 }

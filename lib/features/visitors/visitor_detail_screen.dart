@@ -23,6 +23,7 @@ import 'package:logfitness_flutter/features/notifications/visitor_message_sheet.
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_actions_controller.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
+import 'package:logfitness_flutter/features/visitors/widgets/visitor_dial.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_labels.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_status_badge.dart';
 
@@ -109,37 +110,62 @@ class _Detail extends ConsumerWidget {
     final canSendMessage =
         capabilities.contains(StaffCapability.sendMemberMessage);
 
+    final muted = theme.textTheme.bodyMedium
+        ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final hasNote = visitor.note != null && visitor.note!.trim().isNotEmpty;
+
     return ListView(
       padding: const EdgeInsets.all(Brand.spaceMd),
       children: <Widget>[
+        // Header: who, where they stand, and the number.
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Expanded(
               child: Text(visitor.fullName, style: theme.textTheme.headlineSmall),
             ),
+            const SizedBox(width: Brand.spaceSm),
             VisitorStatusBadge(visitor.status),
           ],
         ),
-        const SizedBox(height: Brand.spaceSm),
-        Text(visitor.phone, style: theme.textTheme.titleMedium),
         const SizedBox(height: Brand.spaceXs),
         Text(
           '${visitorKindLabel(visitor.kind)} · '
           '${formatPlainDate(visitor.visitedOn)}',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          style: muted,
         ),
-        if (visitor.interestedPlanId != null) ...<Widget>[
-          const SizedBox(height: Brand.spaceXs),
-          _InterestedPlanLine(planId: visitor.interestedPlanId!),
-        ],
-        if (visitor.note != null && visitor.note!.trim().isNotEmpty) ...<Widget>[
-          const SizedBox(height: Brand.spaceMd),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(Brand.spaceMd),
-              child: Text(visitor.note!),
+        if (visitor.interestedPlanId != null)
+          Padding(
+            padding: const EdgeInsets.only(top: Brand.spaceXs),
+            child: _InterestedPlanLine(planId: visitor.interestedPlanId!),
+          ),
+        const SizedBox(height: Brand.spaceSm),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(visitor.phone, style: theme.textTheme.titleLarge),
             ),
+            if (visitor.isOpen)
+              FilledButton.tonalIcon(
+                key: const ValueKey<String>('visitor-call'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                ),
+                onPressed: () => dialPhone(context, visitor.phone),
+                icon: const Icon(Icons.phone_outlined),
+                label: const Text('Call'),
+              ),
+          ],
+        ),
+        if (hasNote) ...<Widget>[
+          const SizedBox(height: Brand.spaceMd),
+          Container(
+            padding: const EdgeInsets.all(Brand.spaceMd),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            ),
+            child: Text(visitor.note!),
           ),
         ],
         const SizedBox(height: Brand.spaceLg),
@@ -147,28 +173,33 @@ class _Detail extends ConsumerWidget {
         if (visitor.isConverted)
           // Nothing left to chase. Saying so beats offering actions that the
           // `visitors_converted_shape` constraint would refuse anyway.
-          Card(
-            color: theme.colorScheme.secondaryContainer,
-            child: Padding(
-              padding: const EdgeInsets.all(Brand.spaceMd),
-              child: Text(
-                'Joined as a member'
-                '${visitor.convertedAt == null ? '' : ' on ${formatDate(visitor.convertedAt!)}'}.',
-                style: TextStyle(color: theme.colorScheme.onSecondaryContainer),
-              ),
+          Container(
+            padding: const EdgeInsets.all(Brand.spaceMd),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            ),
+            child: Text(
+              'Joined as a member'
+              '${visitor.convertedAt == null ? '' : ' on ${formatDate(visitor.convertedAt!)}'}.',
+              style: TextStyle(color: theme.colorScheme.onSecondaryContainer),
             ),
           )
         else ...<Widget>[
+          // Next step: the two things a desk does with an open walk-in.
           FilledButton.icon(
             key: const ValueKey<String>('visitor-register'),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
             onPressed: busy ? null : () => _register(context, ref),
             icon: const Icon(Icons.person_add_alt_1),
-            label: const Text('Register as a member'),
+            label: const Text('Convert to member'),
           ),
-          const SizedBox(height: Brand.spaceSm),
-          if (visitor.status != VisitorStatus.contacted)
-            OutlinedButton.icon(
+          if (visitor.status != VisitorStatus.contacted) ...<Widget>[
+            const SizedBox(height: Brand.spaceSm),
+            FilledButton.tonalIcon(
               key: const ValueKey<String>('visitor-mark-contacted'),
+              style:
+                  FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: busy
                   ? null
                   : () => _run(
@@ -179,82 +210,96 @@ class _Detail extends ConsumerWidget {
                             .markContacted(visitor.id),
                       ),
               icon: const Icon(Icons.phone_forwarded_outlined),
-              label: const Text('Mark called'),
+              label: const Text('Mark as followed up'),
             ),
-          const SizedBox(height: Brand.spaceSm),
-          if (canSendMessage) ...<Widget>[
-            // One tap, no sheet: the gym's own welcome, rendered in Postgres,
-            // so a welcome sent by hand reads exactly like the one the insert
-            // trigger sends. Not offered once they have joined -- the RPC
-            // refuses a converted visitor, and this whole branch is the
-            // not-yet-converted one.
-            OutlinedButton.icon(
-              key: const ValueKey<String>('visitor-send-welcome'),
-              onPressed: busy ? null : () => _sendWelcome(context, ref),
-              icon: const Icon(Icons.waving_hand_outlined),
-              label: const Text('Send welcome SMS'),
-            ),
-            const SizedBox(height: Brand.spaceSm),
-            OutlinedButton.icon(
-              key: const ValueKey<String>('visitor-send-message'),
-              onPressed: busy
-                  ? null
-                  : () => showVisitorMessageSheet(
-                      context,
-                      visitorId: visitor.id,
-                      fullName: visitor.fullName,
-                    ),
-              icon: const Icon(Icons.sms_outlined),
-              label: const Text('Send message…'),
-            ),
-            const SizedBox(height: Brand.spaceSm),
           ],
-          if (visitor.status != VisitorStatus.lost)
-            OutlinedButton.icon(
-              key: const ValueKey<String>('visitor-mark-lost'),
+          if (canSendMessage) ...<Widget>[
+            const SizedBox(height: Brand.spaceMd),
+            // Welcome is one tap, no sheet: the gym's own wording, rendered
+            // in Postgres, so it reads like the one the insert trigger sends.
+            Wrap(
+              spacing: Brand.spaceSm,
+              runSpacing: Brand.spaceSm,
+              children: <Widget>[
+                OutlinedButton.icon(
+                  key: const ValueKey<String>('visitor-send-welcome'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: busy ? null : () => _sendWelcome(context, ref),
+                  icon: const Icon(Icons.waving_hand_outlined),
+                  label: const Text('Send welcome SMS'),
+                ),
+                OutlinedButton.icon(
+                  key: const ValueKey<String>('visitor-send-message'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
+                  onPressed: busy
+                      ? null
+                      : () => showVisitorMessageSheet(
+                            context,
+                            visitorId: visitor.id,
+                            fullName: visitor.fullName,
+                          ),
+                  icon: const Icon(Icons.sms_outlined),
+                  label: const Text('Send message…'),
+                ),
+              ],
+            ),
+          ],
+        ],
+
+        const SizedBox(height: Brand.spaceLg),
+        Text('History', style: theme.textTheme.titleMedium),
+        const SizedBox(height: Brand.spaceSm),
+        _Timeline(visitor: visitor),
+
+        const SizedBox(height: Brand.spaceMd),
+        Wrap(
+          spacing: Brand.spaceSm,
+          children: <Widget>[
+            TextButton.icon(
+              key: const ValueKey<String>('visitor-edit'),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
               onPressed: busy
                   ? null
-                  : () => _run(
-                        context,
-                        ref,
-                        () => ref
-                            .read(visitorActionsProvider.notifier)
-                            .markLost(visitor.id),
-                      ),
-              icon: const Icon(Icons.do_not_disturb_on_outlined),
-              label: const Text('Not joining'),
+                  : () async {
+                      await Navigator.of(context).push<String>(
+                        MaterialPageRoute<String>(
+                          builder: (_) => VisitorFormScreen(existing: visitor),
+                        ),
+                      );
+                      ref.invalidate(visitorDetailProvider(visitor.id));
+                    },
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit'),
             ),
-        ],
-
-        const SizedBox(height: Brand.spaceSm),
-        OutlinedButton.icon(
-          key: const ValueKey<String>('visitor-edit'),
-          onPressed: busy
-              ? null
-              : () async {
-                  await Navigator.of(context).push<String>(
-                    MaterialPageRoute<String>(
-                      builder: (_) => VisitorFormScreen(existing: visitor),
-                    ),
-                  );
-                  ref.invalidate(visitorDetailProvider(visitor.id));
-                },
-          icon: const Icon(Icons.edit_outlined),
-          label: const Text('Edit'),
+            if (!visitor.isConverted && visitor.status != VisitorStatus.lost)
+              TextButton.icon(
+                key: const ValueKey<String>('visitor-mark-lost'),
+                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                onPressed: busy
+                    ? null
+                    : () => _run(
+                          context,
+                          ref,
+                          () => ref
+                              .read(visitorActionsProvider.notifier)
+                              .markLost(visitor.id),
+                        ),
+                icon: const Icon(Icons.do_not_disturb_on_outlined),
+                label: const Text('Not joining'),
+              ),
+            if (canDelete)
+              TextButton.icon(
+                key: const ValueKey<String>('visitor-delete'),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                  minimumSize: const Size(48, 48),
+                ),
+                onPressed: busy ? null : () => _confirmDelete(context, ref),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete'),
+              ),
+          ],
         ),
-
-        if (canDelete) ...<Widget>[
-          const SizedBox(height: Brand.spaceLg),
-          TextButton.icon(
-            key: const ValueKey<String>('visitor-delete'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-            ),
-            onPressed: busy ? null : () => _confirmDelete(context, ref),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete this walk-in'),
-          ),
-        ],
       ],
     );
   }
@@ -356,5 +401,87 @@ class _Detail extends ConsumerWidget {
       case VisitorActionFailed(:final failure):
         showFailureSnackBar(context, failure);
     }
+  }
+}
+
+/// What has happened to this walk-in, newest last. Built from the row's own
+/// timestamps: the log keeps no event table, so a status change shows as the
+/// row's last update.
+class _Timeline extends StatelessWidget {
+  const _Timeline({required this.visitor});
+
+  final Visitor visitor;
+
+  @override
+  Widget build(BuildContext context) {
+    final events = <(String, String)>[
+      ('Walked in', formatPlainDate(visitor.visitedOn)),
+      if (visitor.status == VisitorStatus.contacted)
+        ('Followed up', formatDate(visitor.updatedAt)),
+      if (visitor.status == VisitorStatus.lost)
+        ('Marked not joining', formatDate(visitor.updatedAt)),
+      if (visitor.isConverted)
+        (
+          'Joined as a member',
+          formatDate(visitor.convertedAt ?? visitor.updatedAt),
+        ),
+    ];
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Column(
+      children: <Widget>[
+        for (var i = 0; i < events.length; i++)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                SizedBox(
+                  width: 20,
+                  child: Column(
+                    children: <Widget>[
+                      const SizedBox(height: 6),
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i == events.length - 1
+                              ? scheme.primary
+                              : scheme.outline,
+                        ),
+                      ),
+                      if (i < events.length - 1)
+                        Expanded(
+                          child: Container(width: 2, color: scheme.outlineVariant),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: Brand.spaceSm),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: Brand.spaceMd),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: Brand.spaceSm,
+                      children: <Widget>[
+                        Text(events[i].$1, style: theme.textTheme.bodyMedium),
+                        Text(
+                          events[i].$2,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }

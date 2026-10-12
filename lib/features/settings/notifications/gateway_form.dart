@@ -33,6 +33,8 @@ import 'package:logfitness_flutter/features/notifications/notification_labels.da
 import 'package:logfitness_flutter/features/settings/notifications/gateway_balance_controller.dart';
 import 'package:logfitness_flutter/features/settings/notifications/gateway_validator.dart';
 import 'package:logfitness_flutter/features/settings/notifications/notification_settings_actions.dart';
+import 'package:logfitness_flutter/features/settings/notifications/notification_settings_screen.dart'
+    show ChannelReadiness, channelReadiness, channelReadinessLabel;
 
 /// One entry in the gateway picker.
 class GatewayChoice {
@@ -230,6 +232,11 @@ class _GatewayFormState extends ConsumerState<GatewayForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            _StatusBlock(
+              channel: widget.channel,
+              readiness: channelReadiness(row, widget.hasToken),
+            ),
+            const SizedBox(height: Brand.spaceMd),
             DropdownButtonFormField<NotificationProviderKind>(
               key: ValueKey<String>('gateway-picker-${widget.channel.wire}'),
               initialValue: _kind,
@@ -369,21 +376,33 @@ class _GatewayFormState extends ConsumerState<GatewayForm> {
             _tokenField(theme, row),
 
             const SizedBox(height: Brand.spaceSm),
-            CheckboxListTile(
+            SwitchListTile(
               key: const ValueKey<String>('gateway-active'),
               contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
               value: _isActive,
               title: const Text('Send on this channel'),
-              onChanged: (bool? value) =>
-                  setState(() => _isActive = value ?? false),
+              subtitle: Text(
+                _isActive
+                    ? 'Messages go out through this gateway.'
+                    : 'Paused. Nothing is sent, and your details are kept.',
+              ),
+              onChanged: (bool value) => setState(() => _isActive = value),
             ),
 
             const SizedBox(height: Brand.spaceSm),
-            FilledButton(
-              key: const ValueKey<String>('gateway-save'),
-              onPressed: saving ? null : () => unawaited(_save()),
-              child: Text(row == null ? 'Connect gateway' : 'Save gateway'),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const ValueKey<String>('gateway-save'),
+                onPressed: saving ? null : () => unawaited(_save()),
+                icon: saving
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(row == null ? Icons.link : Icons.check),
+                label: Text(row == null ? 'Connect gateway' : 'Save gateway'),
+              ),
             ),
 
             if (row != null) ...<Widget>[
@@ -693,6 +712,82 @@ class _BalanceStrip extends ConsumerWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// The channel's state in its own tinted block, so a gateway that is paused or
+/// mute is the first thing seen rather than a word in a tab.
+class _StatusBlock extends StatelessWidget {
+  const _StatusBlock({required this.channel, required this.readiness});
+
+  final NotificationChannel channel;
+  final ChannelReadiness readiness;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+
+    final (
+      Color bg,
+      Color fg,
+      IconData icon,
+      String detail,
+    ) = switch (readiness) {
+      ChannelReadiness.connected => (
+        scheme.primaryContainer,
+        scheme.onPrimaryContainer,
+        Icons.check_circle_outline,
+        'Messages on this channel are going out.',
+      ),
+      ChannelReadiness.paused => (
+        scheme.surfaceContainerHigh,
+        scheme.onSurface,
+        Icons.pause_circle_outline,
+        'Nothing is sent on this channel. Turn it back on below.',
+      ),
+      ChannelReadiness.noToken => (
+        scheme.errorContainer,
+        scheme.onErrorContainer,
+        Icons.key_off_outlined,
+        'Add the API token below. Until then every message is logged as not sent.',
+      ),
+      ChannelReadiness.notSetUp => (
+        scheme.surfaceContainerHigh,
+        scheme.onSurface,
+        Icons.info_outline,
+        'Pick a gateway and add its token to start sending.',
+      ),
+    };
+
+    return Container(
+      key: ValueKey<String>('gateway-status-${channel.wire}'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(Brand.spaceMd),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(Brand.radiusMedium),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Icon(icon, color: fg),
+          const SizedBox(width: Brand.spaceSm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  channelReadinessLabel(readiness),
+                  style: text.titleSmall?.copyWith(color: fg),
+                ),
+                Text(detail, style: text.bodySmall?.copyWith(color: fg)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

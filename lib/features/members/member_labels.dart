@@ -270,7 +270,75 @@ class MemberStatusBadge extends StatelessWidget {
 /// because the register screen and the edit screen must not drift into
 /// spelling the same three values differently.
 String memberGenderLabel(MemberGender gender) => switch (gender) {
-      MemberGender.male => 'Male',
-      MemberGender.female => 'Female',
-      MemberGender.other => 'Other',
+  MemberGender.male => 'Male',
+  MemberGender.female => 'Female',
+  MemberGender.other => 'Other',
+};
+
+/// A round status mark plus the status words, for dense list rows where the
+/// filled [MemberStatusBadge] pill would shout on every line. Same wording and
+/// same tone mapping as the badge; colour comes from the theme's roles only.
+class MemberStatusMark extends StatelessWidget {
+  const MemberStatusMark({
+    required this.status,
+    this.daysToExpiry,
+    this.membershipStatus,
+    this.hasMembershipHistory = true,
+    super.key,
+  });
+
+  final MemberStatus status;
+  final int? daysToExpiry;
+  final MembershipStatus? membershipStatus;
+  final bool hasMembershipHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme scheme = theme.colorScheme;
+    final _MemberTone tone = _toneFor(
+      status,
+      daysToExpiry,
+      membershipStatus,
+      hasMembershipHistory,
+    );
+    final Color dot = switch (tone) {
+      _MemberTone.strong => scheme.primary,
+      _MemberTone.outlined => scheme.tertiary,
+      _MemberTone.quiet => scheme.outline,
+      _MemberTone.alarm => scheme.error,
     };
+    final String label = memberStatusLabel(
+      status,
+      daysToExpiry: daysToExpiry,
+      membershipStatus: membershipStatus,
+      hasMembershipHistory: hasMembershipHistory,
+    );
+    return Semantics(
+      label: 'Status: $label',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: Brand.spaceSm - Brand.spaceXs),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

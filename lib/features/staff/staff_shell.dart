@@ -109,8 +109,7 @@ class _StaffShellState extends ConsumerState<StaffShell> {
         child: IndexedStack(
           index: index,
           children: <Widget>[
-            for (final (int i, StaffDestination destination)
-                in visible.indexed)
+            for (final (int i, StaffDestination destination) in visible.indexed)
               // Only the destination on screen may own a Hero.
               //
               // IndexedStack keeps every visited destination mounted, which is
@@ -131,7 +130,8 @@ class _StaffShellState extends ConsumerState<StaffShell> {
               // the intent at the call site.
               HeroMode(
                 enabled: i == index,
-                child: destination.builder?.call() ??
+                child:
+                    destination.builder?.call() ??
                     StaffPlaceholderScreen(destination: destination),
               ),
           ],
@@ -190,28 +190,70 @@ class _StaffShellState extends ConsumerState<StaffShell> {
     List<StaffDestination> overflow,
     List<StaffDestination> visible,
   ) {
+    // Grouped by purpose, in declaration order within each group. A group
+    // with nothing in the overflow is not shown.
+    final List<StaffDestinationGroup> groups = <StaffDestinationGroup>[
+      for (final StaffDestinationGroup g in StaffDestinationGroup.values)
+        if (overflow.any((StaffDestination d) => d.group == g)) g,
+    ];
+
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
-        builder: (BuildContext sheetContext) => SafeArea(
-          key: staffMoreSheetKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              for (final StaffDestination destination in overflow)
-                ListTile(
-                  key: staffDestinationKey(destination.id),
-                  leading: Icon(destination.icon),
-                  title: Text(destination.label),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    setState(() => _index = visible.indexOf(destination));
-                  },
-                ),
-            ],
-          ),
-        ),
+        isScrollControlled: true,
+        builder: (BuildContext sheetContext) {
+          final ThemeData theme = Theme.of(sheetContext);
+          return SafeArea(
+            key: staffMoreSheetKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: Brand.spaceMd),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (final StaffDestinationGroup group in groups) ...<Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Brand.spaceMd,
+                        Brand.spaceSm,
+                        Brand.spaceMd,
+                        Brand.spaceXs,
+                      ),
+                      child: Text(
+                        group.label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    for (final StaffDestination destination in overflow.where(
+                      (StaffDestination d) => d.group == group,
+                    ))
+                      ListTile(
+                        key: staffDestinationKey(destination.id),
+                        leading: CircleAvatar(
+                          backgroundColor: theme.colorScheme.secondaryContainer,
+                          foregroundColor:
+                              theme.colorScheme.onSecondaryContainer,
+                          child: Icon(destination.icon),
+                        ),
+                        title: Text(destination.label),
+                        subtitle: destination.description.isEmpty
+                            ? null
+                            : Text(destination.description),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          setState(() => _index = visible.indexOf(destination));
+                        },
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -236,8 +278,11 @@ class _StaffAppBar extends ConsumerWidget implements PreferredSizeWidget {
     // Best-effort: claims identify the staff row by id, so the name needs a
     // round trip. It is chrome, not content — if the read fails or is still
     // in flight the role alone is shown rather than a spinner in the app bar.
-    final name = ref.watch(_staffDisplayProvider).value?.fullName;
+    final display = ref.watch(_staffDisplayProvider).value;
+    final name = display?.fullName;
+    final orgName = display?.orgName;
     final subtitle = <String>[
+      if (orgName != null && orgName.isNotEmpty) orgName,
       if (role != null) _roleLabel(role),
       if (name != null && name.isNotEmpty) name,
     ].join(' · ');

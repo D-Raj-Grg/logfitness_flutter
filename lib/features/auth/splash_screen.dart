@@ -54,7 +54,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Lord of Gyms',
+              'Gym Tross',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             if (principal.hasError) ...[

@@ -92,27 +92,28 @@ class RegisterMember extends _$RegisterMember {
 
     state = true;
     try {
-      final RegisterMemberResult result =
-          await ref.read(membersRepositoryProvider).registerMember(
-                fullName: fullName,
-                phone: phone,
-                homeBranchId: homeBranchId,
-                email: email,
-                dateOfBirth: dateOfBirth,
-                gender: gender,
-                address: address,
-                emergencyContactName: emergencyContactName,
-                emergencyContactPhone: emergencyContactPhone,
-                notes: notes,
-                planId: planId,
-                discountPaisa: discountPaisa,
-                amountPaidPaisa: amountPaidPaisa,
-                method: method,
-                referenceNo: referenceNo,
-                startDate: startDate,
-                discountReason: discountReason,
-                discountNote: discountNote,
-              );
+      final RegisterMemberResult result = await ref
+          .read(membersRepositoryProvider)
+          .registerMember(
+            fullName: fullName,
+            phone: phone,
+            homeBranchId: homeBranchId,
+            email: email,
+            dateOfBirth: dateOfBirth,
+            gender: gender,
+            address: address,
+            emergencyContactName: emergencyContactName,
+            emergencyContactPhone: emergencyContactPhone,
+            notes: notes,
+            planId: planId,
+            discountPaisa: discountPaisa,
+            amountPaidPaisa: amountPaidPaisa,
+            method: method,
+            referenceNo: referenceNo,
+            startDate: startDate,
+            discountReason: discountReason,
+            discountNote: discountNote,
+          );
 
       if (visitorId == null) {
         return RegisterSucceeded(result);
@@ -125,8 +126,10 @@ class RegisterMember extends _$RegisterMember {
 
       return switch (linkResult) {
         VisitorActionSucceeded() => RegisterSucceeded(result),
-        VisitorActionFailed(:final failure) =>
-          RegisterSucceeded(result, linkFailure: failure),
+        VisitorActionFailed(:final failure) => RegisterSucceeded(
+          result,
+          linkFailure: failure,
+        ),
       };
     } catch (error, stackTrace) {
       return RegisterFailed(mapError(error, stackTrace));

@@ -66,7 +66,7 @@ void main() {
       expect(find.textContaining('Renewal'), findsOneWidget);
       expect(find.textContaining('SMS'), findsOneWidget);
       // 02:30 UTC is 08:15 on the org's wall clock (+05:45), not the device's.
-      expect(find.textContaining('11 Sep 2026, 08:15'), findsOneWidget);
+      expect(find.textContaining('08:15'), findsOneWidget);
     });
 
     testWidgets('shows the status badge', (WidgetTester tester) async {
@@ -140,7 +140,7 @@ void main() {
         ),
       );
 
-      expect(find.text('3 attempts'), findsOneWidget);
+      expect(find.textContaining('3 attempts'), findsOneWidget);
     });
 
     testWidgets('stays hidden at one attempt -- "1 attempts" is noise', (

@@ -25,6 +25,7 @@ import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_form_screen.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_detail_screen.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_list_controller.dart';
+import 'package:logfitness_flutter/features/visitors/widgets/visitor_dial.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_labels.dart';
 import 'package:logfitness_flutter/features/visitors/widgets/visitor_tile.dart';
 
@@ -145,7 +146,7 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
                 isEmpty: (VisitorListState state) => state.rows.isEmpty,
                 emptyMessage: filter.status == VisitorStatusFilter.open
                     ? 'No callbacks outstanding.'
-                    : 'No walk-ins logged yet.',
+                    : 'No walk-ins match. Log one when someone comes in.',
                 emptyAction: FilledButton.tonal(
                   onPressed: () => _openForm(context),
                   child: const Text('Log a walk-in'),
@@ -154,7 +155,7 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
-                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  separatorBuilder: (_, _) => const Divider(height: 1, indent: Brand.spaceMd),
                   itemBuilder: (BuildContext context, int index) {
                     if (index >= state.rows.length) {
                       return const Padding(
@@ -171,6 +172,7 @@ class _VisitorLogScreenState extends ConsumerState<VisitorLogScreen> {
                     final Visitor visitor = state.rows[index];
                     return VisitorTile(
                       visitor: visitor,
+                      onCall: (String phone) => dialPhone(context, phone),
                       onTap: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
                           builder: (_) =>
@@ -279,9 +281,9 @@ class _SearchField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Brand.spaceMd,
-        Brand.spaceMd,
-        Brand.spaceMd,
         Brand.spaceSm,
+        Brand.spaceMd,
+        Brand.spaceXs,
       ),
       child: TextField(
         controller: controller,
@@ -347,21 +349,21 @@ class _CountLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = listing.value;
     if (state == null || state.rows.isEmpty) {
-      return const SizedBox(height: Brand.spaceSm);
+      return const SizedBox(height: Brand.spaceSm + Brand.spaceXs);
     }
 
     // Both numbers, because "12" alone does not say whether the desk is
     // looking at the whole filter or the first page of it.
     final text = state.rows.length >= state.total
         ? '${state.total} walk-in${state.total == 1 ? '' : 's'}'
-        : '${state.rows.length} of ${state.total}';
+        : 'Showing ${state.rows.length} of ${state.total}';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Brand.spaceMd,
         Brand.spaceSm,
         Brand.spaceMd,
-        Brand.spaceXs,
+        Brand.spaceSm,
       ),
       child: Align(
         alignment: Alignment.centerLeft,

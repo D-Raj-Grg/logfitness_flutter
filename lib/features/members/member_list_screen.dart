@@ -142,7 +142,6 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
             onSubmitted: (String value) =>
                 ref.read(memberQueryProvider.notifier).setQuery(value),
           ),
-          const _StatusCountsStrip(),
           _StatusChips(
             selected: query.status,
             onSelected: (MemberListFilter? filter) =>
@@ -164,7 +163,12 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                           'the filters.'
                     : 'No members yet. Register the first member and they '
                           'will show up here.',
-                emptyAction: canRegister
+                emptyAction: query.q.isNotEmpty || query.status != null
+                    ? FilledButton.tonal(
+                        onPressed: _clearFilters,
+                        child: const Text('Clear search and filters'),
+                      )
+                    : canRegister
                     ? FilledButton.tonal(
                         onPressed: () => _openRegister(context),
                         child: const Text('Register a member'),
@@ -172,7 +176,8 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                     : null,
                 data: (MemberListState state) {
                   // One signing round trip for the page, not one per row.
-                  final photoUrls = ref
+                  final photoUrls =
+                      ref
                           .watch(
                             memberPhotoUrlsProvider(
                               MemberPhotoPaths(
@@ -185,41 +190,46 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
                           .value ??
                       const <String, String>{};
                   return ListView.separated(
-                  controller: _scroll,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index >= state.rows.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(Brand.spaceMd),
-                        child: Center(
-                          child: SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                    controller: _scroll,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: state.rows.length + (state.loadingMore ? 1 : 0),
+                    separatorBuilder: (_, _) => const Divider(
+                      height: 1,
+                      indent: Brand.spaceMd + 44 + Brand.spaceMd,
+                      endIndent: Brand.spaceMd,
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index >= state.rows.length) {
+                        return const Padding(
+                          padding: EdgeInsets.all(Brand.spaceMd),
+                          child: Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final MemberOverview row = state.rows[index];
+                      return MemberTile(
+                        member: row,
+                        photoUrl: photoUrls[row.photoPath],
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                MemberDetailScreen(memberId: row.id),
                           ),
                         ),
+                        onSendMessage: !canSendMessage
+                            ? null
+                            : () => showMemberMessageSheet(
+                                context,
+                                memberId: row.id,
+                                fullName: row.fullName,
+                              ),
                       );
-                    }
-                    final MemberOverview row = state.rows[index];
-                    return MemberTile(
-                      member: row,
-                      photoUrl: photoUrls[row.photoPath],
-                      onTap: () => Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (_) => MemberDetailScreen(memberId: row.id),
-                        ),
-                      ),
-                      onSendMessage: !canSendMessage
-                          ? null
-                          : () => showMemberMessageSheet(
-                              context,
-                              memberId: row.id,
-                              fullName: row.fullName,
-                            ),
-                    );
-                  },
+                    },
                   );
                 },
               ),
@@ -237,6 +247,13 @@ class _MemberListScreenState extends ConsumerState<MemberListScreen> {
             )
           : null,
     );
+  }
+
+  void _clearFilters() {
+    _search.clear();
+    ref.read(memberQueryProvider.notifier)
+      ..setQuery('')
+      ..setStatus(null);
   }
 
   Future<void> _openRegister(BuildContext context) async {
@@ -263,44 +280,71 @@ class _SearchField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         Brand.spaceMd,
-        Brand.spaceMd,
+        Brand.spaceSm,
         Brand.spaceMd,
         Brand.spaceSm,
       ),
-      child: TextField(
-        key: const ValueKey<String>('member-search'),
-        controller: controller,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          // The console's placeholder, and the three things the repository's
-          // `or()` actually matches on.
-          hintText: 'Phone, name, or member code',
-          isDense: true,
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () {
-                    controller.clear();
-                    onSubmitted('');
-                  },
-                ),
+      // Rebuilds on typing so the clear button appears as soon as there is
+      // something to clear, not only after the next submit.
+      child: ListenableBuilder(
+        listenable: controller,
+        builder: (BuildContext context, _) => TextField(
+          key: const ValueKey<String>('member-search'),
+          controller: controller,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            // The console's placeholder, and the three things the
+            // repository's `or()` actually matches on.
+            hintText: 'Phone, name, or member code',
+            suffixIcon: controller.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      controller.clear();
+                      onSubmitted('');
+                    },
+                  ),
+          ),
+          onSubmitted: onSubmitted,
         ),
-        onSubmitted: onSubmitted,
       ),
     );
   }
 }
 
-class _StatusChips extends StatelessWidget {
+/// The filter row and the only place the status counts are shown: each chip
+/// carries its own number, so there is no separate summary strip repeating the
+/// same five facts. `expiring` is a subset of `active`, not a sixth bucket.
+/// A failed count read just drops the numbers; the chips still filter.
+class _StatusChips extends ConsumerWidget {
   const _StatusChips({required this.selected, required this.onSelected});
 
   final MemberListFilter? selected;
   final ValueChanged<MemberListFilter?> onSelected;
 
+  static int? _countFor(MemberListFilter? filter, MemberStatusCounts? c) {
+    if (c == null) {
+      return null;
+    }
+    return switch (filter) {
+      MemberListFilter.active => c.active,
+      MemberListFilter.expiring => c.expiring,
+      MemberListFilter.expired => c.expired,
+      MemberListFilter.frozen => c.frozen,
+      MemberListFilter.dues => c.withDues,
+      _ => null,
+    };
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final MemberStatusCounts? counts = ref
+        .watch(memberStatusCountsProvider)
+        .value;
+    final TextTheme text = Theme.of(context).textTheme;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
@@ -311,7 +355,25 @@ class _StatusChips extends StatelessWidget {
               padding: const EdgeInsets.only(right: Brand.spaceSm),
               child: FilterChip(
                 key: memberFilterChipKey(filter),
-                label: Text(memberListFilterLabel(filter)),
+                showCheckmark: false,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(memberListFilterLabel(filter)),
+                    if (_countFor(filter, counts) case final int n) ...<Widget>[
+                      const SizedBox(width: Brand.spaceXs + 2),
+                      Text(
+                        '$n',
+                        style: text.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const <FontFeature>[
+                            FontFeature.tabularFigures(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 selected: filter == selected,
                 onSelected: (_) => onSelected(filter),
               ),
@@ -322,67 +384,8 @@ class _StatusChips extends StatelessWidget {
   }
 }
 
-/// The five dashboard counts, scoped to the same branches as the list.
-///
-/// Rendered as a quiet strip rather than as tiles: it is context for the list
-/// under it, not the point of the screen. A failed count read takes the strip
-/// away and leaves the list alone -- the numbers are a summary, and losing
-/// them is not a reason to stop someone finding a member. The list's own
-/// failures still surface through [AsyncValueView].
-class _StatusCountsStrip extends ConsumerWidget {
-  const _StatusCountsStrip();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<MemberStatusCounts> counts = ref.watch(
-      memberStatusCountsProvider,
-    );
-    final MemberStatusCounts? value = counts.value;
-    if (value == null) {
-      return const SizedBox.shrink();
-    }
-
-    final TextTheme text = Theme.of(context).textTheme;
-    final Color muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    // `expiring` is a subset of `active`, not a sixth bucket -- summing these
-    // double-counts on purpose (see `MemberStatusCounts`). The labels say so
-    // by reading as separate facts rather than as parts of a whole.
-    final List<(String, int)> entries = <(String, int)>[
-      ('Active', value.active),
-      ('Expiring', value.expiring),
-      ('Expired', value.expired),
-      ('Frozen', value.frozen),
-      ('With dues', value.withDues),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(
-        Brand.spaceMd,
-        0,
-        Brand.spaceMd,
-        Brand.spaceSm,
-      ),
-      child: Row(
-        children: <Widget>[
-          for (final (String label, int count) in entries)
-            Padding(
-              padding: const EdgeInsets.only(right: Brand.spaceMd),
-              child: Row(
-                children: <Widget>[
-                  Text('$count', style: text.titleSmall),
-                  const SizedBox(width: Brand.spaceXs),
-                  Text(label, style: text.labelMedium?.copyWith(color: muted)),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
+/// One results line under the filters. Fixed height so the list does not jump
+/// when it appears.
 class _CountLine extends StatelessWidget {
   const _CountLine({required this.listing});
 
@@ -391,38 +394,36 @@ class _CountLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final MemberListState? state = listing.value;
-    if (state == null || state.rows.isEmpty) {
-      return const SizedBox(height: Brand.spaceSm);
+    String? label;
+    if (state != null && state.rows.isNotEmpty) {
+      // Both numbers, because "25" alone does not say whether the desk is
+      // looking at the whole filter or the first page of it.
+      label = state.hasMore
+          ? '${state.rows.length} of ${state.total}'
+          : '${state.total} member${state.total == 1 ? '' : 's'}';
     }
-
-    // Both numbers, because "25" alone does not say whether the desk is
-    // looking at the whole filter or the first page of it.
-    final String text = state.hasMore
-        ? '${state.rows.length} of ${state.total}'
-        : '${state.total} member${state.total == 1 ? '' : 's'}';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        Brand.spaceMd,
-        Brand.spaceSm,
-        Brand.spaceMd,
-        Brand.spaceXs,
-      ),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ),
+    return Container(
+      height: 32,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: Brand.spaceMd),
+      child: label == null
+          ? null
+          : Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
     );
   }
 }
 
-/// One member on the list. The console's row, folded onto a phone: code and
-/// name, then the plan line, then the status and any dues.
+/// One member on the list: three lines, one job each.
+///
+///  1. who: name, with the status mark on the right edge;
+///  2. identity: code and phone, secondary;
+///  3. plan: name (the only part that may be cut) and when it ends, with the
+///     amount owed on the right edge, shown only when something is owed.
 class MemberTile extends StatelessWidget {
   const MemberTile({
     required this.member,
@@ -434,7 +435,7 @@ class MemberTile extends StatelessWidget {
 
   final MemberOverview member;
 
-  /// Signed by the list in one round trip for the whole page — see
+  /// Signed by the list in one round trip for the whole page -- see
   /// `memberPhotoUrlsProvider`. Null is a member with no photo, or a photo
   /// that could not be signed; both render as initials.
   final String? photoUrl;
@@ -449,108 +450,131 @@ class MemberTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
+    final TextTheme text = theme.textTheme;
+    final TextStyle? muted = text.bodySmall?.copyWith(
+      color: scheme.onSurfaceVariant,
+    );
 
-    return ListTile(
+    return InkWell(
       onTap: onTap,
-      // The face is the fastest identification at a counter, which is the
-      // whole reason the list carries one.
-      leading: MemberAvatar(
-        fullName: member.fullName,
-        signedUrl: photoUrl,
-      ),
-      title: Text(member.fullName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            '${member.memberCode} · ${member.phone}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 72),
+        child: Padding(
+          padding: const EdgeInsets.only(
+            left: Brand.spaceMd,
+            top: Brand.spaceSm + Brand.spaceXs,
+            bottom: Brand.spaceSm + Brand.spaceXs,
           ),
-          // Split so the plan name is the only thing that can be cut.
-          //
-          // These names are long -- "Gym + Cardio – 3 Months" -- and left to
-          // wrap they pushed every row to four lines, which is fewer members
-          // on screen for someone searching with a person waiting. Ellipsising
-          // the whole line instead would eat the date, and the date is the
-          // half that answers "do they need to renew". So the name flexes and
-          // truncates; the tail never does.
-          Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              Flexible(
-                child: Text(
-                  _planName(member),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+              // The face is the fastest identification at a counter.
+              MemberAvatar(fullName: member.fullName, signedUrl: photoUrl),
+              const SizedBox(width: Brand.spaceMd),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            member.fullName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: Brand.spaceSm),
+                        Flexible(
+                          flex: 2,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: MemberStatusMark(
+                              status: member.status,
+                              daysToExpiry: member.daysToExpiry,
+                              membershipStatus: member.membershipStatus,
+                              hasMembershipHistory: member.hasMembershipHistory,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      // Only ever seen under the Archived chip, where it says
+                      // why these rows are missing from every other view.
+                      '${member.memberCode} · ${member.phone}'
+                      '${member.isArchived ? ' · Archived' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: muted,
+                    ),
+                    const SizedBox(height: 2),
+                    // Split so the plan name is the only thing that can be
+                    // cut: the date is the half that answers "do they need to
+                    // renew".
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  _planName(member),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: muted,
+                                ),
+                              ),
+                              Text(
+                                _planTail(member),
+                                maxLines: 1,
+                                style: muted,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (member.hasDues) ...<Widget>[
+                          const SizedBox(width: Brand.spaceSm),
+                          Text(
+                            // Money is integer paisa everywhere but here, the
+                            // render boundary (CLAUDE.md).
+                            'Due ${formatMoney(member.duePaisa)}',
+                            maxLines: 1,
+                            style: text.labelMedium?.copyWith(
+                              color: scheme.error,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (onSendMessage != null)
+                IconButton(
+                  key: ValueKey<String>('member-send-sms-${member.id}'),
+                  onPressed: onSendMessage,
+                  icon: const Icon(Icons.sms_outlined),
+                  tooltip: 'Send ${member.fullName} an SMS',
+                  // 48dp target, flush to the edge so the status and dues
+                  // above it keep one right margin.
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
                   ),
-                ),
-              ),
-              Text(
-                _planTail(member),
-                maxLines: 1,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
+                )
+              else
+                const SizedBox(width: Brand.spaceMd),
             ],
           ),
-        ],
-      ),
-      isThreeLine: true,
-      // Three lines exactly, never four.
-      visualDensity: VisualDensity.compact,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              MemberStatusBadge(
-                status: member.status,
-                daysToExpiry: member.daysToExpiry,
-                membershipStatus: member.membershipStatus,
-                hasMembershipHistory: member.hasMembershipHistory,
-              ),
-              if (member.hasDues) ...<Widget>[
-                const SizedBox(height: Brand.spaceXs),
-                Text(
-                  // Money is integer paisa everywhere but here, the render
-                  // boundary (CLAUDE.md).
-                  formatMoney(member.duePaisa),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: scheme.error,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-              // Only ever seen under the Archived chip, where it says why these
-              // rows are missing from every other view.
-              if (member.isArchived) ...<Widget>[
-                const SizedBox(height: Brand.spaceXs),
-                Text(
-                  'Archived',
-                  style: theme.textTheme.labelSmall?.copyWith(color: scheme.outline),
-                ),
-              ],
-            ],
-          ),
-          if (onSendMessage != null)
-            IconButton(
-              key: ValueKey<String>('member-send-sms-${member.id}'),
-              onPressed: onSendMessage,
-              icon: const Icon(Icons.sms_outlined),
-              tooltip: 'Send ${member.fullName} an SMS',
-              // Tightened so the row stays three lines: the status, the dues
-              // and the plan tail already own this edge.
-              visualDensity: VisualDensity.compact,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            ),
-        ],
+        ),
       ),
     );
   }

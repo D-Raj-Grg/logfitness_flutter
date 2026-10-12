@@ -38,9 +38,11 @@ const Key paymentStatusChoiceKey = Key('payment-status-choice');
 Key paymentStatusKey(PaymentStatus status) =>
     Key('payment-status-${status.name}');
 
-/// Three cards, one tap. Not a dropdown: this is the sale's most consequential
-/// field and it has three options, so hiding it behind a menu would cost a tap
-/// and let it be skipped by not being looked at.
+/// Three side-by-side choices, one tap. Not a dropdown: this is the sale's most
+/// consequential field and it has three options, so hiding it behind a menu
+/// would cost a tap and let it be skipped by not being looked at. Side by side
+/// rather than stacked, so it costs one row of the form instead of three; the
+/// consequence of the chosen option is spelled out once, underneath.
 class PaymentStatusChoice extends StatelessWidget {
   const PaymentStatusChoice({
     required this.value,
@@ -61,27 +63,39 @@ class PaymentStatusChoice extends StatelessWidget {
       key: paymentStatusChoiceKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: Brand.spaceSm),
-          child: Text('Payment', style: theme.textTheme.labelLarge),
-        ),
-        for (final PaymentStatus status in PaymentStatus.values)
-          Padding(
-            padding: const EdgeInsets.only(bottom: Brand.spaceSm),
-            child: _StatusCard(
-              status: status,
-              selected: status == value,
-              enabled: enabled,
-              onTap: () => onChanged(status),
-            ),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              for (final PaymentStatus status in PaymentStatus.values) ...<Widget>[
+                if (status != PaymentStatus.values.first)
+                  const SizedBox(width: Brand.spaceSm),
+                Expanded(
+                  child: _StatusOption(
+                    status: status,
+                    selected: status == value,
+                    enabled: enabled,
+                    onTap: () => onChanged(status),
+                  ),
+                ),
+              ],
+            ],
           ),
+        ),
+        const SizedBox(height: Brand.spaceSm),
+        Text(
+          paymentStatusHint(value),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
 }
 
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({
+class _StatusOption extends StatelessWidget {
+  const _StatusOption({
     required this.status,
     required this.selected,
     required this.enabled,
@@ -98,59 +112,44 @@ class _StatusCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colors = theme.colorScheme;
 
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: Material(
-        color: selected ? colors.primaryContainer : colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: selected ? colors.primary : colors.outlineVariant,
-            width: selected ? 2 : 1,
+    return Semantics(
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      button: true,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.5,
+        child: Material(
+          color: selected ? colors.primaryContainer : colors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            side: BorderSide(
+              color: selected ? colors.primary : colors.outlineVariant,
+              width: selected ? 2 : 1,
+            ),
           ),
-        ),
-        child: InkWell(
-          key: paymentStatusKey(status),
-          borderRadius: BorderRadius.circular(12),
-          onTap: enabled ? onTap : null,
-          child: Padding(
-            padding: const EdgeInsets.all(Brand.spaceMd),
-            child: Row(
-              children: <Widget>[
-                Icon(
-                  selected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: selected ? colors.primary : colors.onSurfaceVariant,
-                  size: 20,
+          child: InkWell(
+            key: paymentStatusKey(status),
+            borderRadius: BorderRadius.circular(Brand.radiusMedium),
+            onTap: enabled ? onTap : null,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 52),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Brand.spaceSm,
+                  vertical: Brand.spaceSm + Brand.spaceXs,
                 ),
-                const SizedBox(width: Brand.spaceMd),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        paymentStatusLabel(status),
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w500,
-                          color: selected
-                              ? colors.onPrimaryContainer
-                              : colors.onSurface,
-                        ),
-                      ),
-                      Text(
-                        paymentStatusHint(status),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: selected
-                              ? colors.onPrimaryContainer
-                              : colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                child: Center(
+                  child: Text(
+                    paymentStatusLabel(status),
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: selected
+                          ? colors.onPrimaryContainer
+                          : colors.onSurface,
+                    ),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

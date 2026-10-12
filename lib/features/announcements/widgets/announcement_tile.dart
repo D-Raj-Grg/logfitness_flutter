@@ -13,11 +13,7 @@ import 'package:logfitness_flutter/features/announcements/announcement_labels.da
 import 'package:logfitness_flutter/features/announcements/widgets/announcement_state_badge.dart';
 
 class AnnouncementTile extends StatelessWidget {
-  const AnnouncementTile({
-    required this.row,
-    this.onCancel,
-    super.key,
-  });
+  const AnnouncementTile({required this.row, this.onCancel, super.key});
 
   final AnnouncementOverview row;
 

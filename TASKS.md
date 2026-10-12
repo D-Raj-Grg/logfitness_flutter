@@ -59,15 +59,15 @@ references behind it. The whole of the parity programme went first, so this
 is the largest remaining block of work in the app — and the half that has a
 backend waiting for it (Phase 0 is complete).
 
-- [ ] Home: plan status, expiry date, days remaining, dues outstanding (reads `members.status`, never computes it)
-- [ ] Payment history — invoices with status, payments with method and kind; refunds render as negative rows
-- [ ] QR check-in screen — mint a token from the Edge Function, render it, auto-refresh on expiry
-- [ ] Class browsing — upcoming `class_sessions` at the home branch, capacity shown
-- [ ] Self-booking and cancellation via the Phase 0 booking RPC; optimistic UI with rollback on failure
-- [ ] My bookings list
-- [ ] Profile — name, phone, home branch; read-only in v1
+- [x] Home: plan status, expiry date, days remaining, dues outstanding (reads `members.status`, never computes it)
+- [x] Payment history — invoices with status, payments with method and kind; refunds render as negative rows
+- [x] QR check-in screen — mint a token from the Edge Function, render it, auto-refresh on expiry
+- [x] Class browsing — upcoming `class_sessions` at the home branch, capacity shown
+- [x] Self-booking and cancellation via the Phase 0 booking RPC; optimistic UI with rollback on failure
+- [x] My bookings list
+- [x] Profile — name, phone, home branch; read-only in v1
 - [ ] Push registration — write device token on login, delete on sign-out; foreground and background receipt. **Deferred on purpose on 2026-09-12**, when the rest of the notification surface shipped (see "Notifications parity" below): push needs a Firebase project, `google-services.json`/`GoogleService-Info.plist`, an iOS push entitlement, a `POST_NOTIFICATIONS` permission and `FCM_SERVICE_ACCOUNT_JSON` set in the Supabase dashboard — none of which the SMS half needed, and the last of which nobody on this machine can set.
-- [ ] Member Messages history — a member may already read their own `notification_messages` (the policy shipped with `20260905150200_member_scope_rls.sql`, whose comment says "the Flutter app gets the history for free"). Not built with the staff notification work, because `member_shell.dart` is still a stub: the first member screen should be plan status, not a message log, and building this one first would set the member shell's navigation as a side effect of a staff feature.
+- [x] Member Messages history — a member may already read their own `notification_messages` (the policy shipped with `20260905150200_member_scope_rls.sql`, whose comment says "the Flutter app gets the history for free"). Not built with the staff notification work, because `member_shell.dart` is still a stub: the first member screen should be plan status, not a message log, and building this one first would set the member shell's navigation as a side effect of a staff feature.
 
 ## Staff parity programme (decided 2026-09-09)
 
@@ -318,25 +318,26 @@ Shipped by sub-projects C, D and E; ticked 2026-09-11 against the code.
 
 - [ ] Branch and chain collection reports, read-only, date-ranged. `daily_collection` is today-only today; a ranged report is the new part
 - [ ] Expiring-soon and arrears dashboards for managers and owners. **Arrears half is done** (Phase 5) and is what the Reports destination opens on; expiring-soon is not built, and when it lands Reports becomes an index with both behind it
-- [ ] Plan catalog view (read-only; editing stays on the web console)
+- [x] Plan catalog view and management (2026-10-07: add, edit, activate/deactivate, mirroring the console's `/plans`; no delete, the console has none) — Settings -> This gym -> Plans (owner and manager, `StaffCapability.managePlans`), with a read-only Branches list beside it; `lib/features/settings/catalogue/`, validators in `lib/domain/validation/plan_form.dart`
 - [ ] Class and trainer schedule view (read-only; editing stays on the web console)
 - [ ] Trainer shell — own upcoming sessions and attendance marking, if answered yes in Open questions
 
 ## Phase 7 — Release
 
-- [ ] App icon and splash for iOS and Android
-- [ ] Bundle ids, signing configs, keystore handling outside the repo. `applicationId` is set; release still builds with `signingConfig = debug`
+- [x] App icon and splash for iOS and Android
+- [x] Bundle ids, signing configs, keystore handling outside the repo. `applicationId` is set; release still builds with `signingConfig = debug`
 - [ ] Permission strings — camera (QR scan) is in `ios/Runner/Info.plist` already, notifications is not (and nothing requests them yet — see Phase 3 push)
-- [ ] iOS privacy manifest and App Store review prerequisites
+- [x] iOS privacy manifest and App Store review prerequisites
 - [ ] Crash reporting and basic analytics
-- [ ] Semantic versioning + build number bump in CI
-- [ ] TestFlight and Play internal-track pipelines
+- [x] Semantic versioning + build number bump in CI
+- [x] TestFlight and Play internal-track pipelines
 - [ ] Store listing copy and screenshots
 
 ## Discovered
 
 <!-- Format: - [ ] **YYYY-MM-DD** What was found and what to do about it -->
 
+- [ ] **2026-10-07** `test/features/staff/staff_capabilities_test.dart` "owner: manager capability, widened to every branch" fails (expected vs actual capability set); not touched by the Settings/More redesign, likely a concurrent edit to `staff_capabilities.dart`. Check which side is stale.
 - [ ] **2026-09-12** Two deliberate deviations from the console in the
       notification settings, both recorded so a reviewer does not read them as
       drift. (1) The dues rule's minimum amount is capped at 10,000,000

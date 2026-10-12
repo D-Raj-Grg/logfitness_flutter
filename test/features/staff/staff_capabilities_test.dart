@@ -88,8 +88,14 @@ void main() {
           // screen would be refused 42501 by the RPC behind every button on
           // it.
           StaffCapability.configureNotifications,
+          // The same shape: the "owners update their own org" policy on orgs
+          // is owner-only, so the gym profile and preferences are the
+          // owner's, not the manager's.
+          StaffCapability.manageOrgProfile,
         },
-        reason: 'an owner is a manager with reach, plus the gateway keys',
+        reason:
+            'an owner is a manager with reach, plus the gateway keys and the '
+            'gym profile',
       );
     });
 

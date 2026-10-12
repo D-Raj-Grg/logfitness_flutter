@@ -90,9 +90,13 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(Brand.spaceMd),
           children: <Widget>[
+            // The three things a counter has to capture: who, how to reach
+            // them, and what they came for. Everything else is below.
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              autofocus: !widget.isEditing,
               decoration: const InputDecoration(labelText: 'Full name'),
               // Matches the upstream check constraint (1..120) rather than
               // guessing, so the form refuses what the database would.
@@ -111,6 +115,7 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
             TextFormField(
               controller: _phone,
               keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
               decoration: const InputDecoration(labelText: 'Phone'),
               validator: (String? value) {
                 final trimmed = value?.trim() ?? '';
@@ -124,22 +129,20 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
               },
             ),
             const SizedBox(height: Brand.spaceMd),
-            SegmentedButton<VisitorKind>(
-              segments: <ButtonSegment<VisitorKind>>[
+            Wrap(
+              spacing: Brand.spaceSm,
+              runSpacing: Brand.spaceSm,
+              children: <Widget>[
                 for (final VisitorKind kind in VisitorKind.values)
-                  ButtonSegment<VisitorKind>(
-                    value: kind,
+                  ChoiceChip(
                     label: Text(visitorKindDescription(kind)),
+                    selected: _kind == kind,
+                    onSelected: (_) => setState(() => _kind = kind),
                   ),
               ],
-              selected: <VisitorKind>{_kind},
-              onSelectionChanged: (Set<VisitorKind> selection) =>
-                  setState(() => _kind = selection.first),
             ),
-            // Creation only. `updateVisitor` carries no branch — the console
-            // does not even have an edit form, and its `updateVisitor` is only
-            // ever called with a status — so an editable branch field here
-            // would accept a change and discard it.
+            // Creation only. `updateVisitor` carries no branch, so an editable
+            // branch field here would accept a change and discard it.
             if (!widget.isEditing && branchOptions.length > 1) ...<Widget>[
               const SizedBox(height: Brand.spaceMd),
               DropdownButtonFormField<String>(
@@ -154,11 +157,8 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
                 ],
                 onChanged: (String? value) => setState(() {
                   _branchId = value;
-                  // The plan catalogue is per branch. Keeping a selection the
-                  // new branch does not sell would submit an id that looks
-                  // deliberate and is not, so it is dropped back to "not said"
-                  // -- the console derives it the same way rather than holding
-                  // an invalid value.
+                  // The plan catalogue is per branch; a selection the new
+                  // branch does not sell is dropped back to "not said".
                   _interestedPlanId = null;
                 }),
                 validator: (String? value) =>
@@ -166,36 +166,59 @@ class _VisitorFormScreenState extends ConsumerState<VisitorFormScreen> {
               ),
             ],
             const SizedBox(height: Brand.spaceMd),
-            _VisitedOnField(
-              value: _visitedOn,
-              onPick: (DateTime? picked) => setState(() => _visitedOn = picked),
-            ),
-            const SizedBox(height: Brand.spaceMd),
             _InterestedPlanField(
               branchId: _branchId,
               value: _interestedPlanId,
               onChanged: (String? planId) =>
                   setState(() => _interestedPlanId = planId),
             ),
-            const SizedBox(height: Brand.spaceMd),
-            TextFormField(
-              controller: _note,
-              maxLines: 3,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Note (optional)',
-                hintText: 'What they asked about, when to call back.',
+            // Rarely needed at the counter, so folded away -- but open when
+            // editing a walk-in that already has a note.
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                key: const ValueKey<String>('visitor-form-more'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: EdgeInsets.zero,
+                initiallyExpanded:
+                    widget.isEditing && (widget.existing!.note?.isNotEmpty ?? false),
+                title: const Text('Add a note or change the date'),
+                children: <Widget>[
+                  TextFormField(
+                    controller: _note,
+                    maxLines: 3,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Note (optional)',
+                      hintText: 'What they asked about, when to call back.',
+                    ),
+                  ),
+                  const SizedBox(height: Brand.spaceMd),
+                  _VisitedOnField(
+                    value: _visitedOn,
+                    onPick: (DateTime? picked) =>
+                        setState(() => _visitedOn = picked),
+                  ),
+                  const SizedBox(height: Brand.spaceSm),
+                ],
               ),
             ),
-            const SizedBox(height: Brand.spaceLg),
-            FilledButton(
-              key: const ValueKey<String>('visitor-form-submit'),
-              onPressed: saving ? null : _submit,
-              child: Text(saving
-                  ? 'Saving…'
-                  : (widget.isEditing ? 'Save changes' : 'Log walk-in')),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(Brand.spaceMd),
+          child: FilledButton(
+            key: const ValueKey<String>('visitor-form-submit'),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+            ),
+            onPressed: saving ? null : _submit,
+            child: Text(saving
+                ? 'Saving…'
+                : (widget.isEditing ? 'Save changes' : 'Log walk-in')),
+          ),
         ),
       ),
     );

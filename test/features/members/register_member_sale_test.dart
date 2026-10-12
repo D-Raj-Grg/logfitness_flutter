@@ -192,6 +192,8 @@ Future<void> _startSale(WidgetTester tester) async {
     200,
     scrollable: find.byType(Scrollable).first,
   );
+  await tester.ensureVisible(toggle);
+  await tester.pumpAndSettle();
   await tester.tap(toggle);
   await tester.pumpAndSettle();
 }
@@ -203,6 +205,8 @@ Future<void> _pickPlan(WidgetTester tester, String name) async {
     200,
     scrollable: find.byType(Scrollable).first,
   );
+  await tester.ensureVisible(picker);
+  await tester.pumpAndSettle();
   await tester.tap(picker);
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
@@ -216,6 +220,8 @@ Future<void> _submit(WidgetTester tester) async {
     200,
     scrollable: find.byType(Scrollable).first,
   );
+  await tester.ensureVisible(submit);
+  await tester.pumpAndSettle();
   await tester.tap(submit);
   await tester.pumpAndSettle();
 }
@@ -243,7 +249,16 @@ void main() {
     expect(find.text('Gym Only'), findsNothing, reason: 'not picked yet');
 
     await _pickPlan(tester, 'Gym Only');
-    expect(find.text('Gym Only'), findsOneWidget);
+    // Scoped to the picker: the plan's name is now also a line of the Summary
+    // section (it used to hide inside a collapsed bar), so a bare text finder
+    // matches twice. What this test asserts -- the pick landed -- is unchanged.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('register-plan-branch-a')),
+        matching: find.text('Gym Only'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('paid in full prefills the price, and records exactly that', (
@@ -304,6 +319,8 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(unpaid);
+    await tester.pumpAndSettle();
     await tester.tap(unpaid);
     await tester.pumpAndSettle();
 
@@ -349,6 +366,9 @@ void main() {
     await _submit(tester);
     expect(members.lastCall, isNull);
 
+    // The summary bar is docked over the bottom of the screen, so a field the
+    // list has merely built (inside its cache extent) can sit under it:
+    // scroll it fully clear before tapping.
     // Upwards: the failed submit left the form scrolled to the button, and
     // the reason picker sits above it.
     final reason = find.byKey(
@@ -359,6 +379,8 @@ void main() {
       -200,
       scrollable: find.byType(Scrollable).first,
     );
+    await tester.ensureVisible(reason);
+    await tester.pumpAndSettle();
     await tester.tap(reason);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Student').last);

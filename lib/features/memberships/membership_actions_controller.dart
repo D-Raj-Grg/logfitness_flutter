@@ -121,9 +121,9 @@ class MembershipActions extends Notifier<bool> {
     String membershipId,
   ) {
     return _run(
-      () => ref.read(membershipsRepositoryProvider).unfreezeMembership(
-            membershipId,
-          ),
+      () => ref
+          .read(membershipsRepositoryProvider)
+          .unfreezeMembership(membershipId),
     );
   }
 
@@ -171,7 +171,9 @@ class MembershipActions extends Notifier<bool> {
       );
     }
     return _run(
-      () => ref.read(membershipsRepositoryProvider).adjustMembershipDates(
+      () => ref
+          .read(membershipsRepositoryProvider)
+          .adjustMembershipDates(
             membershipId: membershipId,
             startDate: startDate,
             endDate: endDate,
@@ -198,7 +200,9 @@ class MembershipActions extends Notifier<bool> {
     DateTime? leftOn,
   }) {
     return _run(
-      () => ref.read(membershipsRepositoryProvider).setMemberLeft(
+      () => ref
+          .read(membershipsRepositoryProvider)
+          .setMemberLeft(
             memberId,
             reason: reason == null || reason.trim().isEmpty
                 ? null
@@ -264,7 +268,9 @@ class MembershipActions extends Notifier<bool> {
       );
     }
     return _run(
-      () => ref.read(paymentsRepositoryProvider).refundPayment(
+      () => ref
+          .read(paymentsRepositoryProvider)
+          .refundPayment(
             paymentId: paymentId,
             // Positive here; the function writes the row negative.
             amountPaisa: amountPaisa,
@@ -300,7 +306,9 @@ class MembershipActions extends Notifier<bool> {
       );
     }
     return _run(
-      () => ref.read(paymentsRepositoryProvider).reversePayment(
+      () => ref
+          .read(paymentsRepositoryProvider)
+          .reversePayment(
             paymentId: paymentId,
             reason: reason.trim(),
             amountPaisa: amountPaisa,

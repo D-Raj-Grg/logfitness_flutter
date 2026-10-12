@@ -124,9 +124,10 @@ void main() {
       homeBranchId: 'branch-1',
       notificationsOptOut: false,
     );
-    await Future.wait<MemberAdminOutcome>(
-      <Future<MemberAdminOutcome>>[first, second],
-    );
+    await Future.wait<MemberAdminOutcome>(<Future<MemberAdminOutcome>>[
+      first,
+      second,
+    ]);
 
     expect(repository.updateCallCount, 1);
   });

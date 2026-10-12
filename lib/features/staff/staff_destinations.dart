@@ -16,6 +16,16 @@ import 'package:logfitness_flutter/features/payments/collection_sheet_screen.dar
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/features/visitors/visitor_log_screen.dart';
 
+/// The labelled sections of the More menu, in the order they are shown.
+enum StaffDestinationGroup {
+  daily('Front desk'),
+  insight('Reports and messages'),
+  account('Account');
+
+  const StaffDestinationGroup(this.label);
+  final String label;
+}
+
 /// One place a staff member can go.
 @immutable
 class StaffDestination {
@@ -28,6 +38,8 @@ class StaffDestination {
     this.requiresAny,
     this.builder,
     this.alwaysOverflow = false,
+    this.group = StaffDestinationGroup.daily,
+    this.description = '',
   });
 
   /// Stable identifier, used as the widget key and in tests. Never shown.
@@ -69,6 +81,12 @@ class StaffDestination {
   /// of their members.
   final bool alwaysOverflow;
 
+  /// Which labelled section of the More menu this belongs to.
+  final StaffDestinationGroup group;
+
+  /// One short line under the label in the More menu. Empty for none.
+  final String description;
+
   /// Whether [capabilities] is offered this destination.
   bool isVisibleTo(Set<StaffCapability> capabilities) {
     // [requiresAny], when given, is the whole rule. Falling through to the
@@ -98,6 +116,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Members',
     icon: Icons.people_outline,
     selectedIcon: Icons.people,
+    description: 'Find, renew and look after members',
     requires: StaffCapability.lookUpMember,
     builder: _membersScreen,
   ),
@@ -106,6 +125,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Visitors',
     icon: Icons.meeting_room_outlined,
     selectedIcon: Icons.meeting_room,
+    description: 'Walk-ins and follow-ups',
     requires: StaffCapability.walkInSignup,
     builder: _visitorsScreen,
   ),
@@ -114,6 +134,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Collection',
     icon: Icons.payments_outlined,
     selectedIcon: Icons.payments,
+    description: 'Payments taken today and the cash drawer',
     requires: StaffCapability.viewTodaysCollection,
     builder: _collectionScreen,
   ),
@@ -125,6 +146,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Classes',
     icon: Icons.event_outlined,
     selectedIcon: Icons.event,
+    description: 'Your classes and who is booked',
     requires: StaffCapability.manageOwnClasses,
   ),
   // Arrears is the only report built, and it is the one a counter acts on
@@ -136,6 +158,8 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Reports',
     icon: Icons.bar_chart_outlined,
     selectedIcon: Icons.bar_chart,
+    group: StaffDestinationGroup.insight,
+    description: 'Who owes money and for how long',
     requires: StaffCapability.viewBranchReports,
     builder: _reportsScreen,
   ),
@@ -155,6 +179,8 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Messages',
     icon: Icons.sms_outlined,
     selectedIcon: Icons.sms,
+    group: StaffDestinationGroup.insight,
+    description: 'Messages sent, and announcements to everyone',
     requiresAny: <StaffCapability>{
       StaffCapability.viewNotificationLog,
       StaffCapability.sendAnnouncement,
@@ -167,6 +193,7 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Check-in',
     icon: Icons.qr_code_scanner_outlined,
     selectedIcon: Icons.qr_code_scanner,
+    description: 'Scan or look up a member at the door',
     requires: StaffCapability.checkIn,
     builder: _checkInScreen,
     alwaysOverflow: true,
@@ -181,6 +208,8 @@ const List<StaffDestination> staffDestinations = <StaffDestination>[
     label: 'Settings',
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
+    group: StaffDestinationGroup.account,
+    description: 'Gym details, messaging and appearance',
     builder: _settingsScreen,
   ),
 ];
