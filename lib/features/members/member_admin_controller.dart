@@ -1,15 +1,20 @@
-// Editing a member, archiving one, and inviting one into the member app.
+// Editing a member, archiving one, inviting one into the member app, and
+// handing them an access card.
 //
 // Declared with manual `Notifier`/`Provider` rather than `@riverpod` to stay
 // out of the codegen graph, the same choice `branch_scope.dart` makes.
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:logfitness_flutter/data/members/member_card.dart';
+import 'package:logfitness_flutter/data/members/member_cards_repository.dart';
 import 'package:logfitness_flutter/data/members/members_repository.dart';
+import 'package:logfitness_flutter/data/members/unassigned_card_scan.dart';
 import 'package:logfitness_flutter/data/photos/member_photos_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/features/members/member_detail_controller.dart';
+import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
 /// The result of one administrative write.
 sealed class MemberAdminOutcome {
@@ -183,6 +188,64 @@ class MemberAdmin extends Notifier<bool> {
     });
   }
 
+  /// Hands the member an access card.
+  ///
+  /// [cardUid] is normalised the way the RPC normalises it and checked
+  /// against the column's rule first, so a mistyped number is a sentence here
+  /// rather than a round trip. [replace] revokes a card the member already
+  /// holds; without it the RPC refuses.
+  Future<MemberAdminOutcome> assignCard({
+    required String memberId,
+    required String cardUid,
+    bool replace = false,
+  }) {
+    final uid = normalizeCardUid(cardUid);
+    if (!isValidCardUid(uid)) {
+      return Future<MemberAdminOutcome>.value(
+        const MemberAdminFailed(
+          AppFailure(
+            FailureKind.invalid,
+            'A card number is 8 to 20 characters, using 0-9 and A-F.',
+          ),
+        ),
+      );
+    }
+
+    return _run(memberId, () async {
+      await ref
+          .read(memberCardsRepositoryProvider)
+          .assign(memberId: memberId, cardUid: uid, replace: replace);
+      ref.invalidate(memberLiveCardProvider(memberId));
+      // The RPC clears the matching unassigned scans.
+      ref.invalidate(unassignedCardScansProvider);
+      return 'Card $uid assigned';
+    });
+  }
+
+  /// Stops the member's card opening the door. The row is kept, with
+  /// [reason]: a card is never deleted.
+  Future<MemberAdminOutcome> revokeCard({
+    required String memberId,
+    required String reason,
+  }) {
+    final trimmed = reason.trim();
+    if (trimmed.isEmpty) {
+      return Future<MemberAdminOutcome>.value(
+        const MemberAdminFailed(
+          AppFailure(FailureKind.invalid, 'Say why the card is being revoked.'),
+        ),
+      );
+    }
+
+    return _run(memberId, () async {
+      await ref
+          .read(memberCardsRepositoryProvider)
+          .revoke(memberId: memberId, reason: trimmed);
+      ref.invalidate(memberLiveCardProvider(memberId));
+      return 'Card revoked';
+    });
+  }
+
   Future<MemberAdminOutcome> _run(
     String memberId,
     Future<String?> Function() action,
@@ -210,3 +273,13 @@ class MemberAdmin extends Notifier<bool> {
 final memberAdminProvider = NotifierProvider<MemberAdmin, bool>(
   MemberAdmin.new,
 );
+
+/// The most recent taps of unassigned cards in the branches this shell is
+/// scoped to, for picking one in the card sheet. Ten, newest first.
+final unassignedCardScansProvider =
+    FutureProvider.autoDispose<List<UnassignedCardScan>>((ref) {
+      final BranchScope scope = ref.watch(branchScopeProvider);
+      return ref
+          .watch(memberCardsRepositoryProvider)
+          .listUnassignedScans(branchIds: scope.effectiveBranchIds);
+    });

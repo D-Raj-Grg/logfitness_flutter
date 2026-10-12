@@ -4,6 +4,8 @@
 // untyped literals (TASKS.md, Discovered, 2026-09-05).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logfitness_flutter/data/members/member_card.dart';
+import 'package:logfitness_flutter/data/members/member_cards_repository.dart';
 import 'package:logfitness_flutter/data/members/members_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
@@ -63,14 +65,67 @@ class _FakeMembersRepository implements MembersRepository {
       throw UnimplementedError('${invocation.memberName} is not faked');
 }
 
+class _FakeMemberCardsRepository implements MemberCardsRepository {
+  final List<Map<String, Object?>> assigned = <Map<String, Object?>>[];
+  final List<Map<String, Object?>> revoked = <Map<String, Object?>>[];
+  int liveCardReads = 0;
+  Object? error;
+
+  @override
+  Future<MemberCard?> liveCard(String memberId) async {
+    liveCardReads++;
+    return null;
+  }
+
+  @override
+  Future<MemberCard> assign({
+    required String memberId,
+    required String cardUid,
+    bool replace = false,
+  }) async {
+    assigned.add(<String, Object?>{
+      'memberId': memberId,
+      'cardUid': cardUid,
+      'replace': replace,
+    });
+    if (error != null) {
+      throw error!;
+    }
+    return MemberCard(
+      id: 'card-1',
+      orgId: 'org-1',
+      memberId: memberId,
+      cardUid: cardUid,
+      assignedAt: DateTime.utc(2026, 10, 12),
+    );
+  }
+
+  @override
+  Future<void> revoke({required String memberId, required String reason}) async {
+    revoked.add(<String, Object?>{'memberId': memberId, 'reason': reason});
+    if (error != null) {
+      throw error!;
+    }
+  }
+
+  @override
+  Never noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError('${invocation.memberName} is not faked');
+}
+
 void main() {
   late _FakeMembersRepository repository;
+  late _FakeMemberCardsRepository cards;
   late ProviderContainer container;
 
   setUp(() {
     repository = _FakeMembersRepository();
+    cards = _FakeMemberCardsRepository();
     container = ProviderContainer(
-      overrides: [membersRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        membersRepositoryProvider.overrideWithValue(repository),
+        memberCardsRepositoryProvider.overrideWithValue(cards),
+      ],
     );
     container.listen<bool>(memberAdminProvider, (_, _) {});
   });
@@ -165,6 +220,104 @@ void main() {
       contains('anjali@example.com'),
     );
     expect(repository.invitedEmail, 'anjali@example.com');
+  });
+
+  group('access cards', () {
+    test('a UID is normalised before it is sent', () async {
+      // What a phone or a reader prints is `04:a3:1b:2c`; what the column
+      // holds is `04A31B2C`.
+      final outcome = await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: '04:a3:1b:2c',
+      );
+
+      expect(outcome, isA<MemberAdminSucceeded>());
+      expect(cards.assigned.single['cardUid'], '04A31B2C');
+      expect(cards.assigned.single['replace'], isFalse);
+    });
+
+    test('a malformed UID is refused here, without a round trip', () async {
+      final outcome = await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: '04:a3',
+      );
+
+      expect(outcome, isA<MemberAdminFailed>());
+      expect(
+        (outcome as MemberAdminFailed).failure.kind,
+        FailureKind.invalid,
+      );
+      expect(cards.assigned, isEmpty);
+    });
+
+    test('replacing a card says so to the RPC', () async {
+      await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: 'DEADBEEF',
+        replace: true,
+      );
+
+      expect(cards.assigned.single['replace'], isTrue);
+    });
+
+    test("another member's card comes back in the database's words", () async {
+      cards.error = const PostgrestException(
+        message: 'That card belongs to M-0042',
+        code: 'P0001',
+      );
+
+      final outcome = await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: 'DEADBEEF',
+      );
+
+      expect(outcome, isA<MemberAdminFailed>());
+      expect(
+        (outcome as MemberAdminFailed).failure.message,
+        'That card belongs to M-0042',
+      );
+    });
+
+    test('assigning refreshes the member card', () async {
+      container.listen(memberLiveCardProvider('m-1'), (_, _) {});
+      await container.read(memberLiveCardProvider('m-1').future);
+      expect(cards.liveCardReads, 1);
+
+      await notifier().assignCard(memberId: 'm-1', cardUid: 'DEADBEEF');
+      await container.read(memberLiveCardProvider('m-1').future);
+
+      expect(cards.liveCardReads, 2);
+    });
+
+    test('revoking needs a reason, and sends it trimmed', () async {
+      final refused = await notifier().revokeCard(
+        memberId: 'm-1',
+        reason: '   ',
+      );
+      expect(refused, isA<MemberAdminFailed>());
+      expect(cards.revoked, isEmpty);
+
+      final outcome = await notifier().revokeCard(
+        memberId: 'm-1',
+        reason: '  Lost  ',
+      );
+
+      expect(outcome, isA<MemberAdminSucceeded>());
+      expect(cards.revoked.single, <String, Object?>{
+        'memberId': 'm-1',
+        'reason': 'Lost',
+      });
+    });
+
+    test('revoking refreshes the member card', () async {
+      container.listen(memberLiveCardProvider('m-1'), (_, _) {});
+      await container.read(memberLiveCardProvider('m-1').future);
+
+      await notifier().revokeCard(memberId: 'm-1', reason: 'Lost');
+      await container.read(memberLiveCardProvider('m-1').future);
+
+      expect(cards.liveCardReads, 2);
+    });
   });
 
   test('gender labels cover the whole enum', () {

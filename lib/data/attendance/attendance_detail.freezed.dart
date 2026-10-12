@@ -16,7 +16,10 @@ T _$identity<T>(T value) => value;
 mixin _$AttendanceDetail {
 
  String get id; String get memberId; String get orgId; String? get branchId; String? get branchName; String? get memberCode; String? get fullName; String? get phone; String? get photoPath;// The gym's own calendar day, not the device's.
-@NullablePlainDateConverter() DateTime? get attendedOn; DateTime? get checkedInAt; DateTime? get checkedOutAt; String? get checkedInBy; String? get checkedInByName; String? get membershipId; MembershipStatus? get membershipStatusAtCheckin; int? get duePaisaAtCheckin; int? get daysToExpiryAtCheckin; AttendanceMethod? get method; bool get isOverride; String? get overrideReason; String? get notes;
+@NullablePlainDateConverter() DateTime? get attendedOn; DateTime? get checkedInAt; DateTime? get checkedOutAt; String? get checkedInBy; String? get checkedInByName; String? get membershipId; MembershipStatus? get membershipStatusAtCheckin; int? get duePaisaAtCheckin; int? get daysToExpiryAtCheckin; AttendanceMethod? get method; bool get isOverride; String? get overrideReason; String? get notes;// Set when a card reader (`rfid_check_in`) recorded the visit, in which
+// case `checked_in_by` is null: no person let them in. Null again if the
+// device was later deleted (`on delete set null`).
+ String? get deviceId; String? get deviceName;
 /// Create a copy of AttendanceDetail
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +32,16 @@ $AttendanceDetailCopyWith<AttendanceDetail> get copyWith => _$AttendanceDetailCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AttendanceDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.branchName, branchName) || other.branchName == branchName)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.photoPath, photoPath) || other.photoPath == photoPath)&&(identical(other.attendedOn, attendedOn) || other.attendedOn == attendedOn)&&(identical(other.checkedInAt, checkedInAt) || other.checkedInAt == checkedInAt)&&(identical(other.checkedOutAt, checkedOutAt) || other.checkedOutAt == checkedOutAt)&&(identical(other.checkedInBy, checkedInBy) || other.checkedInBy == checkedInBy)&&(identical(other.checkedInByName, checkedInByName) || other.checkedInByName == checkedInByName)&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.membershipStatusAtCheckin, membershipStatusAtCheckin) || other.membershipStatusAtCheckin == membershipStatusAtCheckin)&&(identical(other.duePaisaAtCheckin, duePaisaAtCheckin) || other.duePaisaAtCheckin == duePaisaAtCheckin)&&(identical(other.daysToExpiryAtCheckin, daysToExpiryAtCheckin) || other.daysToExpiryAtCheckin == daysToExpiryAtCheckin)&&(identical(other.method, method) || other.method == method)&&(identical(other.isOverride, isOverride) || other.isOverride == isOverride)&&(identical(other.overrideReason, overrideReason) || other.overrideReason == overrideReason)&&(identical(other.notes, notes) || other.notes == notes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AttendanceDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.branchName, branchName) || other.branchName == branchName)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.photoPath, photoPath) || other.photoPath == photoPath)&&(identical(other.attendedOn, attendedOn) || other.attendedOn == attendedOn)&&(identical(other.checkedInAt, checkedInAt) || other.checkedInAt == checkedInAt)&&(identical(other.checkedOutAt, checkedOutAt) || other.checkedOutAt == checkedOutAt)&&(identical(other.checkedInBy, checkedInBy) || other.checkedInBy == checkedInBy)&&(identical(other.checkedInByName, checkedInByName) || other.checkedInByName == checkedInByName)&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.membershipStatusAtCheckin, membershipStatusAtCheckin) || other.membershipStatusAtCheckin == membershipStatusAtCheckin)&&(identical(other.duePaisaAtCheckin, duePaisaAtCheckin) || other.duePaisaAtCheckin == duePaisaAtCheckin)&&(identical(other.daysToExpiryAtCheckin, daysToExpiryAtCheckin) || other.daysToExpiryAtCheckin == daysToExpiryAtCheckin)&&(identical(other.method, method) || other.method == method)&&(identical(other.isOverride, isOverride) || other.isOverride == isOverride)&&(identical(other.overrideReason, overrideReason) || other.overrideReason == overrideReason)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,memberId,orgId,branchId,branchName,memberCode,fullName,phone,photoPath,attendedOn,checkedInAt,checkedOutAt,checkedInBy,checkedInByName,membershipId,membershipStatusAtCheckin,duePaisaAtCheckin,daysToExpiryAtCheckin,method,isOverride,overrideReason,notes]);
+int get hashCode => Object.hashAll([runtimeType,id,memberId,orgId,branchId,branchName,memberCode,fullName,phone,photoPath,attendedOn,checkedInAt,checkedOutAt,checkedInBy,checkedInByName,membershipId,membershipStatusAtCheckin,duePaisaAtCheckin,daysToExpiryAtCheckin,method,isOverride,overrideReason,notes,deviceId,deviceName]);
 
 @override
 String toString() {
-  return 'AttendanceDetail(id: $id, memberId: $memberId, orgId: $orgId, branchId: $branchId, branchName: $branchName, memberCode: $memberCode, fullName: $fullName, phone: $phone, photoPath: $photoPath, attendedOn: $attendedOn, checkedInAt: $checkedInAt, checkedOutAt: $checkedOutAt, checkedInBy: $checkedInBy, checkedInByName: $checkedInByName, membershipId: $membershipId, membershipStatusAtCheckin: $membershipStatusAtCheckin, duePaisaAtCheckin: $duePaisaAtCheckin, daysToExpiryAtCheckin: $daysToExpiryAtCheckin, method: $method, isOverride: $isOverride, overrideReason: $overrideReason, notes: $notes)';
+  return 'AttendanceDetail(id: $id, memberId: $memberId, orgId: $orgId, branchId: $branchId, branchName: $branchName, memberCode: $memberCode, fullName: $fullName, phone: $phone, photoPath: $photoPath, attendedOn: $attendedOn, checkedInAt: $checkedInAt, checkedOutAt: $checkedOutAt, checkedInBy: $checkedInBy, checkedInByName: $checkedInByName, membershipId: $membershipId, membershipStatusAtCheckin: $membershipStatusAtCheckin, duePaisaAtCheckin: $duePaisaAtCheckin, daysToExpiryAtCheckin: $daysToExpiryAtCheckin, method: $method, isOverride: $isOverride, overrideReason: $overrideReason, notes: $notes, deviceId: $deviceId, deviceName: $deviceName)';
 }
 
 
@@ -49,7 +52,7 @@ abstract mixin class $AttendanceDetailCopyWith<$Res>  {
   factory $AttendanceDetailCopyWith(AttendanceDetail value, $Res Function(AttendanceDetail) _then) = _$AttendanceDetailCopyWithImpl;
 @useResult
 $Res call({
- String id, String memberId, String orgId, String? branchId, String? branchName, String? memberCode, String? fullName, String? phone, String? photoPath,@NullablePlainDateConverter() DateTime? attendedOn, DateTime? checkedInAt, DateTime? checkedOutAt, String? checkedInBy, String? checkedInByName, String? membershipId, MembershipStatus? membershipStatusAtCheckin, int? duePaisaAtCheckin, int? daysToExpiryAtCheckin, AttendanceMethod? method, bool isOverride, String? overrideReason, String? notes
+ String id, String memberId, String orgId, String? branchId, String? branchName, String? memberCode, String? fullName, String? phone, String? photoPath,@NullablePlainDateConverter() DateTime? attendedOn, DateTime? checkedInAt, DateTime? checkedOutAt, String? checkedInBy, String? checkedInByName, String? membershipId, MembershipStatus? membershipStatusAtCheckin, int? duePaisaAtCheckin, int? daysToExpiryAtCheckin, AttendanceMethod? method, bool isOverride, String? overrideReason, String? notes, String? deviceId, String? deviceName
 });
 
 
@@ -66,7 +69,7 @@ class _$AttendanceDetailCopyWithImpl<$Res>
 
 /// Create a copy of AttendanceDetail
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? memberId = null,Object? orgId = null,Object? branchId = freezed,Object? branchName = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? phone = freezed,Object? photoPath = freezed,Object? attendedOn = freezed,Object? checkedInAt = freezed,Object? checkedOutAt = freezed,Object? checkedInBy = freezed,Object? checkedInByName = freezed,Object? membershipId = freezed,Object? membershipStatusAtCheckin = freezed,Object? duePaisaAtCheckin = freezed,Object? daysToExpiryAtCheckin = freezed,Object? method = freezed,Object? isOverride = null,Object? overrideReason = freezed,Object? notes = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? memberId = null,Object? orgId = null,Object? branchId = freezed,Object? branchName = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? phone = freezed,Object? photoPath = freezed,Object? attendedOn = freezed,Object? checkedInAt = freezed,Object? checkedOutAt = freezed,Object? checkedInBy = freezed,Object? checkedInByName = freezed,Object? membershipId = freezed,Object? membershipStatusAtCheckin = freezed,Object? duePaisaAtCheckin = freezed,Object? daysToExpiryAtCheckin = freezed,Object? method = freezed,Object? isOverride = null,Object? overrideReason = freezed,Object? notes = freezed,Object? deviceId = freezed,Object? deviceName = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,memberId: null == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
@@ -90,6 +93,8 @@ as int?,method: freezed == method ? _self.method : method // ignore: cast_nullab
 as AttendanceMethod?,isOverride: null == isOverride ? _self.isOverride : isOverride // ignore: cast_nullable_to_non_nullable
 as bool,overrideReason: freezed == overrideReason ? _self.overrideReason : overrideReason // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,deviceId: freezed == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
+as String?,deviceName: freezed == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -175,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes,  String? deviceId,  String? deviceName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AttendanceDetail() when $default != null:
-return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes);case _:
+return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes,_that.deviceId,_that.deviceName);case _:
   return orElse();
 
 }
@@ -196,10 +201,10 @@ return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchN
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes,  String? deviceId,  String? deviceName)  $default,) {final _that = this;
 switch (_that) {
 case _AttendanceDetail():
-return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes);case _:
+return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes,_that.deviceId,_that.deviceName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -216,10 +221,10 @@ return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchN
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String memberId,  String orgId,  String? branchId,  String? branchName,  String? memberCode,  String? fullName,  String? phone,  String? photoPath, @NullablePlainDateConverter()  DateTime? attendedOn,  DateTime? checkedInAt,  DateTime? checkedOutAt,  String? checkedInBy,  String? checkedInByName,  String? membershipId,  MembershipStatus? membershipStatusAtCheckin,  int? duePaisaAtCheckin,  int? daysToExpiryAtCheckin,  AttendanceMethod? method,  bool isOverride,  String? overrideReason,  String? notes,  String? deviceId,  String? deviceName)?  $default,) {final _that = this;
 switch (_that) {
 case _AttendanceDetail() when $default != null:
-return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes);case _:
+return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchName,_that.memberCode,_that.fullName,_that.phone,_that.photoPath,_that.attendedOn,_that.checkedInAt,_that.checkedOutAt,_that.checkedInBy,_that.checkedInByName,_that.membershipId,_that.membershipStatusAtCheckin,_that.duePaisaAtCheckin,_that.daysToExpiryAtCheckin,_that.method,_that.isOverride,_that.overrideReason,_that.notes,_that.deviceId,_that.deviceName);case _:
   return null;
 
 }
@@ -231,7 +236,7 @@ return $default(_that.id,_that.memberId,_that.orgId,_that.branchId,_that.branchN
 
 @JsonSerializable(fieldRename: FieldRename.snake)
 class _AttendanceDetail extends AttendanceDetail {
-  const _AttendanceDetail({required this.id, required this.memberId, required this.orgId, this.branchId, this.branchName, this.memberCode, this.fullName, this.phone, this.photoPath, @NullablePlainDateConverter() this.attendedOn, this.checkedInAt, this.checkedOutAt, this.checkedInBy, this.checkedInByName, this.membershipId, this.membershipStatusAtCheckin, this.duePaisaAtCheckin, this.daysToExpiryAtCheckin, this.method, this.isOverride = false, this.overrideReason, this.notes}): super._();
+  const _AttendanceDetail({required this.id, required this.memberId, required this.orgId, this.branchId, this.branchName, this.memberCode, this.fullName, this.phone, this.photoPath, @NullablePlainDateConverter() this.attendedOn, this.checkedInAt, this.checkedOutAt, this.checkedInBy, this.checkedInByName, this.membershipId, this.membershipStatusAtCheckin, this.duePaisaAtCheckin, this.daysToExpiryAtCheckin, this.method, this.isOverride = false, this.overrideReason, this.notes, this.deviceId, this.deviceName}): super._();
   factory _AttendanceDetail.fromJson(Map<String, dynamic> json) => _$AttendanceDetailFromJson(json);
 
 @override final  String id;
@@ -257,6 +262,11 @@ class _AttendanceDetail extends AttendanceDetail {
 @override@JsonKey() final  bool isOverride;
 @override final  String? overrideReason;
 @override final  String? notes;
+// Set when a card reader (`rfid_check_in`) recorded the visit, in which
+// case `checked_in_by` is null: no person let them in. Null again if the
+// device was later deleted (`on delete set null`).
+@override final  String? deviceId;
+@override final  String? deviceName;
 
 /// Create a copy of AttendanceDetail
 /// with the given fields replaced by the non-null parameter values.
@@ -271,16 +281,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AttendanceDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.branchName, branchName) || other.branchName == branchName)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.photoPath, photoPath) || other.photoPath == photoPath)&&(identical(other.attendedOn, attendedOn) || other.attendedOn == attendedOn)&&(identical(other.checkedInAt, checkedInAt) || other.checkedInAt == checkedInAt)&&(identical(other.checkedOutAt, checkedOutAt) || other.checkedOutAt == checkedOutAt)&&(identical(other.checkedInBy, checkedInBy) || other.checkedInBy == checkedInBy)&&(identical(other.checkedInByName, checkedInByName) || other.checkedInByName == checkedInByName)&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.membershipStatusAtCheckin, membershipStatusAtCheckin) || other.membershipStatusAtCheckin == membershipStatusAtCheckin)&&(identical(other.duePaisaAtCheckin, duePaisaAtCheckin) || other.duePaisaAtCheckin == duePaisaAtCheckin)&&(identical(other.daysToExpiryAtCheckin, daysToExpiryAtCheckin) || other.daysToExpiryAtCheckin == daysToExpiryAtCheckin)&&(identical(other.method, method) || other.method == method)&&(identical(other.isOverride, isOverride) || other.isOverride == isOverride)&&(identical(other.overrideReason, overrideReason) || other.overrideReason == overrideReason)&&(identical(other.notes, notes) || other.notes == notes));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AttendanceDetail&&(identical(other.id, id) || other.id == id)&&(identical(other.memberId, memberId) || other.memberId == memberId)&&(identical(other.orgId, orgId) || other.orgId == orgId)&&(identical(other.branchId, branchId) || other.branchId == branchId)&&(identical(other.branchName, branchName) || other.branchName == branchName)&&(identical(other.memberCode, memberCode) || other.memberCode == memberCode)&&(identical(other.fullName, fullName) || other.fullName == fullName)&&(identical(other.phone, phone) || other.phone == phone)&&(identical(other.photoPath, photoPath) || other.photoPath == photoPath)&&(identical(other.attendedOn, attendedOn) || other.attendedOn == attendedOn)&&(identical(other.checkedInAt, checkedInAt) || other.checkedInAt == checkedInAt)&&(identical(other.checkedOutAt, checkedOutAt) || other.checkedOutAt == checkedOutAt)&&(identical(other.checkedInBy, checkedInBy) || other.checkedInBy == checkedInBy)&&(identical(other.checkedInByName, checkedInByName) || other.checkedInByName == checkedInByName)&&(identical(other.membershipId, membershipId) || other.membershipId == membershipId)&&(identical(other.membershipStatusAtCheckin, membershipStatusAtCheckin) || other.membershipStatusAtCheckin == membershipStatusAtCheckin)&&(identical(other.duePaisaAtCheckin, duePaisaAtCheckin) || other.duePaisaAtCheckin == duePaisaAtCheckin)&&(identical(other.daysToExpiryAtCheckin, daysToExpiryAtCheckin) || other.daysToExpiryAtCheckin == daysToExpiryAtCheckin)&&(identical(other.method, method) || other.method == method)&&(identical(other.isOverride, isOverride) || other.isOverride == isOverride)&&(identical(other.overrideReason, overrideReason) || other.overrideReason == overrideReason)&&(identical(other.notes, notes) || other.notes == notes)&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,id,memberId,orgId,branchId,branchName,memberCode,fullName,phone,photoPath,attendedOn,checkedInAt,checkedOutAt,checkedInBy,checkedInByName,membershipId,membershipStatusAtCheckin,duePaisaAtCheckin,daysToExpiryAtCheckin,method,isOverride,overrideReason,notes]);
+int get hashCode => Object.hashAll([runtimeType,id,memberId,orgId,branchId,branchName,memberCode,fullName,phone,photoPath,attendedOn,checkedInAt,checkedOutAt,checkedInBy,checkedInByName,membershipId,membershipStatusAtCheckin,duePaisaAtCheckin,daysToExpiryAtCheckin,method,isOverride,overrideReason,notes,deviceId,deviceName]);
 
 @override
 String toString() {
-  return 'AttendanceDetail(id: $id, memberId: $memberId, orgId: $orgId, branchId: $branchId, branchName: $branchName, memberCode: $memberCode, fullName: $fullName, phone: $phone, photoPath: $photoPath, attendedOn: $attendedOn, checkedInAt: $checkedInAt, checkedOutAt: $checkedOutAt, checkedInBy: $checkedInBy, checkedInByName: $checkedInByName, membershipId: $membershipId, membershipStatusAtCheckin: $membershipStatusAtCheckin, duePaisaAtCheckin: $duePaisaAtCheckin, daysToExpiryAtCheckin: $daysToExpiryAtCheckin, method: $method, isOverride: $isOverride, overrideReason: $overrideReason, notes: $notes)';
+  return 'AttendanceDetail(id: $id, memberId: $memberId, orgId: $orgId, branchId: $branchId, branchName: $branchName, memberCode: $memberCode, fullName: $fullName, phone: $phone, photoPath: $photoPath, attendedOn: $attendedOn, checkedInAt: $checkedInAt, checkedOutAt: $checkedOutAt, checkedInBy: $checkedInBy, checkedInByName: $checkedInByName, membershipId: $membershipId, membershipStatusAtCheckin: $membershipStatusAtCheckin, duePaisaAtCheckin: $duePaisaAtCheckin, daysToExpiryAtCheckin: $daysToExpiryAtCheckin, method: $method, isOverride: $isOverride, overrideReason: $overrideReason, notes: $notes, deviceId: $deviceId, deviceName: $deviceName)';
 }
 
 
@@ -291,7 +301,7 @@ abstract mixin class _$AttendanceDetailCopyWith<$Res> implements $AttendanceDeta
   factory _$AttendanceDetailCopyWith(_AttendanceDetail value, $Res Function(_AttendanceDetail) _then) = __$AttendanceDetailCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String memberId, String orgId, String? branchId, String? branchName, String? memberCode, String? fullName, String? phone, String? photoPath,@NullablePlainDateConverter() DateTime? attendedOn, DateTime? checkedInAt, DateTime? checkedOutAt, String? checkedInBy, String? checkedInByName, String? membershipId, MembershipStatus? membershipStatusAtCheckin, int? duePaisaAtCheckin, int? daysToExpiryAtCheckin, AttendanceMethod? method, bool isOverride, String? overrideReason, String? notes
+ String id, String memberId, String orgId, String? branchId, String? branchName, String? memberCode, String? fullName, String? phone, String? photoPath,@NullablePlainDateConverter() DateTime? attendedOn, DateTime? checkedInAt, DateTime? checkedOutAt, String? checkedInBy, String? checkedInByName, String? membershipId, MembershipStatus? membershipStatusAtCheckin, int? duePaisaAtCheckin, int? daysToExpiryAtCheckin, AttendanceMethod? method, bool isOverride, String? overrideReason, String? notes, String? deviceId, String? deviceName
 });
 
 
@@ -308,7 +318,7 @@ class __$AttendanceDetailCopyWithImpl<$Res>
 
 /// Create a copy of AttendanceDetail
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? memberId = null,Object? orgId = null,Object? branchId = freezed,Object? branchName = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? phone = freezed,Object? photoPath = freezed,Object? attendedOn = freezed,Object? checkedInAt = freezed,Object? checkedOutAt = freezed,Object? checkedInBy = freezed,Object? checkedInByName = freezed,Object? membershipId = freezed,Object? membershipStatusAtCheckin = freezed,Object? duePaisaAtCheckin = freezed,Object? daysToExpiryAtCheckin = freezed,Object? method = freezed,Object? isOverride = null,Object? overrideReason = freezed,Object? notes = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? memberId = null,Object? orgId = null,Object? branchId = freezed,Object? branchName = freezed,Object? memberCode = freezed,Object? fullName = freezed,Object? phone = freezed,Object? photoPath = freezed,Object? attendedOn = freezed,Object? checkedInAt = freezed,Object? checkedOutAt = freezed,Object? checkedInBy = freezed,Object? checkedInByName = freezed,Object? membershipId = freezed,Object? membershipStatusAtCheckin = freezed,Object? duePaisaAtCheckin = freezed,Object? daysToExpiryAtCheckin = freezed,Object? method = freezed,Object? isOverride = null,Object? overrideReason = freezed,Object? notes = freezed,Object? deviceId = freezed,Object? deviceName = freezed,}) {
   return _then(_AttendanceDetail(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,memberId: null == memberId ? _self.memberId : memberId // ignore: cast_nullable_to_non_nullable
@@ -332,6 +342,8 @@ as int?,method: freezed == method ? _self.method : method // ignore: cast_nullab
 as AttendanceMethod?,isOverride: null == isOverride ? _self.isOverride : isOverride // ignore: cast_nullable_to_non_nullable
 as bool,overrideReason: freezed == overrideReason ? _self.overrideReason : overrideReason // ignore: cast_nullable_to_non_nullable
 as String?,notes: freezed == notes ? _self.notes : notes // ignore: cast_nullable_to_non_nullable
+as String?,deviceId: freezed == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
+as String?,deviceName: freezed == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
