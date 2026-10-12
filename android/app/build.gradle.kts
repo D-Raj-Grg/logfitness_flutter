@@ -1,8 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Release signing. The keystore and key.properties live OUTSIDE version control
+// (see docs/RELEASE.md). With no key.properties the release build falls back to
+// the debug key so `flutter run --release` keeps working locally, but CI and
+// scripts/release_android_internal.sh refuse to ship an unsigned-by-us bundle.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
 android {
@@ -34,11 +47,28 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                // storeFile may be absolute or ~-prefixed; keep the keystore out of the repo.
+                storeFile = file(
+                    keystoreProperties.getProperty("storeFile").replaceFirst("^~", System.getProperty("user.home"))
+                )
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("android/key.properties not found: release is signed with the DEBUG key (not uploadable to Play).")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

@@ -60,3 +60,5 @@ key.properties
 
 # Agent worktrees (isolated checkouts; never part of the tree)
 .claude/worktrees/
+!key.properties.example
+!android/key.properties.example

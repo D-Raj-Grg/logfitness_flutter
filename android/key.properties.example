@@ -1,0 +1,7 @@
+# Copy to android/key.properties (gitignored) and fill in. Never commit the real file or the keystore.
+# Generate the keystore with the command in docs/RELEASE.md.
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=upload
+# Absolute path (or ~/...) to a keystore OUTSIDE this repo.
+storeFile=~/.android-keystores/gymtross-upload.jks
