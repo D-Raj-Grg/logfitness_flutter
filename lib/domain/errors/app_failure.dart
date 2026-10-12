@@ -89,6 +89,12 @@ const Map<String, String> _duplicateMessages = <String, String>{
   'members_org_member_code': 'That member code is already in use.',
   'staff_org_email': 'Someone with that email address is already on the staff '
       'list.',
+  // `assign_member_card` checks both of these itself and raises its own
+  // sentence; the raw index only fires when two desks race past that check.
+  'member_cards_live_uid_key':
+      'That card is already assigned to another member.',
+  'member_cards_live_member_key':
+      'This member already has a card; replace it instead.',
 };
 
 /// Maps anything thrown by a repository into an [AppFailure].

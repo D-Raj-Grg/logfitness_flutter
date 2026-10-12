@@ -261,9 +261,10 @@ void main() {
     });
 
     test("another member's card comes back in the database's words", () async {
+      // The RPC raises `unique_violation` with its own sentence.
       cards.error = const PostgrestException(
         message: 'That card belongs to M-0042',
-        code: 'P0001',
+        code: '23505',
       );
 
       final outcome = await notifier().assignCard(
@@ -275,6 +276,40 @@ void main() {
       expect(
         (outcome as MemberAdminFailed).failure.message,
         'That card belongs to M-0042',
+      );
+    });
+
+    test('a raced assignment reads clearly, not as a bare duplicate', () async {
+      // Two desks assigning at once can get past the RPC's own pre-check and
+      // hit the partial unique index itself, which speaks Postgres.
+      cards.error = const PostgrestException(
+        message:
+            'duplicate key value violates unique constraint '
+            '"member_cards_live_uid_key"',
+        code: '23505',
+      );
+      final uidTaken = await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: 'DEADBEEF',
+      );
+      expect(
+        (uidTaken as MemberAdminFailed).failure.message,
+        'That card is already assigned to another member.',
+      );
+
+      cards.error = const PostgrestException(
+        message:
+            'duplicate key value violates unique constraint '
+            '"member_cards_live_member_key"',
+        code: '23505',
+      );
+      final memberHasOne = await notifier().assignCard(
+        memberId: 'm-1',
+        cardUid: 'DEADBEEF',
+      );
+      expect(
+        (memberHasOne as MemberAdminFailed).failure.message,
+        'This member already has a card; replace it instead.',
       );
     });
 

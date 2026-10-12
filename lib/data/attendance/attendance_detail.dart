@@ -67,8 +67,8 @@ abstract class AttendanceDetail with _$AttendanceDetail {
   /// the row a manager looks for when a month's numbers do not add up.
   bool get wasOverridden => isOverride;
 
-  /// Who let them in: the staff member, else the reader that took the tap.
-  /// Null when neither is known, rather than a guess.
-  String? get checkedInByLabel =>
-      checkedInByName ?? (deviceName == null ? null : 'Device · $deviceName');
+  /// Who let them in: the staff member, else the reader that took the tap,
+  /// else a placeholder -- never a guess.
+  String get checkedInByLabel =>
+      checkedInByName ?? (deviceName == null ? '—' : 'Device · $deviceName');
 }

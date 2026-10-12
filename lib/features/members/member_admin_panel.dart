@@ -17,6 +17,7 @@ import 'package:logfitness_flutter/data/members/member_card.dart';
 import 'package:logfitness_flutter/data/members/member_cards_repository.dart';
 import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/common/reason_dialog.dart';
 import 'package:logfitness_flutter/features/members/member_admin_controller.dart';
 import 'package:logfitness_flutter/features/members/member_card_sheet.dart';
 import 'package:logfitness_flutter/features/members/member_edit_screen.dart';
@@ -72,7 +73,10 @@ class MemberAdminPanel extends ConsumerWidget {
               ? null
               : () => _invite(context, ref),
         ),
-      if (canIssueCard) _accessCardTile(context, ref, busy),
+      // Not for an archived member: the door treats them as `left` and
+      // refuses the tap, so a card would open nothing.
+      if (canIssueCard && !member.isArchived)
+        _accessCardTile(context, ref, busy),
       if (canManage && member.isArchived)
         ListTile(
           key: const ValueKey<String>('member-restore'),
@@ -208,47 +212,18 @@ class MemberAdminPanel extends ConsumerWidget {
     WidgetRef ref,
     String cardUid,
   ) async {
-    final controller = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text('Revoke card $cardUid?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              'It stops opening the door for ${member.fullName} straight '
-              'away. The record of the card is kept.',
-            ),
-            const SizedBox(height: Brand.spaceMd),
-            TextField(
-              key: const ValueKey<String>('member-card-revoke-reason'),
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Reason',
-                hintText: 'Lost, damaged, returned…',
-              ),
-            ),
-          ],
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revoke'),
-          ),
-        ],
-      ),
+    final reason = await showReasonDialog(
+      context,
+      title: 'Revoke card $cardUid?',
+      body:
+          'It stops opening the door for ${member.fullName} straight away. '
+          'The record of the card is kept.',
+      fieldLabel: 'Reason',
+      hint: 'Lost, damaged, returned…',
+      confirmLabel: 'Revoke',
+      destructive: true,
     );
-    final reason = controller.text;
-    controller.dispose();
-
-    if (confirmed != true || !context.mounted) {
+    if (reason == null || !context.mounted) {
       return;
     }
 

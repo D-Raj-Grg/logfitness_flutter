@@ -104,14 +104,15 @@ void main() {
     expect(visit.checkedInByLabel, 'Device · Front door');
   });
 
-  test('a row with neither a person nor a device has no attribution', () {
+  test('a row with neither a person nor a device shows a placeholder', () {
     // A deleted device sets `device_id` null; an owner row may carry no
-    // `checked_in_by`. Nothing is invented for it.
+    // `checked_in_by`. Nobody is invented for it, but the line is still
+    // there, so a blank reads as "not known" rather than as a missing field.
     final visit = AttendanceDetail.fromJson(
       _row(checkedInBy: null, checkedInByName: null),
     );
 
-    expect(visit.checkedInByLabel, isNull);
+    expect(visit.checkedInByLabel, '—');
   });
 
   test('AttendanceMethod covers the whole Postgres enum', () {

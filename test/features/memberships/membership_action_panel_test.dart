@@ -20,6 +20,7 @@ import 'package:logfitness_flutter/data/payments/payment_with_collector.dart';
 import 'package:logfitness_flutter/data/payments/payments_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/features/common/failure_view.dart';
+import 'package:logfitness_flutter/features/common/reason_dialog.dart';
 import 'package:logfitness_flutter/features/memberships/membership_action_panel.dart';
 import 'package:logfitness_flutter/features/memberships/refund_payment_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
