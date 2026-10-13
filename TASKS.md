@@ -212,6 +212,40 @@ Two decisions taken while scoping it:
   fresh one. A test that mutates a notifier then awaits has to `container.listen`
   first, or it is asserting against a brand-new default.
 
+## RFID cards (decided 2026-10-12)
+
+CLAUDE.md's scope list excludes "biometric hardware". The user has decided to
+add **RFID card check-in** anyway, and this is that decision recorded rather
+than a quiet exception: an ESP32 + RC522 reader at the door posts each tap to
+the `rfid-check` edge function, which calls `rfid_check_in` (security definer,
+**service-role only**, never callable from any client) to decide allow or deny
+and write `attendance` with `method = 'card'`, `checked_in_by = null` and the
+reader's `device_id`. Fingerprint and face readers stay out of scope.
+
+Enrolment is tap-first: an unknown card lands in `unassigned_card_scans`, and
+the desk assigns it from the member's profile. Device registration and key
+rotation are console-only. Staff cards are future work.
+
+- [x] **Data layer.** `MemberCard` and `UnassignedCardScan` (freezed + json,
+      the scan reading `devices(name)` off the embed);
+      `MemberCardsRepository` -- `liveCard`, `listUnassignedScans` (newest
+      `last_seen_at` first, ten), `assign` over `assign_member_card`, `revoke`
+      over `revoke_member_card`; `memberLiveCardProvider`; and
+      `AttendanceDetail` gains `device_id` / `device_name`.
+- [x] **Assign and revoke.** `MemberAdmin.assignCard` / `revokeCard` through
+      `_run`, normalising the UID the way the RPC does and refusing a malformed
+      one before the round trip; `member_card_sheet.dart` (recent unknown taps
+      for `branchScopeProvider`, plus typed entry); the "Access card" tile on
+      the member record with replace and revoke-with-reason in its menu. Gated
+      on `StaffCapability.checkIn` -- front desk and up, as
+      `jwt_can_serve_members()` is.
+- [x] **Device attribution.** `AttendanceDetail.checkedInByLabel` falls back
+      to `Device · <name>` when no person checked the member in, shown on the
+      member's attendance tab.
+- [ ] Verify all three against the live database once the `rfid-check-in`
+      migrations land upstream (built against the contract; unit tests use
+      fake repositories).
+
 ## Notifications parity (decided 2026-09-12)
 
 The console's whole notification surface comes to this app. That is a scope

@@ -1,5 +1,5 @@
-// The administrative actions for one member: edit, archive or restore, and
-// invite into the member app.
+// The administrative actions for one member: edit, archive or restore, invite
+// into the member app, and the access card they tap at the door.
 //
 // Deliberately separate from the membership lifecycle panel. Those actions
 // change what a member *has*; these change what the gym *knows about* them or
@@ -13,8 +13,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/members/member.dart';
+import 'package:logfitness_flutter/data/members/member_card.dart';
+import 'package:logfitness_flutter/data/members/member_cards_repository.dart';
+import 'package:logfitness_flutter/domain/format/dates.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/common/reason_dialog.dart';
 import 'package:logfitness_flutter/features/members/member_admin_controller.dart';
+import 'package:logfitness_flutter/features/members/member_card_sheet.dart';
 import 'package:logfitness_flutter/features/members/member_edit_screen.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 
@@ -36,6 +41,9 @@ class MemberAdminPanel extends ConsumerWidget {
     // UX only. RLS is the boundary and refuses independently; a hidden button
     // is a courtesy, never an access control (CLAUDE.md).
     final canManage = capabilities.contains(StaffCapability.manageMembers);
+    // A card is a way of checking in, so whoever may check a member in may
+    // hand them one: front desk and up, as `jwt_can_serve_members()` says.
+    final canIssueCard = capabilities.contains(StaffCapability.checkIn);
 
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
@@ -65,6 +73,10 @@ class MemberAdminPanel extends ConsumerWidget {
               ? null
               : () => _invite(context, ref),
         ),
+      // Not for an archived member: the door treats them as `left` and
+      // refuses the tap, so a card would open nothing.
+      if (canIssueCard && !member.isArchived)
+        _accessCardTile(context, ref, busy),
       if (canManage && member.isArchived)
         ListTile(
           key: const ValueKey<String>('member-restore'),
@@ -129,6 +141,106 @@ class MemberAdminPanel extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Widget _accessCardTile(BuildContext context, WidgetRef ref, bool busy) {
+    final AsyncValue<MemberCard?> card = ref.watch(
+      memberLiveCardProvider(member.id),
+    );
+    final MemberCard? live = card.value;
+
+    final String subtitle = switch (card) {
+      AsyncData(value: final MemberCard c) =>
+        'Card ${c.cardUid} · since ${formatDate(c.assignedAt)}',
+      AsyncData() => 'No card. Tap to assign one.',
+      AsyncError() => 'Could not load the card. Tap to retry.',
+      _ => 'Loading…',
+    };
+
+    return ListTile(
+      key: const ValueKey<String>('member-access-card'),
+      leading: const Icon(Icons.contactless_outlined),
+      title: const Text('Access card'),
+      subtitle: Text(subtitle),
+      trailing: live == null
+          ? null
+          : PopupMenuButton<_CardAction>(
+              key: const ValueKey<String>('member-access-card-menu'),
+              enabled: !busy,
+              tooltip: 'Card actions',
+              onSelected: (_CardAction action) => switch (action) {
+                _CardAction.replace => _assignCard(context, live.cardUid),
+                _CardAction.revoke => _revokeCard(context, ref, live.cardUid),
+              },
+              itemBuilder: (BuildContext context) =>
+                  const <PopupMenuEntry<_CardAction>>[
+                    PopupMenuItem<_CardAction>(
+                      value: _CardAction.replace,
+                      child: Text('Replace card'),
+                    ),
+                    PopupMenuItem<_CardAction>(
+                      value: _CardAction.revoke,
+                      child: Text('Revoke card'),
+                    ),
+                  ],
+            ),
+      onTap: busy || card.isLoading
+          ? null
+          : card.hasError
+          ? () => ref.invalidate(memberLiveCardProvider(member.id))
+          : () => _assignCard(context, live?.cardUid),
+    );
+  }
+
+  Future<void> _assignCard(BuildContext context, String? currentCardUid) async {
+    final message = await showMemberCardSheet(
+      context,
+      memberId: member.id,
+      fullName: member.fullName,
+      currentCardUid: currentCardUid,
+    );
+    if (message == null || !context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _revokeCard(
+    BuildContext context,
+    WidgetRef ref,
+    String cardUid,
+  ) async {
+    final reason = await showReasonDialog(
+      context,
+      title: 'Revoke card $cardUid?',
+      body:
+          'It stops opening the door for ${member.fullName} straight away. '
+          'The record of the card is kept.',
+      fieldLabel: 'Reason',
+      hint: 'Lost, damaged, returned…',
+      confirmLabel: 'Revoke',
+      destructive: true,
+    );
+    if (reason == null || !context.mounted) {
+      return;
+    }
+
+    final outcome = await ref
+        .read(memberAdminProvider.notifier)
+        .revokeCard(memberId: member.id, reason: reason);
+    if (!context.mounted) {
+      return;
+    }
+    switch (outcome) {
+      case MemberAdminSucceeded(:final message):
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message ?? 'Card revoked')));
+      case MemberAdminFailed(:final failure):
+        showFailureSnackBar(context, failure);
+    }
   }
 
   Future<void> _edit(BuildContext context) async {
@@ -232,3 +344,5 @@ class MemberAdminPanel extends ConsumerWidget {
     }
   }
 }
+
+enum _CardAction { replace, revoke }

@@ -885,6 +885,9 @@ class _AttendanceTab extends ConsumerWidget {
               if (visit.checkedInAt != null) formatTime(visit.checkedInAt!),
               if (visit.isOpen) 'still inside',
             ].join(' · '),
+            // Who let them in -- a person, or the card reader that took the
+            // tap.
+            visit.checkedInByLabel,
           ],
           // The row a manager looks for when a month's numbers do not add
           // up: someone let in despite the membership saying no.

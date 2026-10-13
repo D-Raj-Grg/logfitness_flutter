@@ -6,6 +6,10 @@ Map<String, dynamic> _row({
   String? checkedOutAt,
   bool isOverride = false,
   String method = 'qr',
+  String? checkedInBy = '55555555-5555-5555-5555-555555555555',
+  String? checkedInByName = 'Front Desk',
+  String? deviceId,
+  String? deviceName,
 }) =>
     <String, dynamic>{
       'id': '11111111-1111-1111-1111-111111111111',
@@ -20,8 +24,8 @@ Map<String, dynamic> _row({
       'attended_on': '2026-09-09',
       'checked_in_at': '2026-09-09T00:45:00Z',
       'checked_out_at': checkedOutAt,
-      'checked_in_by': '55555555-5555-5555-5555-555555555555',
-      'checked_in_by_name': 'Front Desk',
+      'checked_in_by': checkedInBy,
+      'checked_in_by_name': checkedInByName,
       'membership_id': '66666666-6666-6666-6666-666666666666',
       'membership_status_at_checkin': 'active',
       'due_paisa_at_checkin': 250000,
@@ -30,6 +34,8 @@ Map<String, dynamic> _row({
       'is_override': isOverride,
       'override_reason': null,
       'notes': null,
+      'device_id': deviceId,
+      'device_name': deviceName,
     };
 
 void main() {
@@ -70,6 +76,43 @@ void main() {
       AttendanceDetail.fromJson(_row(isOverride: true)).wasOverridden,
       isTrue,
     );
+  });
+
+  test('a staff check-in is attributed to the staff member', () {
+    final visit = AttendanceDetail.fromJson(_row());
+
+    expect(visit.deviceId, isNull);
+    expect(visit.deviceName, isNull);
+    expect(visit.checkedInByLabel, 'Front Desk');
+  });
+
+  test('a card tap is attributed to the reader that took it', () {
+    // `rfid_check_in` writes `checked_in_by = null`: no person let them in.
+    final visit = AttendanceDetail.fromJson(
+      _row(
+        method: 'card',
+        checkedInBy: null,
+        checkedInByName: null,
+        deviceId: '88888888-8888-8888-8888-888888888888',
+        deviceName: 'Front door',
+      ),
+    );
+
+    expect(visit.method, AttendanceMethod.card);
+    expect(visit.deviceId, '88888888-8888-8888-8888-888888888888');
+    expect(visit.deviceName, 'Front door');
+    expect(visit.checkedInByLabel, 'Device · Front door');
+  });
+
+  test('a row with neither a person nor a device shows a placeholder', () {
+    // A deleted device sets `device_id` null; an owner row may carry no
+    // `checked_in_by`. Nobody is invented for it, but the line is still
+    // there, so a blank reads as "not known" rather than as a missing field.
+    final visit = AttendanceDetail.fromJson(
+      _row(checkedInBy: null, checkedInByName: null),
+    );
+
+    expect(visit.checkedInByLabel, '—');
   });
 
   test('AttendanceMethod covers the whole Postgres enum', () {

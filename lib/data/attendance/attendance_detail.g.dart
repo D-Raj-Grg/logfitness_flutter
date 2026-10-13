@@ -40,6 +40,8 @@ _AttendanceDetail _$AttendanceDetailFromJson(Map<String, dynamic> json) =>
       isOverride: json['is_override'] as bool? ?? false,
       overrideReason: json['override_reason'] as String?,
       notes: json['notes'] as String?,
+      deviceId: json['device_id'] as String?,
+      deviceName: json['device_name'] as String?,
     );
 
 Map<String, dynamic> _$AttendanceDetailToJson(_AttendanceDetail instance) =>
@@ -69,6 +71,8 @@ Map<String, dynamic> _$AttendanceDetailToJson(_AttendanceDetail instance) =>
       'is_override': instance.isOverride,
       'override_reason': ?instance.overrideReason,
       'notes': ?instance.notes,
+      'device_id': ?instance.deviceId,
+      'device_name': ?instance.deviceName,
     };
 
 const _$MembershipStatusEnumMap = {

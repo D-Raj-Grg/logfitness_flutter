@@ -46,6 +46,11 @@ abstract class AttendanceDetail with _$AttendanceDetail {
     @Default(false) bool isOverride,
     String? overrideReason,
     String? notes,
+    // Set when a card reader (`rfid_check_in`) recorded the visit, in which
+    // case `checked_in_by` is null: no person let them in. Null again if the
+    // device was later deleted (`on delete set null`).
+    String? deviceId,
+    String? deviceName,
   }) = _AttendanceDetail;
 
   const AttendanceDetail._();
@@ -61,4 +66,9 @@ abstract class AttendanceDetail with _$AttendanceDetail {
   /// Let in despite the membership saying otherwise. Worth surfacing: it is
   /// the row a manager looks for when a month's numbers do not add up.
   bool get wasOverridden => isOverride;
+
+  /// Who let them in: the staff member, else the reader that took the tap,
+  /// else a placeholder -- never a guess.
+  String get checkedInByLabel =>
+      checkedInByName ?? (deviceName == null ? '—' : 'Device · $deviceName');
 }
