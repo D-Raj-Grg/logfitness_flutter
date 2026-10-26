@@ -106,6 +106,9 @@ Future<void> _pump(
   StaffRole role = StaffRole.owner,
   List<String> mine = const <String>[],
   double width = 360,
+  // Tall enough, in the form tests, that the whole lazy list is built: the card
+  // fee field pushed the duration below the fold of the default surface.
+  double height = 800,
   double textScale = 1,
 }) async {
   final AppClaims claims = AppClaims(
@@ -114,7 +117,7 @@ Future<void> _pump(
     staffRole: role,
     branchIds: mine,
   );
-  tester.view.physicalSize = Size(width * 3, 800 * 3);
+  tester.view.physicalSize = Size(width * 3, height * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -215,7 +218,7 @@ void main() {
     tester,
   ) async {
     final plans = _FakePlans(<MembershipPlan>[]);
-    await _pump(tester, plans);
+    await _pump(tester, plans, height: 1400);
 
     await tester.tap(find.text('Add plan'));
     await tester.pumpAndSettle();
@@ -262,7 +265,7 @@ void main() {
     final plans = _FakePlans(
       <MembershipPlan>[],
     )..writeError = const AppFailure(FailureKind.duplicate, kPlanDuplicateName);
-    await _pump(tester, plans);
+    await _pump(tester, plans, height: 1400);
     await tester.tap(find.text('Add plan'));
     await tester.pumpAndSettle();
     await tester.enterText(

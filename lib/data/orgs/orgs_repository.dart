@@ -48,24 +48,6 @@ class OrgsRepository {
 
   static const String _table = 'orgs';
 
-  /// The gym's standard joining fee in paisa, or zero when it has none set.
-  ///
-  /// Zero is also what a failed read would mean, which is why this one does
-  /// not swallow: `guardFailures` maps the error and the caller decides. The
-  /// screens treat a missing fee as "no waiver to show" rather than blocking
-  /// the sale.
-  Future<int> standardSignupFeePaisa(String orgId) {
-    return guardFailures(() async {
-      final Map<String, dynamic>? row = await _client
-          .from(_table)
-          .select('standard_signup_fee_paisa')
-          .eq('id', orgId)
-          .maybeSingle();
-      final Object? value = row?['standard_signup_fee_paisa'];
-      return value is int ? value : 0;
-    });
-  }
-
   /// The letterhead row, or null when RLS hides it.
   Future<OrgProfile?> profile(String orgId) {
     return guardFailures(() async {
@@ -175,17 +157,4 @@ class OrgsRepository {
 @riverpod
 OrgsRepository orgsRepository(Ref ref) {
   return OrgsRepository(ref.watch(supabaseClientProvider));
-}
-
-/// The gym's list joining fee, loaded once and shared by every sale screen.
-///
-/// Resolves to zero for a session with no org claim — there is nothing to
-/// read and nothing to show.
-@riverpod
-Future<int> orgStandardSignupFee(Ref ref) async {
-  final String? orgId = ref.watch(claimsProvider)?.orgId;
-  if (orgId == null) {
-    return 0;
-  }
-  return ref.watch(orgsRepositoryProvider).standardSignupFeePaisa(orgId);
 }

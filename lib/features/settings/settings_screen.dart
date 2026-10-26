@@ -30,6 +30,7 @@ import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/settings/catalogue/branches_screen.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fees_screen.dart';
 import 'package:logfitness_flutter/features/settings/catalogue/plans_screen.dart';
 import 'package:logfitness_flutter/features/notifications/notification_labels.dart';
 import 'package:logfitness_flutter/features/settings/letterhead/letterhead_screen.dart';
@@ -78,6 +79,9 @@ class SettingsScreen extends ConsumerWidget {
       StaffCapability.viewBranchReports,
     );
     final bool canManagePlans = caps.contains(StaffCapability.managePlans);
+    // Owner only: pricing the gym. Every seller reads the catalogue to quote a
+    // sale; only the owner writes it.
+    final bool canManageFees = caps.contains(StaffCapability.manageFees);
 
     // Only read for an owner: the provider's rows are owner-only in RLS.
     final String? messagingStatus = canConfigureNotifications
@@ -124,9 +128,18 @@ class SettingsScreen extends ConsumerWidget {
                 icon: Icons.card_membership_outlined,
                 title: 'Membership plans',
                 subtitle:
-                    'Add or change price, term, fees and where each is sold',
+                    'Add or change price, term and where each is sold',
                 builder: (_) => const PlansScreen(),
               ),
+              if (canManageFees)
+                _NavRow(
+                  key: const ValueKey<String>('settings-fees'),
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Fees',
+                  subtitle:
+                      'Registration, card and other charges, and which plans carry them',
+                  builder: (_) => const FeesScreen(),
+                ),
             ],
           ),
         if (canConfigureNotifications)

@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/branches/branch.dart';
 import 'package:logfitness_flutter/data/branches/branches_repository.dart';
+import 'package:logfitness_flutter/data/fees/fee.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
@@ -21,6 +23,7 @@ import 'package:logfitness_flutter/domain/format/money.dart';
 import 'package:logfitness_flutter/domain/validation/plan_form.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
 import 'package:logfitness_flutter/features/common/picker_field.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/features/settings/catalogue/plan_providers.dart';
 import 'package:logfitness_flutter/features/staff/staff_capabilities.dart';
 import 'package:logfitness_flutter/supabase/app_claims.dart';
@@ -202,6 +205,10 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
               .toList();
     final bool blocked = _blockedByScope;
     final bool isPack = _type == PlanType.sessionPack;
+    // Legacy while the read is in flight: the plan's own joining fee stays
+    // editable, which is what an org that has not switched over needs.
+    final FeeSetup feeSetup =
+        ref.watch(feeSetupProvider).value ?? FeeSetup.legacy;
 
     return Scaffold(
       appBar: AppBar(title: Text(_editing ? 'Edit plan' : 'New plan')),
@@ -328,18 +335,33 @@ class _PlanFormScreenState extends ConsumerState<PlanFormScreen> {
             decoration: _decoration('Price', PlanField.price, prefix: 'NPR '),
           ),
           const SizedBox(height: Brand.spaceMd),
-          TextField(
-            key: const ValueKey<String>('plan-fee'),
-            controller: _fee,
-            enabled: !_saving,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: _decoration(
-              'Joining fee (optional)',
-              PlanField.signupFee,
-              prefix: 'NPR ',
-              helper: 'Charged once, on a member\'s first membership.',
+          if (feeSetup.catalogueEnabled)
+            _PlanFeesNote(
+              key: const ValueKey<String>('plan-fees-note'),
+              names: <String>[
+                for (final Fee f in feeSetup.fees)
+                  if (widget.plan != null &&
+                      f.isActive &&
+                      f.appliesTo(widget.plan!.id))
+                    f.name,
+              ],
+              isNew: !_editing,
+            )
+          else
+            TextField(
+              key: const ValueKey<String>('plan-fee'),
+              controller: _fee,
+              enabled: !_saving,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: _decoration(
+                'Joining fee (optional)',
+                PlanField.signupFee,
+                prefix: 'NPR ',
+                helper: 'Charged once, on a member\'s first membership.',
+              ),
             ),
-          ),
           const SizedBox(height: Brand.spaceLg),
           const _SectionTitle('Term'),
           if (isPack) ...<Widget>[
@@ -475,6 +497,43 @@ class _Notice extends StatelessWidget {
               message,
               style: TextStyle(color: scheme.onErrorContainer),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The fees a plan carries, read-only: they are set up under Settings, Fees, and
+/// a plan only ever lists the ones that apply to it.
+class _PlanFeesNote extends StatelessWidget {
+  const _PlanFeesNote({required this.names, required this.isNew, super.key});
+
+  final List<String> names;
+  final bool isNew;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final String summary = names.isEmpty
+        ? (isNew ? 'None yet.' : 'None.')
+        : names.join(', ');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Brand.spaceMd),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(Brand.radiusMedium),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Fees on this plan', style: theme.textTheme.titleSmall),
+          const SizedBox(height: Brand.spaceXs),
+          Text(
+            '$summary Registration, card and other fees are set up under '
+            'Settings, Fees.',
+            style: theme.textTheme.bodyMedium,
           ),
         ],
       ),

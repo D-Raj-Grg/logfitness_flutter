@@ -35,6 +35,7 @@ const String _invoiceSelect =
         plan_name, plan_type, start_date, end_date, sessions_total,
         price_paisa, signup_fee_paisa, signup_fee_waived_paisa, discount_paisa,
         previous_membership_id,
+        fees:membership_fees(name, charge_rule, charged_paisa, waived_paisa, sort_order),
         seller:staff!memberships_sold_by_fkey(full_name)
       ),
       branch:branches!invoices_branch_fkey($_branchFields),
@@ -51,7 +52,8 @@ const String _paymentSelect =
       collector:staff!payments_collected_by_fkey(full_name),
       member:members!payments_member_fkey($_memberFields),
       membership:memberships!payments_membership_fkey(
-        plan_name, plan_type, start_date, end_date, signup_fee_waived_paisa
+        plan_name, plan_type, start_date, end_date, signup_fee_waived_paisa,
+        fees:membership_fees(name, charge_rule, charged_paisa, waived_paisa, sort_order)
       ),
       invoice:invoices!payments_invoice_fkey(
         invoice_no, total_paisa, paid_paisa, due_paisa, status,

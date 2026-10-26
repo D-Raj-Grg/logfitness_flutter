@@ -19,6 +19,8 @@ abstract class MembershipPlan with _$MembershipPlan {
     int? sessionCount,
     // Money is integer paisa end to end. Never a double, never converted here.
     required int pricePaisa,
+    // The legacy joining fee. Charged only while the org's
+    // `fee_catalogue_enabled` is false; the fees catalogue replaces it.
     required int signupFeePaisa,
     required List<String> branchIds,
     required bool isActive,

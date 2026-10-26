@@ -16,7 +16,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/memberships/membership.dart';
-import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
@@ -33,7 +32,9 @@ import 'package:logfitness_flutter/features/members/member_labels.dart'
     show discountReasonLabel;
 import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/features/payments/payment_queries.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_controller.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
 
@@ -48,7 +49,7 @@ class RenewalProjection {
     required this.startDate,
     required this.endDate,
     required this.subtotalPaisa,
-    required this.signupFeePaisa,
+    required this.fees,
     required this.discountPaisa,
     required this.totalPaisa,
     required this.amountPaidPaisa,
@@ -61,7 +62,9 @@ class RenewalProjection {
   final DateTime? endDate;
 
   final int subtotalPaisa;
-  final int signupFeePaisa;
+
+  /// The fee lines this sale carries, and what they add to the plan price.
+  final FeeQuote fees;
   final int discountPaisa;
   final int totalPaisa;
   final int amountPaidPaisa;
@@ -82,10 +85,21 @@ RenewalProjection projectRenewal({
   required DateTime? chosenStartDate,
   required int discountPaisa,
   required int amountPaidPaisa,
+  // How this org charges. The legacy path (the plan's own joining fee) until
+  // the catalogue is switched on, which is also what an unread setup means.
+  FeeSetup feeSetup = FeeSetup.legacy,
 }) {
-  // "The joining fee is charged once, on the member's first membership."
-  final int signupFee = existing.isEmpty ? plan.signupFeePaisa : 0;
-  final int subtotal = plan.pricePaisa + signupFee;
+  // The fees the plan carries. A once-fee is charged on the member's first
+  // membership -- "does this member have any membership at all", the RPC's own
+  // test -- and shown taken back off on every later one.
+  final FeeQuote fees = feeQuote(
+    plan: plan,
+    fees: feeSetup.fees,
+    catalogueEnabled: feeSetup.catalogueEnabled,
+    standardSignupFeePaisa: feeSetup.standardSignupFeePaisa,
+    isFirstMembership: existing.isEmpty,
+  );
+  final int subtotal = plan.pricePaisa + fees.chargedPaisa;
 
   // The RPC refuses a discount above the price and a payment above the due.
   // The console's renew form clamps both rather than letting the desk type a
@@ -111,7 +125,7 @@ RenewalProjection projectRenewal({
     startDate: start,
     endDate: end,
     subtotalPaisa: subtotal,
-    signupFeePaisa: signupFee,
+    fees: fees,
     discountPaisa: discount,
     totalPaisa: total,
     amountPaidPaisa: paid,
@@ -198,6 +212,17 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
     final Map<String, String> names = ref.watch(branchNamesProvider);
     final bool saving = ref.watch(renewMembershipProvider);
 
+    // Kept loaded for the life of the screen, and the "paid in full" amount is
+    // refilled if the fees arrive after a plan was already chosen (the prefilled
+    // plan on a renewal is the usual case), so the figure the desk sees and the
+    // figure the RPC charges cannot disagree.
+    ref.watch(feeSetupProvider);
+    ref.listen<AsyncValue<FeeSetup>>(feeSetupProvider, (_, AsyncValue<FeeSetup> next) {
+      if (next.hasValue && _plan != null && _payment == PaymentStatus.full) {
+        setState(_fillFullAmount);
+      }
+    });
+
     final List<String> options = scope.options;
     _branchId ??=
         scope.selectedBranchId ?? (options.length == 1 ? options.single : null);
@@ -250,6 +275,10 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
         : ref.watch(sellablePlansProvider(branchId));
 
     final MembershipPlan? plan = _plan;
+    // Legacy while the read is in flight or if it failed: a sale must not wait
+    // on it or break without it.
+    final FeeSetup feeSetup =
+        ref.watch(feeSetupProvider).value ?? FeeSetup.legacy;
     final RenewalProjection? projection = plan == null
         ? null
         : projectRenewal(
@@ -259,24 +288,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
             chosenStartDate: _startDate,
             discountPaisa: paisaOrZero(_discount.text),
             amountPaidPaisa: _paidPaisa,
-          );
-
-    final ({int charged, int waived}) feeSplit = plan == null
-        ? (charged: 0, waived: 0)
-        : signupFeeSplit(
-            planSignupFeePaisa: plan.signupFeePaisa,
-            // Zero while the read is in flight or if it failed: the waiver
-            // is a memo, and a sale must not wait on it or break without it.
-            orgStandardFeePaisa:
-                ref.watch(orgStandardSignupFeeProvider).value ?? 0,
-            // The membership history, not the projected fee. Inferring it
-            // from `projection.signupFeePaisa > 0` was wrong for a plan
-            // priced without a joining fee: the projection charges zero
-            // either way, so a renewal of such a plan read as "not their
-            // first" — and then showed a waiver line for a fee the member
-            // had in fact already paid years ago. The RPC's own test is
-            // "does this member have any membership at all".
-            isFirstMembership: existing.isEmpty,
+            feeSetup: feeSetup,
           );
 
     final SaleFigures figures = SaleFigures(
@@ -293,17 +305,22 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
           : <SummaryLine>[
               SummaryLine(
                 'Plan price',
-                projection.subtotalPaisa - projection.signupFeePaisa,
+                projection.subtotalPaisa - projection.fees.chargedPaisa,
               ),
-              if (projection.signupFeePaisa > 0)
-                SummaryLine('Joining fee', projection.signupFeePaisa),
-              if (feeSplit.waived > 0) ...<SummaryLine>[
-                SummaryLine('Joining fee', feeSplit.waived),
-                SummaryLine(
-                  'Joining fee waived',
-                  feeSplit.waived,
-                  negative: true,
-                ),
+              for (final SaleFee fee in projection.fees.rows) ...<SummaryLine>[
+                if (fee.chargedPaisa > 0)
+                  SummaryLine(fee.name, fee.chargedPaisa),
+                // A fee taken back off is a memo: it nets to nothing and leaves
+                // the total alone. It is shown so the desk can say out loud
+                // what the invoice will print.
+                if (fee.waivedPaisa > 0) ...<SummaryLine>[
+                  SummaryLine(fee.name, fee.waivedPaisa),
+                  SummaryLine(
+                    '${fee.name} off',
+                    fee.waivedPaisa,
+                    negative: true,
+                  ),
+                ],
               ],
               if (projection.discountPaisa > 0)
                 SummaryLine(
@@ -396,8 +413,16 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
                                 subtitle: <String>[
                                   planTermLabel(item),
                                   formatMoney(item.pricePaisa),
-                                  if (item.signupFeePaisa > 0)
-                                    '+ ${formatMoney(item.signupFeePaisa)} joining fee',
+                                  for (final SaleFee fee in feeQuote(
+                                    plan: item,
+                                    fees: feeSetup.fees,
+                                    catalogueEnabled: feeSetup.catalogueEnabled,
+                                    standardSignupFeePaisa:
+                                        feeSetup.standardSignupFeePaisa,
+                                    isFirstMembership: existing.isEmpty,
+                                  ).rows)
+                                    if (fee.chargedPaisa > 0)
+                                      '+ ${formatMoney(fee.chargedPaisa)} ${fee.name.toLowerCase()}',
                                 ].join(' · '),
                               ),
                           ],
@@ -654,8 +679,8 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
   }
 
   /// The total this sale comes to, from the same projection the summary shows
-  /// — including the joining fee, which a first membership pays and a renewal
-  /// does not.
+  /// — including the registration and card fees, which a first membership pays
+  /// and a renewal does not.
   void _fillFullAmount() {
     final MembershipPlan? plan = _plan;
     if (plan == null) {
@@ -672,6 +697,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
       chosenStartDate: _startDate,
       discountPaisa: paisaOrZero(_discount.text),
       amountPaidPaisa: 0,
+      feeSetup: ref.read(feeSetupProvider).value ?? FeeSetup.legacy,
     );
     _amountPaid.text = fromPaisa(projection.totalPaisa);
   }
@@ -716,6 +742,7 @@ class _RenewMembershipScreenState extends ConsumerState<RenewMembershipScreen> {
       chosenStartDate: _startDate,
       discountPaisa: paisaOrZero(_discount.text),
       amountPaidPaisa: _paidPaisa,
+      feeSetup: ref.read(feeSetupProvider).value ?? FeeSetup.legacy,
     );
 
     final RenewOutcome outcome = await ref
@@ -865,7 +892,7 @@ class _CurrentPeriod extends StatelessWidget {
           if (row == null)
             Text(
               'No membership running. This will be their first, so the '
-              'joining fee applies.',
+              'registration and card fees apply.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: scheme.onSecondaryContainer,
               ),

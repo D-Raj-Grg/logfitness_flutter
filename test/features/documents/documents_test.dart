@@ -67,9 +67,24 @@ Map<String, dynamic> _invoiceRow({
   'payments': payments,
 };
 
+Map<String, dynamic> _fee(
+  String name, {
+  int charged = 0,
+  int waived = 0,
+  int sort = 0,
+  String rule = 'once',
+}) => <String, dynamic>{
+  'name': name,
+  'charge_rule': rule,
+  'charged_paisa': charged,
+  'waived_paisa': waived,
+  'sort_order': sort,
+};
+
 Map<String, dynamic> _membership({
   int signupFee = 0,
   int feeOff = 0,
+  List<Map<String, dynamic>> fees = const <Map<String, dynamic>>[],
   String? previous,
   String planType = 'time',
 }) => <String, dynamic>{
@@ -81,6 +96,9 @@ Map<String, dynamic> _membership({
   'price_paisa': 500000,
   'signup_fee_paisa': signupFee,
   'signup_fee_waived_paisa': feeOff,
+  // The sale's recorded fee lines (`membership_fees`); empty for a sale from
+  // before the fees catalogue, which prints the legacy signup columns instead.
+  'fees': fees,
   'discount_paisa': 0,
   'previous_membership_id': previous,
   'seller': <String, dynamic>{'full_name': 'Ram'},
@@ -242,6 +260,109 @@ void main() {
         _invoiceRow(membership: _membership(feeOff: 100000)),
       );
       expect(invoiceLines(fresh)[2].detail, 'Included in this plan price');
+    });
+
+    test('catalogue fees print one line each and the body still sums', () {
+      final InvoiceForPrint inv = InvoiceForPrint.fromRow(
+        _invoiceRow(
+          membership: _membership(
+            fees: <Map<String, dynamic>>[
+              _fee('Registration fee', charged: 50000, sort: 0),
+              _fee('Card fee', charged: 20000, sort: 1),
+              _fee('Locker', charged: 10000, sort: 2, rule: 'every_sale'),
+            ],
+          ),
+        ),
+      );
+      final List<DocumentLine> lines = invoiceLines(inv);
+      expect(lines.map((DocumentLine l) => l.description), <String>[
+        'Monthly',
+        'Registration fee',
+        'Card fee',
+        'Locker',
+      ]);
+      // The plan line gives up every fee, so the body still sums to the subtotal.
+      expect(lines.first.amountPaisa, 500000 - 80000);
+      expect(
+        lines.fold<int>(0, (int s, DocumentLine l) => s + l.amountPaisa),
+        500000,
+      );
+    });
+
+    test('a renewal prints each once-fee off as a pair that nets to zero', () {
+      final InvoiceForPrint renewal = InvoiceForPrint.fromRow(
+        _invoiceRow(
+          membership: _membership(
+            previous: 'm0',
+            fees: <Map<String, dynamic>>[
+              _fee('Registration fee', waived: 50000, sort: 0),
+              _fee('Card fee', waived: 20000, sort: 1),
+              _fee('Locker', charged: 10000, sort: 2, rule: 'every_sale'),
+            ],
+          ),
+        ),
+      );
+      final List<DocumentLine> lines = invoiceLines(renewal);
+      expect(lines.map((DocumentLine l) => l.description), <String>[
+        'Monthly',
+        'Registration fee',
+        'Registration fee off',
+        'Card fee',
+        'Card fee off',
+        'Locker',
+      ]);
+      expect(lines[4].amountPaisa, -20000);
+      expect(lines[4].detail, 'Only on your first membership');
+      expect(
+        lines.fold<int>(0, (int s, DocumentLine l) => s + l.amountPaisa),
+        500000,
+      );
+    });
+
+    test('a plan that carries no fees prints no fee lines', () {
+      final InvoiceForPrint inv = InvoiceForPrint.fromRow(
+        _invoiceRow(membership: _membership()),
+      );
+      expect(invoiceLines(inv), hasLength(1));
+    });
+
+    test('recorded fees win over the legacy signup columns', () {
+      final InvoiceForPrint inv = InvoiceForPrint.fromRow(
+        _invoiceRow(
+          membership: _membership(
+            signupFee: 100000,
+            fees: <Map<String, dynamic>>[
+              _fee('Card fee', charged: 20000),
+            ],
+          ),
+        ),
+      );
+      final List<DocumentLine> lines = invoiceLines(inv);
+      expect(lines.map((DocumentLine l) => l.description), <String>[
+        'Monthly',
+        'Card fee',
+      ]);
+    });
+
+    test('catalogue fees come out of the savings banner by name', () {
+      final InvoiceForPrint renewal = InvoiceForPrint.fromRow(
+        _invoiceRow(
+          membership: _membership(
+            fees: <Map<String, dynamic>>[
+              _fee('Registration fee', waived: 50000, sort: 0),
+              _fee('Card fee', waived: 20000, sort: 1),
+            ],
+          ),
+          reason: 'student',
+        ),
+      );
+      final ({List<SavingsItem> items, int total}) real = realSavings(
+        invoiceSavings(renewal),
+      );
+      expect(
+        real.items.map((SavingsItem i) => i.label),
+        containsAll(<String>['Registration fee', 'Card fee']),
+      );
     });
 
     test('session pack detail', () {

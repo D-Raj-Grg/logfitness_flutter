@@ -13,7 +13,7 @@ import 'package:logfitness_flutter/app/theme.dart';
 import 'package:logfitness_flutter/data/branches/branch.dart';
 import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/data/members/member.dart';
-import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/payments/invoice.dart';
 import 'package:logfitness_flutter/data/payments/payment.dart';
 import 'package:logfitness_flutter/data/payments/payment_with_collector.dart';
@@ -24,6 +24,7 @@ import 'package:logfitness_flutter/features/members/member_edit_screen.dart';
 import 'package:logfitness_flutter/features/members/register_member_screen.dart';
 import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 import 'package:logfitness_flutter/features/memberships/refund_payment_screen.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/features/payments/payment_queries.dart';
 import 'package:logfitness_flutter/features/payments/record_payment_screen.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_screen.dart';
@@ -189,7 +190,7 @@ Future<void> _mount(WidgetTester tester, _Scenario scenario) async {
           AsyncValue<Principal>.data(Principal.staff(claims)),
         ),
         branchesProvider.overrideWith((ref) => <Branch>[_branch()]),
-        orgStandardSignupFeeProvider.overrideWith((ref) async => 0),
+        feeSetupProvider.overrideWith((ref) async => FeeSetup.legacy),
         branchPlansProvider.overrideWith(
           (ref, String branchId) async => <MembershipPlan>[_plan],
         ),

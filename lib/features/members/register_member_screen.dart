@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
-import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
@@ -26,6 +26,7 @@ import 'package:logfitness_flutter/features/members/register_member_controller.d
 import 'package:logfitness_flutter/features/members/widgets/sale_form_kit.dart';
 // Only the reference rule: `paymentMethodLabel` lives in `member_labels.dart`
 // and both libraries export it.
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart'
     show methodNeedsReference;
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
@@ -125,12 +126,27 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
     }
   }
 
-  /// The price before the discount: the plan plus the joining fee, which a
-  /// member being registered always pays (`renew_membership` charges it on a
-  /// member's first membership, and this is that membership).
+  /// What a member being registered pays in fees. A registration is always the
+  /// member's first membership, so every once-fee applies
+  /// (`renew_membership` charges it on a member's first membership, and this is
+  /// that membership).
+  FeeQuote _quoteFor(MembershipPlan? plan) {
+    // Legacy while the read is in flight or if it failed: a sale must not wait
+    // on it or break without it.
+    final FeeSetup setup = ref.read(feeSetupProvider).value ?? FeeSetup.legacy;
+    return feeQuote(
+      plan: plan,
+      fees: setup.fees,
+      catalogueEnabled: setup.catalogueEnabled,
+      standardSignupFeePaisa: setup.standardSignupFeePaisa,
+      isFirstMembership: true,
+    );
+  }
+
+  /// The price before the discount: the plan plus the fees it carries.
   int get _grossPaisa {
     final plan = _plan;
-    return plan == null ? 0 : plan.pricePaisa + plan.signupFeePaisa;
+    return plan == null ? 0 : plan.pricePaisa + _quoteFor(plan).chargedPaisa;
   }
 
   /// The discount that is actually sent.
@@ -167,6 +183,21 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
     final scope = ref.watch(branchScopeProvider);
     final names = ref.watch(branchNamesProvider);
     final saving = ref.watch(registerMemberProvider);
+
+    // Watched here, not first read when a plan is picked: the fees must be
+    // loaded (and kept loaded) before a plan can be quoted. If they arrive
+    // after a plan was chosen, the "paid in full" amount that was prefilled
+    // from the legacy quote is refilled, so the figure the desk sees and the
+    // figure the RPC charges cannot disagree.
+    ref.watch(feeSetupProvider);
+    ref.listen<AsyncValue<FeeSetup>>(feeSetupProvider, (_, AsyncValue<FeeSetup> next) {
+      if (next.hasValue &&
+          _sellPlan &&
+          _plan != null &&
+          _payment == PaymentStatus.full) {
+        setState(_fillFullAmount);
+      }
+    });
 
     final options = scope.options;
     _branchId ??=
@@ -419,24 +450,29 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
   }
 
   List<SummaryLine> _summaryLines(MembershipPlan plan) {
-    // A member being registered has never paid a joining fee, so it always
-    // applies — no equivalent of the renew form's isFirstMembership flag is
-    // needed here.
-    final feeSplit = signupFeeSplit(
-      planSignupFeePaisa: plan.signupFeePaisa,
-      // Zero while the read is in flight or if it failed: the waiver is a
-      // memo, and a sale must not wait on it or break without it.
-      orgStandardFeePaisa: ref.watch(orgStandardSignupFeeProvider).value ?? 0,
+    // A member being registered has never paid a fee, so every once-fee
+    // applies -- no equivalent of the renew form's isFirstMembership flag is
+    // needed here. Watched, not read: the lines must follow the catalogue when
+    // it loads.
+    final FeeSetup setup = ref.watch(feeSetupProvider).value ?? FeeSetup.legacy;
+    final FeeQuote quote = feeQuote(
+      plan: plan,
+      fees: setup.fees,
+      catalogueEnabled: setup.catalogueEnabled,
+      standardSignupFeePaisa: setup.standardSignupFeePaisa,
       isFirstMembership: true,
     );
     return <SummaryLine>[
       SummaryLine(plan.name, plan.pricePaisa),
-      if (feeSplit.charged > 0) SummaryLine('Joining fee', feeSplit.charged),
-      // The waiver is a memo: it nets to nothing and leaves the total alone.
-      // It is shown so the desk can say out loud what the invoice will print.
-      if (feeSplit.waived > 0) ...<SummaryLine>[
-        SummaryLine('Joining fee', feeSplit.waived),
-        SummaryLine('Joining fee waived', feeSplit.waived, negative: true),
+      for (final SaleFee fee in quote.rows) ...<SummaryLine>[
+        if (fee.chargedPaisa > 0) SummaryLine(fee.name, fee.chargedPaisa),
+        // A fee taken back off is a memo: it nets to nothing and leaves the
+        // total alone. It is shown so the desk can say out loud what the
+        // invoice will print.
+        if (fee.waivedPaisa > 0) ...<SummaryLine>[
+          SummaryLine(fee.name, fee.waivedPaisa),
+          SummaryLine('${fee.name} off', fee.waivedPaisa, negative: true),
+        ],
       ],
       if (_discountAppliedPaisa > 0)
         SummaryLine('Discount', _discountAppliedPaisa, negative: true),
@@ -489,8 +525,9 @@ class _RegisterMemberScreenState extends ConsumerState<RegisterMemberScreen> {
                       subtitle: <String>[
                         planTermLabel(plan),
                         formatMoney(plan.pricePaisa),
-                        if (plan.signupFeePaisa > 0)
-                          '+ ${formatMoney(plan.signupFeePaisa)} joining fee',
+                        for (final SaleFee fee in _quoteFor(plan).rows)
+                          if (fee.chargedPaisa > 0)
+                            '+ ${formatMoney(fee.chargedPaisa)} ${fee.name.toLowerCase()}',
                       ].join(' · '),
                     ),
                 ],

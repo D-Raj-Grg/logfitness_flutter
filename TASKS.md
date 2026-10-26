@@ -204,6 +204,17 @@ Two decisions taken while scoping it:
 
 ### Discovered
 
+### Fees catalogue (2026-10-27)
+
+Mirrors `logfitness_saas`' fees catalogue (see its TASKS.md). Supersedes the fixed card-fee fields of 2026-10-26.
+
+- [x] `Fee` model, `FeesRepository` (read for every seller, write for the owner), `FeeChargeRule`, `validateFee`, `feeSetupProvider` / `feeCatalogueProvider`.
+- [x] Settings, Fees: list, add, edit, activate/deactivate; owner only (`StaffCapability.manageFees`). Plan chips plus an "All plans" switch.
+- [x] `saleFees` / `feeQuote` mirror `sale_fees()`; renew and register screens quote from the catalogue when the org's switch is on and from the plan's joining fee when it is off. Summary lines show each fee and, on a renewal, each once-fee taken back off.
+- [x] Invoice lines and savings banner read the sale's recorded `membership_fees`, with the legacy signup columns as fallback for older sales.
+- [x] Plan form shows the plan's fees read-only once the catalogue is on; the legacy joining fee input stays while it is off.
+- [ ] Bump version, build, TestFlight. This build must be on every LOG Fitness staff device before the cutover in `logfitness_saas/TASKS.md`.
+
 - `find.byType(FilledButton)` does not match `FilledButton.icon`, which builds a
   private subclass; `find.byWidgetPredicate` does. Cost an afternoon of a test
   that looked like a missing button.

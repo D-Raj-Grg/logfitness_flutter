@@ -92,6 +92,10 @@ void main() {
           // is owner-only, so the gym profile and preferences are the
           // owner's, not the manager's.
           StaffCapability.manageOrgProfile,
+          // `fees` INSERT and UPDATE require jwt_is_owner(): pricing the gym is
+          // the owner's call. Every seller reads the catalogue to quote a
+          // sale, which is why this gates the screen and not the data.
+          StaffCapability.manageFees,
         },
         reason:
             'an owner is a manager with reach, plus the gateway keys and the '

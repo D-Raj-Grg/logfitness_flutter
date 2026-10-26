@@ -11,6 +11,8 @@
 //
 // `Override` is not exported by flutter_riverpod 3.1.0, so every overrides
 // list stays an untyped literal (TASKS.md, Discovered, 2026-09-05).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +21,8 @@ import 'package:logfitness_flutter/data/branches/branch.dart';
 import 'package:logfitness_flutter/data/branches/branches_repository.dart';
 import 'package:logfitness_flutter/data/members/member_rpc_results.dart';
 import 'package:logfitness_flutter/data/members/members_repository.dart';
-import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
+import 'package:logfitness_flutter/data/fees/fee.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
@@ -28,6 +31,7 @@ import 'package:logfitness_flutter/features/common/payment_status_choice.dart';
 import 'package:logfitness_flutter/features/members/register_member_screen.dart';
 import 'package:logfitness_flutter/supabase/app_claims.dart';
 import 'package:logfitness_flutter/supabase/supabase_providers.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 
 MembershipPlan _plan(
   String id,
@@ -70,19 +74,6 @@ class _FakePlansRepository implements PlansRepository {
     lastBranchId = branchId;
     return plans;
   }
-
-  @override
-  Never noSuchMethod(Invocation invocation) =>
-      throw UnimplementedError('${invocation.memberName} is not faked');
-}
-
-class _FakeOrgsRepository implements OrgsRepository {
-  _FakeOrgsRepository({this.feePaisa = 0});
-
-  final int feePaisa;
-
-  @override
-  Future<int> standardSignupFeePaisa(String orgId) async => feePaisa;
 
   @override
   Never noSuchMethod(Invocation invocation) =>
@@ -149,7 +140,10 @@ Future<void> _pump(
   StaffRole role = StaffRole.owner,
   List<String> claimedBranches = const <String>[],
   List<Branch> branches = const <Branch>[],
-  int orgFeePaisa = 0,
+  FeeSetup feeSetup = FeeSetup.legacy,
+  // Overrides [feeSetup] with a read the test completes by hand, to pin what
+  // happens when the fees arrive after a plan was already picked.
+  Future<FeeSetup>? feeSetupFuture,
 }) async {
   final claims = _claims(role, claimedBranches);
 
@@ -163,8 +157,8 @@ Future<void> _pump(
         branchesProvider.overrideWith((ref) => branches),
         plansRepositoryProvider.overrideWithValue(plans),
         membersRepositoryProvider.overrideWithValue(members),
-        orgsRepositoryProvider.overrideWithValue(
-          _FakeOrgsRepository(feePaisa: orgFeePaisa),
+        feeSetupProvider.overrideWith(
+          (ref) => feeSetupFuture ?? Future<FeeSetup>.value(feeSetup),
         ),
       ],
       child: MaterialApp(
@@ -295,6 +289,125 @@ void main() {
     expect(members.lastCall!['planId'], 'p-1');
     expect(members.lastCall!['discountPaisa'], 0);
     expect(members.lastCall!['discountReason'], isNull);
+  });
+
+  testWidgets('with the fees catalogue on, the sale quotes and records the fees', (
+    tester,
+  ) async {
+    final members = _FakeMembersRepository();
+    await _pump(
+      tester,
+      members: members,
+      // The plan's own legacy joining fee (50000) must not be charged at all
+      // once the org is switched: the catalogue replaces it.
+      plans: _FakePlansRepository(
+        plans: <MembershipPlan>[
+          _plan('p-1', 'Gym Only', pricePaisa: 300000, signupFeePaisa: 50000),
+        ],
+      ),
+      branches: <Branch>[_branch('branch-a', 'Thamel')],
+      feeSetup: const FeeSetup(
+        fees: <Fee>[
+          Fee(
+            id: 'f-reg',
+            orgId: 'org-1',
+            name: 'Registration fee',
+            chargeRule: FeeChargeRule.once,
+            amountPaisa: 50000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 0,
+          ),
+          Fee(
+            id: 'f-card',
+            orgId: 'org-1',
+            name: 'Card fee',
+            chargeRule: FeeChargeRule.once,
+            amountPaisa: 20000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 1,
+          ),
+        ],
+        catalogueEnabled: true,
+        standardSignupFeePaisa: 0,
+      ),
+    );
+
+    await _startSale(tester);
+    await _pickPlan(tester, 'Gym Only');
+
+    final amount = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('register-amount-paid')),
+        matching: find.byType(TextField),
+      ),
+    );
+    // 3000 plan + 500 registration + 200 card, one line each in the summary.
+    expect(amount.controller?.text, '3700');
+    expect(find.text('Registration fee'), findsWidgets);
+    expect(find.text('Card fee'), findsWidgets);
+
+    await _submit(tester);
+    expect(members.lastCall!['amountPaidPaisa'], 370000);
+  });
+
+  testWidgets('fees that arrive after the plan was picked refill the paid-in-full amount', (
+    tester,
+  ) async {
+    final members = _FakeMembersRepository();
+    final Completer<FeeSetup> late = Completer<FeeSetup>();
+    await _pump(
+      tester,
+      members: members,
+      plans: _FakePlansRepository(
+        plans: <MembershipPlan>[_plan('p-1', 'Gym Only', pricePaisa: 300000)],
+      ),
+      branches: <Branch>[_branch('branch-a', 'Thamel')],
+      feeSetupFuture: late.future,
+    );
+
+    await _startSale(tester);
+    await _pickPlan(tester, 'Gym Only');
+
+    TextField amountField() => tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('register-amount-paid')),
+        matching: find.byType(TextField),
+      ),
+    );
+
+    // Fees not known yet: quoted on the legacy path, the plain price.
+    expect(amountField().controller?.text, '3000');
+
+    late.complete(
+      const FeeSetup(
+        fees: <Fee>[
+          Fee(
+            id: 'f-reg',
+            orgId: 'org-1',
+            name: 'Registration fee',
+            chargeRule: FeeChargeRule.once,
+            amountPaisa: 50000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 0,
+          ),
+        ],
+        catalogueEnabled: true,
+        standardSignupFeePaisa: 0,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The figure on screen follows the fees, so it matches what is charged.
+    expect(amountField().controller?.text, '3500');
+
+    await _submit(tester);
+    expect(members.lastCall!['amountPaidPaisa'], 350000);
   });
 
   testWidgets('unpaid sends no money at all, and hides the amount', (

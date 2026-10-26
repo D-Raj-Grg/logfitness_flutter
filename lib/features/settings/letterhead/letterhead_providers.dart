@@ -10,6 +10,7 @@ import 'package:logfitness_flutter/data/orgs/org_profile.dart';
 import 'package:logfitness_flutter/data/orgs/orgs_repository.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
 import 'package:logfitness_flutter/domain/validation/org_letterhead.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/supabase/supabase_providers.dart';
 
 /// The signed-in org's letterhead. Null when the session has no org claim or
@@ -69,7 +70,9 @@ class LetterheadSaveController extends Notifier<bool> {
           );
       // Everything that prints a document, and the sidebar name, reads this.
       ref.invalidate(orgProfileProvider);
-      ref.invalidate(orgStandardSignupFeeProvider);
+      // The legacy list joining fee rides in the sale setup, so a sale quoted
+      // before this save would otherwise keep the old reference fee.
+      ref.invalidate(feeSetupProvider);
       return const LetterheadSaved();
     } catch (error, stackTrace) {
       return LetterheadSaveFailed(mapError(error, stackTrace));

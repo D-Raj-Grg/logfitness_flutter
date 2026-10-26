@@ -6,12 +6,15 @@
 // untyped literals (TASKS.md, Discovered, 2026-09-05).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logfitness_flutter/data/fees/fee.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/memberships/membership.dart';
 import 'package:logfitness_flutter/data/memberships/membership_rpc_results.dart';
 import 'package:logfitness_flutter/data/memberships/memberships_repository.dart';
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
 import 'package:logfitness_flutter/domain/errors/app_failure.dart';
+import 'package:logfitness_flutter/domain/format/plan_pricing.dart' show SaleFee;
 import 'package:logfitness_flutter/features/payments/payment_formatting.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_controller.dart';
 import 'package:logfitness_flutter/features/payments/renew_membership_screen.dart';
@@ -238,7 +241,7 @@ void main() {
         discountPaisa: 0,
         amountPaidPaisa: 0,
       );
-      expect(first.signupFeePaisa, 100000);
+      expect(first.fees.chargedPaisa, 100000);
       expect(first.subtotalPaisa, 600000);
 
       final RenewalProjection renewal = projectRenewal(
@@ -255,8 +258,106 @@ void main() {
         discountPaisa: 0,
         amountPaidPaisa: 0,
       );
-      expect(renewal.signupFeePaisa, 0);
+      expect(renewal.fees.chargedPaisa, 0);
       expect(renewal.subtotalPaisa, 500000);
+    });
+
+    test('with the fees catalogue on, the quote comes from the catalogue', () {
+      // The legacy joining fee on the plan (100000) must not be charged at all
+      // once the org is switched: the catalogue replaces it, it does not add to
+      // it.
+      const FeeSetup setup = FeeSetup(
+        fees: <Fee>[
+          Fee(
+            id: 'f-reg',
+            orgId: 'org-1',
+            name: 'Registration fee',
+            chargeRule: FeeChargeRule.once,
+            amountPaisa: 50000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 0,
+          ),
+          Fee(
+            id: 'f-card',
+            orgId: 'org-1',
+            name: 'Card fee',
+            chargeRule: FeeChargeRule.once,
+            amountPaisa: 20000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 1,
+          ),
+          Fee(
+            id: 'f-locker',
+            orgId: 'org-1',
+            name: 'Locker',
+            chargeRule: FeeChargeRule.everySale,
+            amountPaisa: 10000,
+            allPlans: true,
+            planIds: <String>[],
+            isActive: true,
+            sortOrder: 2,
+          ),
+        ],
+        catalogueEnabled: true,
+        standardSignupFeePaisa: 0,
+      );
+
+      final RenewalProjection first = projectRenewal(
+        plan: _plan(),
+        existing: const <Membership>[],
+        today: today,
+        chosenStartDate: null,
+        discountPaisa: 0,
+        amountPaidPaisa: 0,
+        feeSetup: setup,
+      );
+      expect(first.fees.rows.map((SaleFee r) => r.name), <String>[
+        'Registration fee',
+        'Card fee',
+        'Locker',
+      ]);
+      expect(first.fees.chargedPaisa, 80000);
+      expect(first.subtotalPaisa, 580000);
+
+      final RenewalProjection renewal = projectRenewal(
+        plan: _plan(),
+        existing: <Membership>[
+          _membership(
+            startDate: DateTime.utc(2026, 8, 1),
+            endDate: DateTime.utc(2026, 8, 30),
+            status: MembershipStatus.expired,
+          ),
+        ],
+        today: today,
+        chosenStartDate: null,
+        discountPaisa: 0,
+        amountPaidPaisa: 0,
+        feeSetup: setup,
+      );
+      // Both once-fees come off; the every-sale locker is charged again.
+      expect(renewal.fees.chargedPaisa, 10000);
+      expect(renewal.subtotalPaisa, 510000);
+      expect(
+        renewal.fees.rows.map((SaleFee r) => r.waivedPaisa),
+        <int>[50000, 20000, 0],
+      );
+    });
+
+    test('the discount clamps against the fee-inclusive subtotal', () {
+      final RenewalProjection projection = projectRenewal(
+        plan: _plan(),
+        existing: const <Membership>[],
+        today: today,
+        chosenStartDate: null,
+        discountPaisa: 99999999,
+        amountPaidPaisa: 0,
+      );
+      expect(projection.discountPaisa, projection.subtotalPaisa);
+      expect(projection.totalPaisa, 0);
     });
 
     test('follows on from a membership still running, so no day is covered '

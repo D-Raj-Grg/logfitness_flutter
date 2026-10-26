@@ -137,6 +137,7 @@ class DocumentMembership {
     this.pricePaisa = 0,
     this.signupFeePaisa = 0,
     this.signupFeeWaivedPaisa = 0,
+    this.fees = const <DocumentFee>[],
     this.discountPaisa = 0,
     this.previousMembershipId,
     this.sellerName,
@@ -154,6 +155,10 @@ class DocumentMembership {
         pricePaisa: _int(row, 'price_paisa'),
         signupFeePaisa: _int(row, 'signup_fee_paisa'),
         signupFeeWaivedPaisa: _int(row, 'signup_fee_waived_paisa'),
+        fees: <DocumentFee>[
+          for (final Object? f in (row['fees'] as List<dynamic>? ?? <dynamic>[]))
+            if (f is Map<String, dynamic>) DocumentFee.fromRow(f),
+        ]..sort((DocumentFee a, DocumentFee b) => a.sortOrder.compareTo(b.sortOrder)),
         discountPaisa: _int(row, 'discount_paisa'),
         previousMembershipId: _text(row, 'previous_membership_id'),
         sellerName: _staffName(row['seller']),
@@ -167,9 +172,40 @@ class DocumentMembership {
   final int pricePaisa;
   final int signupFeePaisa;
   final int signupFeeWaivedPaisa;
+
+  /// The fee lines this sale recorded (`membership_fees`), in print order.
+  /// Empty for a sale that predates the fees catalogue, which prints the legacy
+  /// joining fee from [signupFeePaisa] instead.
+  final List<DocumentFee> fees;
   final int discountPaisa;
   final String? previousMembershipId;
   final String? sellerName;
+}
+
+/// One fee of one recorded sale: what it charged and what it took back off.
+/// Mirrors `public.membership_fees`.
+@immutable
+class DocumentFee {
+  const DocumentFee({
+    required this.name,
+    required this.chargedPaisa,
+    required this.waivedPaisa,
+    required this.sortOrder,
+  });
+
+  factory DocumentFee.fromRow(Map<String, dynamic> row) => DocumentFee(
+    name: _text(row, 'name') ?? '',
+    chargedPaisa: _int(row, 'charged_paisa'),
+    waivedPaisa: _int(row, 'waived_paisa'),
+    sortOrder: _int(row, 'sort_order'),
+  );
+
+  final String name;
+  final int chargedPaisa;
+
+  /// Memo only: a once-fee the member already paid, shown taken back off.
+  final int waivedPaisa;
+  final int sortOrder;
 }
 
 /// One payment line in an invoice's history.

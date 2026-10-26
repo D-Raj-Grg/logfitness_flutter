@@ -16,7 +16,9 @@ T _$identity<T>(T value) => value;
 mixin _$MembershipPlan {
 
  String get id; String get orgId; String get name; String? get description; PlanType get planType; int? get durationDays; int? get sessionCount;// Money is integer paisa end to end. Never a double, never converted here.
- int get pricePaisa; int get signupFeePaisa; List<String> get branchIds; bool get isActive; int get sortOrder; DateTime get createdAt; DateTime get updatedAt;
+ int get pricePaisa;// The legacy joining fee. Charged only while the org's
+// `fee_catalogue_enabled` is false; the fees catalogue replaces it.
+ int get signupFeePaisa; List<String> get branchIds; bool get isActive; int get sortOrder; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of MembershipPlan
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -235,6 +237,8 @@ class _MembershipPlan implements MembershipPlan {
 @override final  int? sessionCount;
 // Money is integer paisa end to end. Never a double, never converted here.
 @override final  int pricePaisa;
+// The legacy joining fee. Charged only while the org's
+// `fee_catalogue_enabled` is false; the fees catalogue replaces it.
 @override final  int signupFeePaisa;
  final  List<String> _branchIds;
 @override List<String> get branchIds {

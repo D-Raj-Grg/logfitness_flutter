@@ -89,6 +89,29 @@ enum PlanType {
   String toDb() => wire;
 }
 
+/// Mirrors `public.fee_charge_rule`.
+///
+/// [once] is charged on a member's first membership and shown taken back off
+/// on every later one; [everySale] is charged on every sale and has nothing to
+/// take off.
+enum FeeChargeRule {
+  @JsonValue('once')
+  once('once'),
+  @JsonValue('every_sale')
+  everySale('every_sale');
+
+  const FeeChargeRule(this.wire);
+
+  final String wire;
+
+  static FeeChargeRule fromDb(String value) => FeeChargeRule.values.firstWhere(
+    (e) => e.wire == value,
+    orElse: () => throw UnknownEnumValue('FeeChargeRule', value),
+  );
+
+  String toDb() => wire;
+}
+
 /// Mirrors `public.membership_status`.
 enum MembershipStatus {
   @JsonValue('upcoming')

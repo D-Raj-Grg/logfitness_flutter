@@ -165,6 +165,16 @@ enum StaffCapability {
   /// refused `42501` on save.
   manageOrgProfile,
 
+  /// The fees catalogue: registration, card and any other charge on top of a
+  /// plan, and which plans carry it (Settings -> Fees).
+  ///
+  /// Owner only. `fees` INSERT and UPDATE require `jwt_is_owner()` in RLS, and
+  /// the console's `/settings/fees` is `requireRole('owner')`: pricing the gym
+  /// is the owner's call. Every seller can *read* the catalogue -- the counter
+  /// quotes from it -- which is why this is a gate on the screen, not on the
+  /// data. A manager reaching the screen anyway would be refused on save.
+  manageFees,
+
   /// Manager capability across *every* branch in the org, rather than only
   /// the branches on the staff row. Read by the branch switcher, never by a
   /// nav destination — an owner's surface is a manager's surface widened, not
@@ -218,6 +228,7 @@ _capabilitiesByRole = <StaffRole, Set<StaffCapability>>{
     StaffCapability.accessAllBranches,
     StaffCapability.configureNotifications,
     StaffCapability.manageOrgProfile,
+    StaffCapability.manageFees,
   },
 };
 

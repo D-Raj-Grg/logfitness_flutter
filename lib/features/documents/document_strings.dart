@@ -39,6 +39,11 @@ class DocumentStrings {
 
   String get registrationFee => 'Registration fee';
   String get registrationFeeOff => 'Registration fee off';
+  /// A fee taken back off: "Card fee off". The name is the fee's own.
+  String feeOff(String name) => '$name off';
+  // True even for a member who joined before the fee existed, unlike
+  // alreadyPaidOnJoining.
+  String get onlyOnFirstMembership => 'Only on your first membership';
   String get alreadyPaidOnJoining => 'You paid this when you joined';
   String get coveredByPlan => 'Included in this plan price';
 

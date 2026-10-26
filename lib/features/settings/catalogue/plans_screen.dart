@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:logfitness_flutter/app/brand.dart';
+import 'package:logfitness_flutter/data/fees/fee.dart';
+import 'package:logfitness_flutter/data/fees/fees_repository.dart' show FeeSetup;
 import 'package:logfitness_flutter/data/plans/membership_plan.dart';
 import 'package:logfitness_flutter/data/plans/plans_repository.dart';
 import 'package:logfitness_flutter/domain/enums/postgres_enums.dart';
@@ -20,6 +22,7 @@ import 'package:logfitness_flutter/domain/validation/plan_form.dart';
 import 'package:logfitness_flutter/features/common/async_value_view.dart';
 import 'package:logfitness_flutter/features/common/docked_action.dart';
 import 'package:logfitness_flutter/features/common/failure_snackbar.dart';
+import 'package:logfitness_flutter/features/settings/catalogue/fee_providers.dart';
 import 'package:logfitness_flutter/features/settings/catalogue/plan_form_screen.dart';
 import 'package:logfitness_flutter/features/settings/catalogue/plan_providers.dart';
 import 'package:logfitness_flutter/features/staff/branch_scope.dart';
@@ -123,6 +126,8 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
     final bool canManage = ref
         .watch(staffCapabilitiesProvider)
         .contains(StaffCapability.managePlans);
+    final FeeSetup feeSetup =
+        ref.watch(feeSetupProvider).value ?? FeeSetup.legacy;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Plans')),
@@ -148,6 +153,9 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
             return PlanTile(
               plan: plan,
               soldAt: planBranchLabel(plan, branchNames),
+              feeLabel: feeSetup.catalogueEnabled
+                  ? planFeesLabel(plan, feeSetup.fees)
+                  : null,
               busy: _busy.contains(plan.id),
               onTap: canManage ? () => unawaited(_open(plan)) : null,
               onAction: canManage
@@ -183,10 +191,22 @@ String planBranchLabel(MembershipPlan plan, Map<String, String> names) {
   return n == 1 ? '1 branch' : '$n branches';
 }
 
+/// The fees a plan carries, by name, or "No fees". Only meaningful once the org
+/// charges from the catalogue; before that the plan's own joining fee is what
+/// is charged.
+String planFeesLabel(MembershipPlan plan, List<Fee> fees) {
+  final List<String> names = <String>[
+    for (final Fee f in fees)
+      if (f.isActive && f.appliesTo(plan.id)) f.name,
+  ];
+  return names.isEmpty ? 'No fees' : 'Fees: ${names.join(', ')}';
+}
+
 class PlanTile extends StatelessWidget {
   const PlanTile({
     required this.plan,
     this.soldAt,
+    this.feeLabel,
     this.busy = false,
     this.onTap,
     this.onAction,
@@ -195,6 +215,9 @@ class PlanTile extends StatelessWidget {
 
   final MembershipPlan plan;
   final String? soldAt;
+
+  /// Overrides the legacy joining-fee line once the catalogue is charging.
+  final String? feeLabel;
   final bool busy;
   final VoidCallback? onTap;
   final void Function(PlanAction action)? onAction;
@@ -212,9 +235,11 @@ class PlanTile extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
     final Color muted = scheme.onSurfaceVariant;
-    final String fee = plan.signupFeePaisa > 0
-        ? 'Joining fee ${formatMoney(plan.signupFeePaisa)}'
-        : 'No joining fee';
+    final String fee =
+        feeLabel ??
+        (plan.signupFeePaisa > 0
+            ? 'Joining fee ${formatMoney(plan.signupFeePaisa)}'
+            : 'No joining fee');
 
     return Semantics(
       container: true,

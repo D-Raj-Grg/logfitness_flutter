@@ -54,17 +54,82 @@ int dueFor({required int totalPaisa, required int paidPaisa, int? duePaisa}) =>
 OrgFormatters formattersFor(DocumentOrg org) =>
     orgFormatters(currency: org.currency, timezone: org.timezone);
 
-/// An invoice is one membership sale; the only split is the registration fee.
-/// Older rows carry `signup_fee_paisa = 0` and print as a single line -- the
-/// split is never recovered from the plan, which may have been repriced.
-/// A fee that applied and was not charged prints as the fee, then the same
-/// amount back off with a minus, so the body lines still sum to the subtotal.
+/// One fee of one printed sale, whichever way it was recorded.
+class PrintFee {
+  const PrintFee({
+    required this.name,
+    required this.chargedPaisa,
+    required this.waivedPaisa,
+    this.offReason,
+  });
+
+  final String name;
+  final int chargedPaisa;
+  final int waivedPaisa;
+
+  /// Why a taken-back-off fee came off; null when nothing is waived.
+  final String? offReason;
+}
+
+/// The fees of one sale, in print order.
+///
+/// Two shapes exist, and both must keep printing. Catalogue sales
+/// (`20261027100000_fee_catalogue.sql`) recorded one `membership_fees` row per
+/// fee: those rows ARE the fee lines. Older sales have none; they print the
+/// legacy joining fee from `signup_fee_paisa` / `signup_fee_waived_paisa` as a
+/// single "Registration fee". Never recover a split for a row that carries none
+/// from the plan or the catalogue -- the price may have changed since, and a
+/// wrong number on a tax document is worse than a missing one.
+List<PrintFee> printFees(DocumentMembership? membership) {
+  if (membership == null) return const <PrintFee>[];
+  final DocumentStrings t = documentStrings;
+
+  if (membership.fees.isNotEmpty) {
+    return <PrintFee>[
+      for (final DocumentFee f in membership.fees)
+        PrintFee(
+          name: f.name,
+          chargedPaisa: f.chargedPaisa,
+          waivedPaisa: f.waivedPaisa,
+          offReason: f.waivedPaisa > 0 ? t.onlyOnFirstMembership : null,
+        ),
+    ];
+  }
+
+  final int charged = membership.signupFeePaisa;
+  final int waived = membership.signupFeeWaivedPaisa;
+  if (charged == 0 && waived == 0) return const <PrintFee>[];
+
+  return <PrintFee>[
+    PrintFee(
+      name: t.registrationFee,
+      chargedPaisa: charged,
+      waivedPaisa: waived,
+      // Read off the data rather than guessed: a membership that follows
+      // another is a renewal, and the member paid the fee then. Anything else
+      // is a plan whose price already covers it.
+      offReason: waived > 0
+          ? (membership.previousMembershipId != null
+                ? t.alreadyPaidOnJoining
+                : t.coveredByPlan)
+          : null,
+    ),
+  ];
+}
+
+/// An invoice is one membership sale; its fee lines are read off what the sale
+/// recorded ([printFees]). A fee that applied and was not charged prints as the
+/// fee, then the same amount back off with a minus, so the body lines still sum
+/// to the subtotal.
 List<DocumentLine> invoiceLines(InvoiceForPrint invoice) {
   final DocumentStrings t = documentStrings;
   // Plain `date` columns: formatPlainDate, no timezone shift.
   final DocumentMembership? membership = invoice.membership;
-  final int signupFee = membership?.signupFeePaisa ?? 0;
-  final int feeOff = membership?.signupFeeWaivedPaisa ?? 0;
+  final List<PrintFee> fees = printFees(membership);
+  final int feesCharged = fees.fold<int>(
+    0,
+    (int sum, PrintFee f) => sum + f.chargedPaisa,
+  );
 
   String? detail;
   if (membership != null) {
@@ -88,19 +153,19 @@ List<DocumentLine> invoiceLines(InvoiceForPrint invoice) {
     DocumentLine(
       description: membership?.planName ?? t.membershipDues,
       detail: detail,
-      amountPaisa: invoice.subtotalPaisa - signupFee,
+      amountPaisa: invoice.subtotalPaisa - feesCharged,
     ),
-    if (signupFee > 0)
-      DocumentLine(description: t.registrationFee, amountPaisa: signupFee),
-    if (feeOff > 0) ...<DocumentLine>[
-      DocumentLine(description: t.registrationFee, amountPaisa: feeOff),
-      DocumentLine(
-        description: t.registrationFeeOff,
-        detail: membership?.previousMembershipId != null
-            ? t.alreadyPaidOnJoining
-            : t.coveredByPlan,
-        amountPaisa: -feeOff,
-      ),
+    for (final PrintFee f in fees) ...<DocumentLine>[
+      if (f.chargedPaisa > 0)
+        DocumentLine(description: f.name, amountPaisa: f.chargedPaisa),
+      if (f.waivedPaisa > 0) ...<DocumentLine>[
+        DocumentLine(description: f.name, amountPaisa: f.waivedPaisa),
+        DocumentLine(
+          description: t.feeOff(f.name),
+          detail: f.offReason,
+          amountPaisa: -f.waivedPaisa,
+        ),
+      ],
     ],
   ];
 }
@@ -134,10 +199,8 @@ bool invoicePaymentsHidden(InvoiceForPrint invoice) =>
 /// subtotal and the discount after it. Zero entries are dropped by the
 /// banner itself.
 List<SavingsItem> invoiceSavings(InvoiceForPrint invoice) => <SavingsItem>[
-  SavingsItem(
-    documentStrings.registrationFee,
-    invoice.membership?.signupFeeWaivedPaisa ?? 0,
-  ),
+  for (final PrintFee f in printFees(invoice.membership))
+    SavingsItem(f.name, f.waivedPaisa),
   SavingsItem(
     discountLabel(invoice.discountReason, invoice.discountNote),
     invoice.discountPaisa,
@@ -149,10 +212,8 @@ List<SavingsItem> invoiceSavings(InvoiceForPrint invoice) => <SavingsItem>[
 List<SavingsItem> receiptSavings(PaymentForPrint payment) {
   if (payment.kind != PaymentKind.payment) return const <SavingsItem>[];
   return <SavingsItem>[
-    SavingsItem(
-      documentStrings.registrationFee,
-      payment.membership?.signupFeeWaivedPaisa ?? 0,
-    ),
+    for (final PrintFee f in printFees(payment.membership))
+      SavingsItem(f.name, f.waivedPaisa),
     SavingsItem(
       discountLabel(
         payment.invoice?.discountReason,
